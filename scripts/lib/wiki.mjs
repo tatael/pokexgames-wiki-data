@@ -333,7 +333,8 @@ function inferLeafFileSlug(entry) {
 
 	const navigationPath = Array.isArray(entry.navigationPath) ? entry.navigationPath : [];
 	const leafLabel = navigationPath[navigationPath.length - 1] || title;
-	return buildSlug(leafLabel, entry.slug);
+	const inferredSlug = buildSlug(leafLabel, entry.slug);
+	return inferredSlug === entry.slug ? inferredSlug : entry.slug;
 }
 
 export function buildPagePath(entry) {

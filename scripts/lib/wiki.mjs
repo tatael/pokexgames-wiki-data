@@ -314,21 +314,22 @@ function inferLeafFileSlug(entry) {
 	const title = entry.title?.[PT_BR] || entry.slug;
 	const pageKind = entry.pageKind || "";
 	const combined = `${title} ${pageKind}`;
+	const preferSemanticSlug = (semanticSlug) => semanticSlug === entry.slug ? semanticSlug : entry.slug;
 
 	if (looksLikeWorkshopPage(combined)) {
-		return "workshop";
+		return preferSemanticSlug("workshop");
 	}
 
 	if (looksLikeCraftPage(combined)) {
-		return "crafts";
+		return preferSemanticSlug("crafts");
 	}
 
 	if (looksLikeDungeonPage(combined)) {
-		return "dungeons";
+		return preferSemanticSlug("dungeons");
 	}
 
 	if (looksLikeMapPage(combined)) {
-		return "maps";
+		return preferSemanticSlug("maps");
 	}
 
 	const navigationPath = Array.isArray(entry.navigationPath) ? entry.navigationPath : [];

@@ -33,6 +33,7 @@ Each page summary inside `manifest.json` contains:
 - `title`
 - `summary`
 - `fetchedAt`
+- `pagePath`
 
 Each `pages/<slug>.json` contains:
 - `category`
@@ -71,6 +72,20 @@ Each entry must define:
 - `url`
 - `title`
 
+Optional entry fields:
+- `navigationPath`: ordered path for future app organization, for example `["Profissões", "Estilista", "Decorador", "Decorator Workshop"]`
+- `pageKind`: lightweight page classification such as `overview`, `craft`, `specialization`, `workshop`, `dungeons`
+- `children`: discovery rule for seed/index pages; currently supports `mode: "discover-links"` to expand internal wiki links into generated entries
+  - `maxDepth`: recursive discovery depth, for example `3` for `Profissões`
+
+Discovery behavior:
+- translated variant pages such as `(ES)` / `(EN)` are skipped during recursive discovery
+- generic heading labels such as `Índice`, `Introdução`, or `Primeros pasos` are ignored in generated navigation paths
+- semantic child pages prefer normalized filenames such as `crafts.json`, `workshop.json`, `dungeons.json`, and `maps.json`
+
+Current known limitation:
+- `Profissões` likely needs custom pathing/discovery rules beyond the generic recursive heuristics, because cross-linked profession systems can still produce semantically wrong branches if treated as a pure link graph
+
 ## Publish Flow
 
 GitHub Actions runs the daily sync and deploys the generated `dist/` folder to GitHub Pages.
@@ -88,3 +103,15 @@ The bundle publish must fail if:
 - required localized fields are empty
 - timestamps are missing or not RFC3339
 - JSON shape does not match the expected contract
+
+## Discovery Output
+
+When `children.mode` is enabled on a config entry, the sync pipeline also writes:
+- `dist/discovered-pages.json`
+
+That file is a review/debug artifact showing which child pages were discovered from seed pages such as `NPC's`.
+
+Published page files now live under category and hierarchy folders, for example:
+- `dist/pages/clans/volcanic.json`
+- `dist/pages/npcs/roberto.json`
+- `dist/pages/professions/estilista/decorador/decorator-workshop.json`

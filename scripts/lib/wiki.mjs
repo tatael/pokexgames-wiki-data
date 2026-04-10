@@ -8,6 +8,7 @@ export const ROOT_DIR = process.cwd();
 export const CONFIG_PATH = path.join(ROOT_DIR, "config", "wiki-pages.json");
 export const DIST_DIR = path.join(ROOT_DIR, "dist");
 export const PAGES_DIR = path.join(DIST_DIR, "pages");
+export const DISCOVERED_CONFIG_PATH = path.join(DIST_DIR, "discovered-pages.json");
 
 export async function readJson(filePath) {
 	return JSON.parse(await readFile(filePath, "utf8"));
@@ -74,7 +75,11 @@ export function stripHtml(value) {
 }
 
 export function buildSlug(value, fallback) {
-	const normalized = Array.from(value, (character) => {
+	const asciiNormalized = value
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.replace(/ß/g, "ss");
+	const normalized = Array.from(asciiNormalized, (character) => {
 		if ((character >= "a" && character <= "z") || (character >= "0" && character <= "9")) {
 			return character;
 		}
@@ -108,6 +113,242 @@ export function extractArticleHtml(html) {
 	}
 
 	return html;
+}
+
+export function extractArticleFragmentHtml(html, fragment) {
+	if (!fragment) {
+		return html;
+	}
+
+	const escapedFragment = fragment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const headingRegex = /<h([2-4])[^>]*>[\s\S]*?<\/h\1>/gi;
+	const headings = [];
+
+	for (const match of html.matchAll(headingRegex)) {
+		const fullMatch = match[0];
+		const level = Number(match[1]);
+		const start = match.index ?? -1;
+		if (start < 0) {
+			continue;
+		}
+
+		headings.push({
+			start,
+			end: start + fullMatch.length,
+			level,
+			html: fullMatch
+		});
+	}
+
+	const currentHeadingIndex = headings.findIndex((heading) => new RegExp(`id=["']${escapedFragment}["']`, "i").test(heading.html));
+	if (currentHeadingIndex < 0) {
+		return html;
+	}
+
+	const currentHeading = headings[currentHeadingIndex];
+	let end = html.length;
+
+	for (let index = currentHeadingIndex + 1; index < headings.length; index += 1) {
+		if (headings[index].level <= currentHeading.level) {
+			end = headings[index].start;
+			break;
+		}
+	}
+
+	return html.slice(currentHeading.start, end);
+}
+
+export function decodeWikiTitleFromUrl(url) {
+	const parsed = new URL(url);
+	if (parsed.hostname !== "wiki.pokexgames.com" || !parsed.pathname.startsWith("/index.php/")) {
+		return null;
+	}
+
+	const rawTitle = parsed.pathname.slice("/index.php/".length);
+	if (!rawTitle) {
+		return null;
+	}
+
+	return decodeURIComponent(rawTitle).replaceAll("_", " ");
+}
+
+export function buildWikiUrlFromTitle(title) {
+	return `https://wiki.pokexgames.com/index.php/${encodeURIComponent(title.replaceAll(" ", "_"))}`;
+}
+
+export function buildLocalizedText(baseValue) {
+	return {
+		[PT_BR]: baseValue,
+		en: baseValue,
+		es: baseValue
+	};
+}
+
+export function extractArticleWikiLinks(html, pageUrl) {
+	const baseUrl = new URL(pageUrl);
+	const tokenRegex = /<h([2-4])[^>]*>([\s\S]*?)<\/h\1>|<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+	const results = [];
+	const headingTrail = [];
+
+	for (const match of html.matchAll(tokenRegex)) {
+		if (match[1]) {
+			const level = Number(match[1]);
+			const headingLabel = stripHtml(match[2] ?? "");
+			if (!headingLabel) {
+				continue;
+			}
+
+			while (headingTrail.length && headingTrail[headingTrail.length - 1].level >= level) {
+				headingTrail.pop();
+			}
+
+			headingTrail.push({ level, label: headingLabel });
+			continue;
+		}
+
+		const href = match[3];
+		const label = stripHtml(match[4] ?? "");
+		if (!href) {
+			continue;
+		}
+
+		let resolved;
+		try {
+			resolved = new URL(href, baseUrl);
+		} catch {
+			continue;
+		}
+
+		if (resolved.hostname !== "wiki.pokexgames.com" || !resolved.pathname.startsWith("/index.php/")) {
+			continue;
+		}
+
+		if (resolved.pathname === baseUrl.pathname && resolved.hash) {
+			continue;
+		}
+
+		if (resolved.searchParams.has("action") || resolved.searchParams.has("redlink")) {
+			continue;
+		}
+
+		const title = decodeWikiTitleFromUrl(resolved.toString());
+		if (!title) {
+			continue;
+		}
+
+		if (title.includes(":") || title.includes("=")) {
+			continue;
+		}
+
+		results.push({
+			url: resolved.toString(),
+			title,
+			label: label || title,
+			headingPath: headingTrail.map((item) => item.label)
+		});
+	}
+
+	return results;
+}
+
+export function mergeNavigationPath(basePath, headingPath, leafLabel) {
+	const merged = [];
+
+	for (const part of [...basePath, ...headingPath, leafLabel]) {
+		const normalized = typeof part === "string" ? part.trim() : "";
+		if (!normalized) {
+			continue;
+		}
+
+		if (isNoiseNavigationSegment(normalized)) {
+			continue;
+		}
+
+		if (merged[merged.length - 1] !== normalized) {
+			merged.push(normalized);
+		}
+	}
+
+	return merged;
+}
+
+function isNoiseNavigationSegment(value) {
+	const normalized = value
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase();
+
+	return [
+		"indice",
+		"index",
+		"introducao",
+		"introduccion",
+		"introduction",
+		"primeros pasos",
+		"primeiros passos",
+		"first steps"
+	].includes(normalized);
+}
+
+function isTranslatedVariantTitle(value) {
+	return /\((ES|EN|PT-BR|PT|BR)\)\s*$/i.test(value.trim());
+}
+
+function looksLikeCraftPage(value) {
+	return /\bcraft(s)?\b|craft\s+profiss/i.test(value);
+}
+
+function looksLikeWorkshopPage(value) {
+	return /\bworkshop\b/i.test(value);
+}
+
+function looksLikeDungeonPage(value) {
+	return /\bdungeons?\b/i.test(value);
+}
+
+function looksLikeMapPage(value) {
+	return /\bmapa(s)?\b|\bmaps?\b/i.test(value);
+}
+
+function inferLeafFileSlug(entry) {
+	const title = entry.title?.[PT_BR] || entry.slug;
+	const pageKind = entry.pageKind || "";
+	const combined = `${title} ${pageKind}`;
+
+	if (looksLikeWorkshopPage(combined)) {
+		return "workshop";
+	}
+
+	if (looksLikeCraftPage(combined)) {
+		return "crafts";
+	}
+
+	if (looksLikeDungeonPage(combined)) {
+		return "dungeons";
+	}
+
+	if (looksLikeMapPage(combined)) {
+		return "maps";
+	}
+
+	const navigationPath = Array.isArray(entry.navigationPath) ? entry.navigationPath : [];
+	const leafLabel = navigationPath[navigationPath.length - 1] || title;
+	return buildSlug(leafLabel, entry.slug);
+}
+
+export function buildPagePath(entry) {
+	const navigationPath = Array.isArray(entry.navigationPath) ? entry.navigationPath : [];
+	const directories = [entry.category];
+
+	for (const part of navigationPath.slice(1, -1)) {
+		const slug = buildSlug(part, "");
+		if (slug) {
+			directories.push(slug);
+		}
+	}
+
+	const fileName = `${inferLeafFileSlug(entry)}.json`;
+	return [...directories, fileName].join("/");
 }
 
 export function extractLines(html) {
@@ -198,6 +439,7 @@ export function extractSections(html, title) {
 
 export function buildSummary(sections) {
 	let summary = "";
+	const maxLength = 180;
 
 	for (const section of sections) {
 		const paragraphs = section.paragraphs?.[PT_BR] ?? [];
@@ -207,8 +449,21 @@ export function buildSummary(sections) {
 			}
 
 			summary = summary ? `${summary} ${paragraph}` : paragraph;
-			if (summary.length >= 180) {
-				summary = summary.slice(0, 180).trimEnd();
+			if (summary.length >= maxLength) {
+				const truncated = summary.slice(0, maxLength);
+				const lastSentenceEnd = Math.max(
+					truncated.lastIndexOf(". "),
+					truncated.lastIndexOf("! "),
+					truncated.lastIndexOf("? ")
+				);
+
+				const lastSpace = truncated.lastIndexOf(" ");
+				if (lastSentenceEnd > 0) {
+					summary = truncated.slice(0, lastSentenceEnd + 1).trimEnd();
+				} else {
+					summary = (lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated).trimEnd();
+				}
+
 				return { [PT_BR]: summary };
 			}
 		}
@@ -221,29 +476,73 @@ export function buildSummary(sections) {
 	return { [PT_BR]: summary };
 }
 
-export async function fetchWikiHtml(url) {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "pokexgames-wiki-data/0.1 (+https://github.com/tatael/pokexgames-wiki-data)"
-    }
-  });
+const _fetchCache = new Map();
 
-	if (!response.ok) {
-		throw new Error(`failed to fetch ${url}: HTTP ${response.status}`);
+export function fetchWikiHtml(url) {
+	if (_fetchCache.has(url)) {
+		return _fetchCache.get(url);
 	}
 
-	const bytes = new Uint8Array(await response.arrayBuffer());
-	const contentType = response.headers.get("content-type") || "";
-	const headerCharsetMatch = contentType.match(/charset=([^;]+)/i);
-	const headSnippet = new TextDecoder("utf-8").decode(bytes.slice(0, 2048));
-	const metaCharsetMatch = headSnippet.match(/<meta[^>]+charset=["']?([^"'>\s]+)/i);
-	const charset = (headerCharsetMatch?.[1] || metaCharsetMatch?.[1] || "utf-8").trim().toLowerCase();
+	const promise = _fetchWikiHtml(url);
+	_fetchCache.set(url, promise);
+	return promise;
+}
 
-	try {
-		return new TextDecoder(charset).decode(bytes);
-	} catch {
-		return new TextDecoder("latin1").decode(bytes);
+async function _fetchWikiHtml(url) {
+	let lastError = null;
+
+	for (let attempt = 1; attempt <= 3; attempt += 1) {
+		try {
+			const response = await fetch(url, {
+				headers: {
+					"User-Agent": "pokexgames-wiki-data/0.1 (+https://github.com/tatael/pokexgames-wiki-data)"
+				},
+				signal: AbortSignal.timeout(20000)
+			});
+
+			if (response.status === 404) {
+				return null;
+			}
+
+			if (!response.ok) {
+				throw new Error(`failed to fetch ${url}: HTTP ${response.status}`);
+			}
+
+			const bytes = new Uint8Array(await response.arrayBuffer());
+			const contentType = response.headers.get("content-type") || "";
+			const headerCharsetMatch = contentType.match(/charset=([^;]+)/i);
+			const headSnippet = new TextDecoder("utf-8").decode(bytes.slice(0, 2048));
+			const metaCharsetMatch = headSnippet.match(/<meta[^>]+charset=["']?([^"'>\s]+)/i);
+			const charset = (headerCharsetMatch?.[1] || metaCharsetMatch?.[1] || "utf-8").trim().toLowerCase();
+
+			try {
+				return new TextDecoder(charset).decode(bytes);
+			} catch {
+				return new TextDecoder("latin1").decode(bytes);
+			}
+		} catch (error) {
+			lastError = error;
+			if (attempt < 3) {
+				await new Promise((resolve) => setTimeout(resolve, 750 * attempt));
+			}
+		}
 	}
+
+	throw lastError instanceof Error ? lastError : new Error(`failed to fetch ${url}`);
+}
+
+export async function runWithConcurrency(items, limit, fn) {
+	const results = new Array(items.length);
+	let next = 0;
+	async function worker() {
+		while (next < items.length) {
+			const i = next++;
+			results[i] = await fn(items[i], i);
+		}
+	}
+
+	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+	return results;
 }
 
 export function validateLocalizedMap(value, fieldName) {
@@ -296,6 +595,58 @@ export function validateConfig(config) {
 
 		validateLocalizedMap(entry.categoryLabel, `config.${entry.slug}.categoryLabel`);
 		validateLocalizedMap(entry.title, `config.${entry.slug}.title`);
+
+		if (entry.navigationPath !== undefined) {
+			if (!Array.isArray(entry.navigationPath) || entry.navigationPath.length === 0) {
+				throw new Error(`config.${entry.slug}.navigationPath must be a non-empty array when present`);
+			}
+
+			for (const part of entry.navigationPath) {
+				if (typeof part !== "string" || !part.trim()) {
+					throw new Error(`config.${entry.slug}.navigationPath must contain only non-empty strings`);
+				}
+			}
+		}
+
+		if (entry.pageKind !== undefined && (typeof entry.pageKind !== "string" || !entry.pageKind.trim())) {
+			throw new Error(`config.${entry.slug}.pageKind must be a non-empty string when present`);
+		}
+
+		if (entry.children !== undefined) {
+			if (!entry.children || typeof entry.children !== "object" || Array.isArray(entry.children)) {
+				throw new Error(`config.${entry.slug}.children must be an object when present`);
+			}
+
+			if (entry.children.mode !== "discover-links") {
+				throw new Error(`config.${entry.slug}.children.mode must be "discover-links"`);
+			}
+
+			for (const field of ["excludeSlugs", "excludeTitles"]) {
+				if (entry.children[field] !== undefined) {
+					if (!Array.isArray(entry.children[field])) {
+						throw new Error(`config.${entry.slug}.children.${field} must be an array when present`);
+					}
+
+					for (const item of entry.children[field]) {
+						if (typeof item !== "string" || !item.trim()) {
+							throw new Error(`config.${entry.slug}.children.${field} must contain only non-empty strings`);
+						}
+					}
+				}
+			}
+
+			for (const field of ["pageKind", "titlePrefix"]) {
+				if (entry.children[field] !== undefined && (typeof entry.children[field] !== "string" || !entry.children[field].trim())) {
+					throw new Error(`config.${entry.slug}.children.${field} must be a non-empty string when present`);
+				}
+			}
+
+			if (entry.children.maxDepth !== undefined) {
+				if (!Number.isInteger(entry.children.maxDepth) || entry.children.maxDepth < 1) {
+					throw new Error(`config.${entry.slug}.children.maxDepth must be an integer >= 1 when present`);
+				}
+			}
+		}
 	}
 }
 
@@ -307,7 +658,166 @@ export async function cleanDist() {
 export async function loadConfig() {
 	const config = await readJson(CONFIG_PATH);
 	validateConfig(config);
-	return config;
+	return expandConfigWithDiscoveredChildren(config);
+}
+
+export async function expandConfigWithDiscoveredChildren(config) {
+	const expanded = [];
+	// Pre-populate with all explicit config slugs so discovery never claims them
+	const seenSlugs = new Set(config.map((entry) => entry.slug));
+	const processedSlugs = new Set();
+	const discoveredEntries = [];
+
+	for (const entry of config) {
+		if (processedSlugs.has(entry.slug)) {
+			throw new Error(`duplicate config slug "${entry.slug}" after expansion`);
+		}
+		expanded.push(entry);
+		processedSlugs.add(entry.slug);
+	}
+
+	const discoverEntries = config.filter((entry) => entry.children?.mode === "discover-links");
+	await runWithConcurrency(discoverEntries, 6, (entry) =>
+		discoverChildrenRecursive({
+			parentEntry: entry,
+			rootEntry: entry,
+			childrenRule: entry.children,
+			depth: 1,
+			expanded,
+			seenSlugs,
+			discoveredEntries
+		})
+	);
+
+	await writeJson(DISCOVERED_CONFIG_PATH, discoveredEntries);
+	return expanded;
+}
+
+async function discoverChildrenRecursive({
+	parentEntry,
+	rootEntry,
+	childrenRule,
+	depth,
+	expanded,
+	seenSlugs,
+	discoveredEntries
+}) {
+	const html = await fetchWikiHtml(parentEntry.url);
+	if (!html) return;
+	const articleHtml = extractArticleHtml(html);
+	const links = extractArticleWikiLinks(articleHtml, parentEntry.url);
+	const excludeSlugs = new Set(childrenRule.excludeSlugs || []);
+	const excludeTitles = new Set(childrenRule.excludeTitles || []);
+
+	for (const link of links) {
+		const childSlug = buildSlug(link.title, "");
+		if (
+			!childSlug ||
+			childSlug === parentEntry.slug ||
+			childSlug === rootEntry.slug ||
+			seenSlugs.has(childSlug) ||
+			excludeSlugs.has(childSlug) ||
+			excludeTitles.has(link.title) ||
+			isTranslatedVariantTitle(link.title) ||
+			isTranslatedVariantTitle(link.label)
+		) {
+			continue;
+		}
+
+		const titleValue = childrenRule.titlePrefix
+			? `${childrenRule.titlePrefix}${link.label}`
+			: link.label;
+		const baseNavigationPath = parentEntry.navigationPath || [parentEntry.title?.[PT_BR] || parentEntry.slug];
+		const inferredPageKind = inferDiscoveredPageKind(childrenRule.pageKind, link, titleValue);
+		const childEntry = {
+			category: rootEntry.category,
+			categoryLabel: rootEntry.categoryLabel,
+			slug: childSlug,
+			url: link.url,
+			title: buildLocalizedText(titleValue),
+			navigationPath: mergeNavigationPath(baseNavigationPath, link.headingPath || [], link.label),
+			pageKind: inferredPageKind
+		};
+
+		expanded.push(childEntry);
+		discoveredEntries.push({
+			parentSlug: rootEntry.slug,
+			discoveredFromSlug: parentEntry.slug,
+			slug: childSlug,
+			url: link.url,
+			title: childEntry.title,
+			navigationPath: childEntry.navigationPath,
+			pageKind: childEntry.pageKind,
+			pagePath: buildPagePath(childEntry)
+		});
+		seenSlugs.add(childSlug);
+
+		if (depth < (childrenRule.maxDepth || 1) && shouldRecurseDiscoveredPage(childEntry, depth)) {
+			await discoverChildrenRecursive({
+				parentEntry: childEntry,
+				rootEntry,
+				childrenRule,
+				depth: depth + 1,
+				expanded,
+				seenSlugs,
+				discoveredEntries
+			});
+		}
+	}
+}
+
+function inferDiscoveredPageKind(defaultPageKind, link, titleValue) {
+	const combined = `${titleValue} ${(link.headingPath || []).join(" ")}`;
+
+	if (looksLikeWorkshopPage(combined)) {
+		return "workshop";
+	}
+
+	if (looksLikeCraftPage(combined)) {
+		return "craft";
+	}
+
+	if (looksLikeDungeonPage(combined)) {
+		return "dungeons";
+	}
+
+	if (looksLikeMapPage(combined)) {
+		return "map";
+	}
+
+	return defaultPageKind || "article";
+}
+
+function isLikelyRecursiveBranchNode(entry) {
+	const title = entry.title?.[PT_BR] || "";
+	const normalized = title
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.trim();
+
+	if (!normalized || normalized.includes(":") || normalized.includes("/")) {
+		return false;
+	}
+
+	const words = normalized.split(/\s+/).filter(Boolean);
+	return words.length <= 2;
+}
+
+function shouldRecurseDiscoveredPage(entry, depth) {
+	const pageKind = entry.pageKind || "";
+	if (["workshop", "craft", "dungeons", "map", "artifact", "system"].includes(pageKind)) {
+		return false;
+	}
+
+	if (isTranslatedVariantTitle(entry.title?.[PT_BR] || "")) {
+		return false;
+	}
+
+	if (depth >= 2) {
+		return isLikelyRecursiveBranchNode(entry);
+	}
+
+	return true;
 }
 
 export async function validateBundle() {
@@ -362,11 +872,15 @@ export async function validateBundle() {
 			throw new Error(`manifest page "${summary.slug}" must include an https url`);
 		}
 
+		if (typeof summary.pagePath !== "string" || !summary.pagePath.trim() || !summary.pagePath.endsWith(".json")) {
+			throw new Error(`manifest page "${summary.slug}" must include a non-empty pagePath ending in .json`);
+		}
+
 		validateLocalizedMap(summary.title, `manifest.pages.${summary.slug}.title`);
 		validateLocalizedMap(summary.summary, `manifest.pages.${summary.slug}.summary`);
 		assertRfc3339(summary.fetchedAt, `manifest.pages.${summary.slug}.fetchedAt`);
 
-		const pagePath = path.join(PAGES_DIR, `${summary.slug}.json`);
+		const pagePath = path.join(PAGES_DIR, ...summary.pagePath.split("/"));
 		let page;
 		try {
 			page = await readJson(pagePath);

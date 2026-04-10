@@ -163,5 +163,874 @@
 			"en": "Tasks",
 			"es": "Tasks"
 		}
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "itens-gerais",
+		"url": "https://wiki.pokexgames.com/index.php/Itens_Gerais",
+		"title": {
+			"pt-BR": "Itens Gerais",
+			"en": "Itens Gerais",
+			"es": "Itens Gerais"
+		},
+		"navigationPath": [
+			"Itens",
+			"Itens Gerais"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "item",
+			"excludeSlugs": [
+				"itens-gerais"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "quests",
+		"categoryLabel": {
+			"pt-BR": "Quests",
+			"en": "Quests",
+			"es": "Quests"
+		},
+		"slug": "quests",
+		"url": "https://wiki.pokexgames.com/index.php/Quests",
+		"title": {
+			"pt-BR": "Quests",
+			"en": "Quests",
+			"es": "Quests"
+		},
+		"navigationPath": [
+			"Quests"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "quest",
+			"excludeSlugs": [
+				"quests"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "daily-missions",
+		"categoryLabel": {
+			"pt-BR": "Missões Diárias",
+			"en": "Daily Missions",
+			"es": "Misiones Diarias"
+		},
+		"slug": "missoes-diarias",
+		"url": "https://wiki.pokexgames.com/index.php/Missões_Diárias",
+		"title": {
+			"pt-BR": "Missões Diárias",
+			"en": "Missões Diárias",
+			"es": "Missões Diárias"
+		},
+		"navigationPath": [
+			"Missões Diárias"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "daily-mission",
+			"excludeSlugs": [
+				"missoes-diarias"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "boss-fight",
+		"categoryLabel": {
+			"pt-BR": "Boss Fight",
+			"en": "Boss Fight",
+			"es": "Boss Fight"
+		},
+		"slug": "boss-fight",
+		"url": "https://wiki.pokexgames.com/index.php/Boss_Fight",
+		"title": {
+			"pt-BR": "Boss Fight",
+			"en": "Boss Fight",
+			"es": "Boss Fight"
+		},
+		"navigationPath": [
+			"Boss Fight"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "boss",
+			"excludeSlugs": [
+				"boss-fight"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "dimensional-zone",
+		"url": "https://wiki.pokexgames.com/index.php/Dimensional_Zone",
+		"title": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "zone",
+			"excludeSlugs": [
+				"dimensional-zone"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "embedded-tower",
+		"categoryLabel": {
+			"pt-BR": "Embedded Tower",
+			"en": "Embedded Tower",
+			"es": "Embedded Tower"
+		},
+		"slug": "embedded-tower",
+		"url": "https://wiki.pokexgames.com/index.php/Embedded_Tower",
+		"title": {
+			"pt-BR": "Embedded Tower",
+			"en": "Embedded Tower",
+			"es": "Embedded Tower"
+		},
+		"navigationPath": [
+			"Embedded Tower"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "tower",
+			"excludeSlugs": [
+				"embedded-tower"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "nightmare-world",
+		"categoryLabel": {
+			"pt-BR": "Nightmare World",
+			"en": "Nightmare World",
+			"es": "Nightmare World"
+		},
+		"slug": "nightmare-world",
+		"url": "https://wiki.pokexgames.com/index.php/Nightmare_World",
+		"title": {
+			"pt-BR": "Nightmare World",
+			"en": "Nightmare World",
+			"es": "Nightmare World"
+		},
+		"navigationPath": [
+			"Nightmare World"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "nightmare",
+			"excludeSlugs": [
+				"nightmare-world"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "npcs",
+		"categoryLabel": {
+			"pt-BR": "NPCs",
+			"en": "NPCs",
+			"es": "NPCs"
+		},
+		"slug": "nightmare-npcs",
+		"url": "https://wiki.pokexgames.com/index.php/Nightmare_NPCs",
+		"title": {
+			"pt-BR": "Nightmare NPCs",
+			"en": "Nightmare NPCs",
+			"es": "Nightmare NPCs"
+		},
+		"navigationPath": [
+			"NPCs",
+			"Nightmare"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "npc",
+			"excludeSlugs": [
+				"nightmare-npcs"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "daily-missions",
+		"categoryLabel": {
+			"pt-BR": "Missões Diárias",
+			"en": "Daily Missions",
+			"es": "Misiones Diarias"
+		},
+		"slug": "nightmare-missoes-diarias",
+		"url": "https://wiki.pokexgames.com/index.php/Nightmare_Missões_Diárias",
+		"title": {
+			"pt-BR": "Nightmare Missões Diárias",
+			"en": "Nightmare Daily Missions",
+			"es": "Nightmare Misiones Diarias"
+		},
+		"navigationPath": [
+			"Missões Diárias",
+			"Nightmare"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "daily-mission",
+			"excludeSlugs": [
+				"nightmare-missoes-diarias"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "nightmare-rifts",
+		"categoryLabel": {
+			"pt-BR": "Nightmare Rifts",
+			"en": "Nightmare Rifts",
+			"es": "Nightmare Rifts"
+		},
+		"slug": "nightmare-rifts",
+		"url": "https://wiki.pokexgames.com/index.php/Nightmare_Rifts",
+		"title": {
+			"pt-BR": "Nightmare Rifts",
+			"en": "Nightmare Rifts",
+			"es": "Nightmare Rifts"
+		},
+		"navigationPath": [
+			"Nightmare World",
+			"Nightmare Rifts"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "rift",
+			"excludeSlugs": [
+				"nightmare-rifts"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "ultra-lab",
+		"categoryLabel": {
+			"pt-BR": "Ultra Lab",
+			"en": "Ultra Lab",
+			"es": "Ultra Lab"
+		},
+		"slug": "ultra-lab",
+		"url": "https://wiki.pokexgames.com/index.php/Ultra_Lab",
+		"title": {
+			"pt-BR": "Ultra Lab",
+			"en": "Ultra Lab",
+			"es": "Ultra Lab"
+		},
+		"navigationPath": [
+			"Ultra Lab"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "lab",
+			"excludeSlugs": [
+				"ultra-lab"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "mystery-dungeons",
+		"categoryLabel": {
+			"pt-BR": "Mystery Dungeons",
+			"en": "Mystery Dungeons",
+			"es": "Mystery Dungeons"
+		},
+		"slug": "mystery-dungeons",
+		"url": "https://wiki.pokexgames.com/index.php/Mystery_Dungeons",
+		"title": {
+			"pt-BR": "Mystery Dungeons",
+			"en": "Mystery Dungeons",
+			"es": "Mystery Dungeons"
+		},
+		"navigationPath": [
+			"Mystery Dungeons"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "dungeon",
+			"excludeSlugs": [
+				"mystery-dungeons"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "territory-guardians",
+		"categoryLabel": {
+			"pt-BR": "Guardiões de Território",
+			"en": "Territory Guardians",
+			"es": "Guardianes de Territorio"
+		},
+		"slug": "guardioes-de-territorio",
+		"url": "https://wiki.pokexgames.com/index.php/Guardiões_de_Território",
+		"title": {
+			"pt-BR": "Guardiões de Território",
+			"en": "Guardiões de Território",
+			"es": "Guardiões de Território"
+		},
+		"navigationPath": [
+			"Guardiões de Território"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "guardian",
+			"excludeSlugs": [
+				"guardioes-de-territorio"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "pokelog",
+		"url": "https://wiki.pokexgames.com/index.php/Pokélog",
+		"title": {
+			"pt-BR": "Pokélog",
+			"en": "Pokélog",
+			"es": "Pokélog"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"Pokélog"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "tabela-de-boost",
+		"url": "https://wiki.pokexgames.com/index.php/Tabela_de_Boost",
+		"title": {
+			"pt-BR": "Tabela de Boost",
+			"en": "Tabela de Boost",
+			"es": "Tabela de Boost"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"Tabela de Boost"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "doacoes",
+		"url": "https://wiki.pokexgames.com/index.php/Doações",
+		"title": {
+			"pt-BR": "Doações",
+			"en": "Doações",
+			"es": "Doações"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"Doações"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "personalizacao-de-perfil",
+		"url": "https://wiki.pokexgames.com/index.php/Personalização_de_Perfil",
+		"title": {
+			"pt-BR": "Personalização de Perfil",
+			"en": "Personalização de Perfil",
+			"es": "Personalização de Perfil"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"Personalização de Perfil"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "torneios",
+		"url": "https://wiki.pokexgames.com/index.php/Torneios",
+		"title": {
+			"pt-BR": "Torneios",
+			"en": "Torneios",
+			"es": "Torneios"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"Torneios"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "pokepark",
+		"url": "https://wiki.pokexgames.com/index.php/PokéPark",
+		"title": {
+			"pt-BR": "PokéPark",
+			"en": "PokéPark",
+			"es": "PokéPark"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"PokéPark"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "tasks",
+		"categoryLabel": {
+			"pt-BR": "Tasks",
+			"en": "Tasks",
+			"es": "Tasks"
+		},
+		"slug": "nightmare-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Nightmare_Tasks",
+		"title": {
+			"pt-BR": "Nightmare Tasks",
+			"en": "Nightmare Tasks",
+			"es": "Nightmare Tasks"
+		},
+		"navigationPath": [
+			"Tasks",
+			"Nightmare"
+		],
+		"pageKind": "task"
+	},
+	{
+		"category": "nightmare-world",
+		"categoryLabel": {
+			"pt-BR": "Nightmare World",
+			"en": "Nightmare World",
+			"es": "Nightmare World"
+		},
+		"slug": "nightmare-hunts",
+		"url": "https://wiki.pokexgames.com/index.php/Nightmare_Hunts",
+		"title": {
+			"pt-BR": "Nightmare Hunts",
+			"en": "Nightmare Hunts",
+			"es": "Nightmare Hunts"
+		},
+		"navigationPath": [
+			"Nightmare World",
+			"Nightmare Hunts"
+		],
+		"pageKind": "search"
+	},
+	{
+		"category": "nightmare-world",
+		"categoryLabel": {
+			"pt-BR": "Nightmare World",
+			"en": "Nightmare World",
+			"es": "Nightmare World"
+		},
+		"slug": "nightmare-transportes",
+		"url": "https://wiki.pokexgames.com/index.php/Nightmare_Transportes",
+		"title": {
+			"pt-BR": "Nightmare Transportes",
+			"en": "Nightmare Transportes",
+			"es": "Nightmare Transportes"
+		},
+		"navigationPath": [
+			"Nightmare World",
+			"Nightmare Transportes"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "nightmare-world",
+		"categoryLabel": {
+			"pt-BR": "Nightmare World",
+			"en": "Nightmare World",
+			"es": "Nightmare World"
+		},
+		"slug": "nightmare-disk",
+		"url": "https://wiki.pokexgames.com/index.php/Nightmare_Disk",
+		"title": {
+			"pt-BR": "Nightmare Disk",
+			"en": "Nightmare Disk",
+			"es": "Nightmare Disk"
+		},
+		"navigationPath": [
+			"Nightmare World",
+			"Nightmare Disk"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "secret-lab",
+		"categoryLabel": {
+			"pt-BR": "Secret Lab",
+			"en": "Secret Lab",
+			"es": "Secret Lab"
+		},
+		"slug": "secret-lab",
+		"url": "https://wiki.pokexgames.com/index.php/Secret_Lab",
+		"title": {
+			"pt-BR": "Secret Lab",
+			"en": "Secret Lab",
+			"es": "Secret Lab"
+		},
+		"navigationPath": [
+			"Secret Lab"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "regional-level",
+		"url": "https://wiki.pokexgames.com/index.php/Regional_Level",
+		"title": {
+			"pt-BR": "Regional Level",
+			"en": "Regional Level",
+			"es": "Regional Level"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"Regional Level"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "tasks",
+		"categoryLabel": {
+			"pt-BR": "Tasks",
+			"en": "Tasks",
+			"es": "Tasks"
+		},
+		"slug": "johto-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Johto_Tasks",
+		"title": {
+			"pt-BR": "Johto Tasks",
+			"en": "Johto Tasks",
+			"es": "Johto Tasks"
+		},
+		"navigationPath": [
+			"Tasks",
+			"Johto"
+		],
+		"pageKind": "task"
+	},
+	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "mt-silver",
+		"url": "https://wiki.pokexgames.com/index.php/MT_Silver",
+		"title": {
+			"pt-BR": "MT Silver",
+			"en": "MT Silver",
+			"es": "MT Silver"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"MT Silver"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "sistema-de-dia-e-noite",
+		"url": "https://wiki.pokexgames.com/index.php/Sistema_de_Dia_e_Noite",
+		"title": {
+			"pt-BR": "Sistema de Dia e Noite",
+			"en": "Sistema de Dia e Noite",
+			"es": "Sistema de Dia e Noite"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"Sistema de Dia e Noite"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "tools",
+		"categoryLabel": {
+			"pt-BR": "Ferramentas",
+			"en": "Tools",
+			"es": "Herramientas"
+		},
+		"slug": "star-signs",
+		"url": "https://wiki.pokexgames.com/index.php/Star_Signs",
+		"title": {
+			"pt-BR": "Star Signs",
+			"en": "Star Signs",
+			"es": "Star Signs"
+		},
+		"navigationPath": [
+			"Ferramentas",
+			"Star Signs"
+		],
+		"pageKind": "simulation"
+	},
+	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "efetividades",
+		"url": "https://wiki.pokexgames.com/index.php/Efetividades",
+		"title": {
+			"pt-BR": "Efetividades",
+			"en": "Efetividades",
+			"es": "Efetividades"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"Efetividades"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "tools",
+		"categoryLabel": {
+			"pt-BR": "Ferramentas",
+			"en": "Tools",
+			"es": "Herramientas"
+		},
+		"slug": "calculadora-de-boost",
+		"url": "https://wiki.pokexgames.com/index.php/Calculadora_de_Boost",
+		"title": {
+			"pt-BR": "Calculadora de Boost",
+			"en": "Calculadora de Boost",
+			"es": "Calculadora de Boost"
+		},
+		"navigationPath": [
+			"Ferramentas",
+			"Calculadora de Boost"
+		],
+		"pageKind": "calculator"
+	},
+	{
+		"category": "tools",
+		"categoryLabel": {
+			"pt-BR": "Ferramentas",
+			"en": "Tools",
+			"es": "Herramientas"
+		},
+		"slug": "pokelog-planner",
+		"url": "https://wiki.pokexgames.com/index.php/Pokélog_Planner",
+		"title": {
+			"pt-BR": "Pokélog Planner",
+			"en": "Pokélog Planner",
+			"es": "Pokélog Planner"
+		},
+		"navigationPath": [
+			"Ferramentas",
+			"Pokélog Planner"
+		],
+		"pageKind": "planner"
+	},
+	{
+		"category": "tools",
+		"categoryLabel": {
+			"pt-BR": "Ferramentas",
+			"en": "Tools",
+			"es": "Herramientas"
+		},
+		"slug": "mapas-de-aventureiro-ref",
+		"url": "https://wiki.pokexgames.com/index.php/Mapas_de_Aventureiro",
+		"title": {
+			"pt-BR": "Mapas de Aventureiro",
+			"en": "Mapas de Aventureiro",
+			"es": "Mapas de Aventureiro"
+		},
+		"navigationPath": [
+			"Ferramentas",
+			"Mapas de Aventureiro"
+		],
+		"pageKind": "map"
+	},
+	{
+		"category": "tools",
+		"categoryLabel": {
+			"pt-BR": "Ferramentas",
+			"en": "Tools",
+			"es": "Herramientas"
+		},
+		"slug": "viagens",
+		"url": "https://wiki.pokexgames.com/index.php/Viagens",
+		"title": {
+			"pt-BR": "Viagens",
+			"en": "Viagens",
+			"es": "Viagens"
+		},
+		"navigationPath": [
+			"Ferramentas",
+			"Viagens"
+		],
+		"pageKind": "planner"
+	},
+	{
+		"category": "tools",
+		"categoryLabel": {
+			"pt-BR": "Ferramentas",
+			"en": "Tools",
+			"es": "Herramientas"
+		},
+		"slug": "boost-da-master-ball",
+		"url": "https://wiki.pokexgames.com/index.php/Boost_da_Master_Ball",
+		"title": {
+			"pt-BR": "Boost da Master Ball",
+			"en": "Boost da Master Ball",
+			"es": "Boost da Master Ball"
+		},
+		"navigationPath": [
+			"Ferramentas",
+			"Boost da Master Ball"
+		],
+		"pageKind": "search"
+	},
+	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "pokepark-pontuacao",
+		"url": "https://wiki.pokexgames.com/index.php/PokéPark#Pontuação",
+		"title": {
+			"pt-BR": "PokéPark: Pontuação",
+			"en": "PokéPark: Pontuação",
+			"es": "PokéPark: Pontuação"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"PokéPark",
+			"Pontuação"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "npcs",
+		"categoryLabel": {
+			"pt-BR": "NPCs",
+			"en": "NPCs",
+			"es": "NPCs"
+		},
+		"slug": "npcs",
+		"url": "https://wiki.pokexgames.com/index.php/NPC%27s",
+		"title": {
+			"pt-BR": "NPC's",
+			"en": "NPC's",
+			"es": "NPC's"
+		},
+		"navigationPath": [
+			"NPC's"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "npc",
+			"excludeSlugs": [
+				"npcs"
+			],
+			"maxDepth": 1
+		}
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "professions",
+		"url": "https://wiki.pokexgames.com/index.php/Profissões",
+		"title": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"navigationPath": [
+			"Professions"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "profession",
+			"excludeSlugs": [
+				"professions"
+			],
+			"maxDepth": 3
+		}
 	}
 ]

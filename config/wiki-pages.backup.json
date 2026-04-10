@@ -1,0 +1,792 @@
+[
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "volcanic",
+		"url": "https://wiki.pokexgames.com/index.php/Volcanic",
+		"title": {
+			"pt-BR": "Volcanic",
+			"en": "Volcanic",
+			"es": "Volcanic"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "raibolt",
+		"url": "https://wiki.pokexgames.com/index.php/Raibolt",
+		"title": {
+			"pt-BR": "Raibolt",
+			"en": "Raibolt",
+			"es": "Raibolt"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "orebound",
+		"url": "https://wiki.pokexgames.com/index.php/Orebound",
+		"title": {
+			"pt-BR": "Orebound",
+			"en": "Orebound",
+			"es": "Orebound"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "naturia",
+		"url": "https://wiki.pokexgames.com/index.php/Naturia",
+		"title": {
+			"pt-BR": "Naturia",
+			"en": "Naturia",
+			"es": "Naturia"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "gardestrike",
+		"url": "https://wiki.pokexgames.com/index.php/Gardestrike",
+		"title": {
+			"pt-BR": "Gardestrike",
+			"en": "Gardestrike",
+			"es": "Gardestrike"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "ironhard",
+		"url": "https://wiki.pokexgames.com/index.php/Ironhard",
+		"title": {
+			"pt-BR": "Ironhard",
+			"en": "Ironhard",
+			"es": "Ironhard"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "wingeon",
+		"url": "https://wiki.pokexgames.com/index.php/Wingeon",
+		"title": {
+			"pt-BR": "Wingeon",
+			"en": "Wingeon",
+			"es": "Wingeon"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "psycraft",
+		"url": "https://wiki.pokexgames.com/index.php/Psycraft",
+		"title": {
+			"pt-BR": "Psycraft",
+			"en": "Psycraft",
+			"es": "Psycraft"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "seavell",
+		"url": "https://wiki.pokexgames.com/index.php/Seavell",
+		"title": {
+			"pt-BR": "Seavell",
+			"en": "Seavell",
+			"es": "Seavell"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "malefic",
+		"url": "https://wiki.pokexgames.com/index.php/Malefic",
+		"title": {
+			"pt-BR": "Malefic",
+			"en": "Malefic",
+			"es": "Malefic"
+		}
+	},
+	{
+		"category": "tasks",
+		"categoryLabel": {
+			"pt-BR": "Tasks",
+			"en": "Tasks",
+			"es": "Tasks"
+		},
+		"slug": "tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Tasks",
+		"title": {
+			"pt-BR": "Tasks",
+			"en": "Tasks",
+			"es": "Tasks"
+		}
+	},
+	{
+		"category": "npcs",
+		"categoryLabel": {
+			"pt-BR": "NPCs",
+			"en": "NPCs",
+			"es": "NPCs"
+		},
+		"slug": "npcs",
+		"url": "https://wiki.pokexgames.com/index.php/NPC%27s",
+		"title": {
+			"pt-BR": "NPC's",
+			"en": "NPC's",
+			"es": "NPC's"
+		},
+		"navigationPath": [
+			"NPC's"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "npc",
+			"excludeSlugs": [
+				"npcs"
+			]
+		}
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "engenheiro",
+		"url": "https://wiki.pokexgames.com/index.php/Engenheiro",
+		"title": {
+			"pt-BR": "Engenheiro",
+			"en": "Engenheiro",
+			"es": "Engenheiro"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Engenheiro"
+		],
+		"pageKind": "overview"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "craft-profissoes-engenheiro",
+		"url": "https://wiki.pokexgames.com/index.php/Craft_Profissões_-_Engenheiro",
+		"title": {
+			"pt-BR": "Craft Profissões - Engenheiro",
+			"en": "Craft Profissões - Engenheiro",
+			"es": "Craft Profissões - Engenheiro"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Engenheiro",
+			"Craft Profissões"
+		],
+		"pageKind": "craft"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "mecanico-especializacao",
+		"url": "https://wiki.pokexgames.com/index.php/Mecânico",
+		"title": {
+			"pt-BR": "Mecânico",
+			"en": "Mecânico",
+			"es": "Mecânico"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Engenheiro",
+			"Mecânico"
+		],
+		"pageKind": "specialization"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "hacker-especializacao",
+		"url": "https://wiki.pokexgames.com/index.php/Hacker",
+		"title": {
+			"pt-BR": "Hacker",
+			"en": "Hacker",
+			"es": "Hacker"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Engenheiro",
+			"Hacker"
+		],
+		"pageKind": "specialization"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "mini-ammunition-factory",
+		"url": "https://wiki.pokexgames.com/index.php/Mini_Ammunition_Factory",
+		"title": {
+			"pt-BR": "Mini Ammunition Factory",
+			"en": "Mini Ammunition Factory",
+			"es": "Mini Ammunition Factory"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Engenheiro",
+			"Mecânico",
+			"Mini Ammunition Factory"
+		],
+		"pageKind": "workshop"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "computadores-de-hacker",
+		"url": "https://wiki.pokexgames.com/index.php/Computadores_de_Hacker",
+		"title": {
+			"pt-BR": "Computadores de Hacker",
+			"en": "Computadores de Hacker",
+			"es": "Computadores de Hacker"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Engenheiro",
+			"Hacker",
+			"Computadores de Hacker"
+		],
+		"pageKind": "workshop"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "professor",
+		"url": "https://wiki.pokexgames.com/index.php/Professor",
+		"title": {
+			"pt-BR": "Professor",
+			"en": "Professor",
+			"es": "Professor"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Professor"
+		],
+		"pageKind": "overview"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "craft-profissoes-professor",
+		"url": "https://wiki.pokexgames.com/index.php/Craft_Profissões_-_Professor",
+		"title": {
+			"pt-BR": "Craft Profissões - Professor",
+			"en": "Craft Profissões - Professor",
+			"es": "Craft Profissões - Professor"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Professor",
+			"Craft Profissões"
+		],
+		"pageKind": "craft"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "alquimista-especializacao",
+		"url": "https://wiki.pokexgames.com/index.php/Alquimista",
+		"title": {
+			"pt-BR": "Alquimista",
+			"en": "Alquimista",
+			"es": "Alquimista"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Professor",
+			"Alquimista"
+		],
+		"pageKind": "specialization"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "academico-especializacao",
+		"url": "https://wiki.pokexgames.com/index.php/Acadêmico",
+		"title": {
+			"pt-BR": "Acadêmico",
+			"en": "Acadêmico",
+			"es": "Acadêmico"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Professor",
+			"Acadêmico"
+		],
+		"pageKind": "specialization"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "philosopher-s-stone",
+		"url": "https://wiki.pokexgames.com/index.php/Philosopher%27s_Stone",
+		"title": {
+			"pt-BR": "Philosopher's Stone",
+			"en": "Philosopher's Stone",
+			"es": "Philosopher's Stone"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Professor",
+			"Alquimista",
+			"Philosopher's Stone"
+		],
+		"pageKind": "artifact"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "estudantes",
+		"url": "https://wiki.pokexgames.com/index.php/Estudantes",
+		"title": {
+			"pt-BR": "Estudantes",
+			"en": "Estudantes",
+			"es": "Estudantes"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Professor",
+			"Acadêmico",
+			"Estudantes"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "dungeons-de-academico",
+		"url": "https://wiki.pokexgames.com/index.php/Dungeons_de_Acadêmico",
+		"title": {
+			"pt-BR": "Dungeons de Acadêmico",
+			"en": "Dungeons de Acadêmico",
+			"es": "Dungeons de Acadêmico"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Professor",
+			"Acadêmico",
+			"Dungeons de Acadêmico"
+		],
+		"pageKind": "dungeons"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "estilista",
+		"url": "https://wiki.pokexgames.com/index.php/Estilista",
+		"title": {
+			"pt-BR": "Estilista",
+			"en": "Estilista",
+			"es": "Estilista"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Estilista"
+		],
+		"pageKind": "overview"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "craft-profissoes-estilista",
+		"url": "https://wiki.pokexgames.com/index.php/Craft_Profissões_-_Estilista",
+		"title": {
+			"pt-BR": "Craft Profissões - Estilista",
+			"en": "Craft Profissões - Estilista",
+			"es": "Craft Profissões - Estilista"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Estilista",
+			"Craft Profissões"
+		],
+		"pageKind": "craft"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "decorador-especializacao",
+		"url": "https://wiki.pokexgames.com/index.php/Decorador",
+		"title": {
+			"pt-BR": "Decorador",
+			"en": "Decorador",
+			"es": "Decorador"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Estilista",
+			"Decorador"
+		],
+		"pageKind": "specialization"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "designer-especializacao",
+		"url": "https://wiki.pokexgames.com/index.php/Designer",
+		"title": {
+			"pt-BR": "Designer",
+			"en": "Designer",
+			"es": "Designer"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Estilista",
+			"Designer"
+		],
+		"pageKind": "specialization"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "decorator-workshop",
+		"url": "https://wiki.pokexgames.com/index.php/Decorator_Workshop",
+		"title": {
+			"pt-BR": "Decorator Workshop",
+			"en": "Decorator Workshop",
+			"es": "Decorator Workshop"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Estilista",
+			"Decorador",
+			"Decorator Workshop"
+		],
+		"pageKind": "workshop"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "designer-workshop",
+		"url": "https://wiki.pokexgames.com/index.php/Designer_Workshop",
+		"title": {
+			"pt-BR": "Designer Workshop",
+			"en": "Designer Workshop",
+			"es": "Designer Workshop"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Estilista",
+			"Designer",
+			"Designer Workshop"
+		],
+		"pageKind": "workshop"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "monumentos",
+		"url": "https://wiki.pokexgames.com/index.php/Monumentos",
+		"title": {
+			"pt-BR": "Monumentos",
+			"en": "Monumentos",
+			"es": "Monumentos"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Estilista",
+			"Decorador",
+			"Monumentos"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "aventureiro",
+		"url": "https://wiki.pokexgames.com/index.php/Aventureiro",
+		"title": {
+			"pt-BR": "Aventureiro",
+			"en": "Aventureiro",
+			"es": "Aventureiro"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Aventureiro"
+		],
+		"pageKind": "overview"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "craft-profissoes-aventureiro",
+		"url": "https://wiki.pokexgames.com/index.php/Craft_Profissões_-_Aventureiro",
+		"title": {
+			"pt-BR": "Craft Profissões - Aventureiro",
+			"en": "Craft Profissões - Aventureiro",
+			"es": "Craft Profissões - Aventureiro"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Aventureiro",
+			"Craft Profissões"
+		],
+		"pageKind": "craft"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "cozinheiro-especializacao",
+		"url": "https://wiki.pokexgames.com/index.php/Cozinheiro",
+		"title": {
+			"pt-BR": "Cozinheiro",
+			"en": "Cozinheiro",
+			"es": "Cozinheiro"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Aventureiro",
+			"Cozinheiro"
+		],
+		"pageKind": "specialization"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "arqueologo-especializacao",
+		"url": "https://wiki.pokexgames.com/index.php/Arqueólogo",
+		"title": {
+			"pt-BR": "Arqueólogo",
+			"en": "Arqueólogo",
+			"es": "Arqueólogo"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Aventureiro",
+			"Arqueólogo"
+		],
+		"pageKind": "specialization"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "crafts-de-cozinheiro",
+		"url": "https://wiki.pokexgames.com/index.php/Crafts_de_Cozinheiro",
+		"title": {
+			"pt-BR": "Crafts de Cozinheiro",
+			"en": "Crafts de Cozinheiro",
+			"es": "Crafts de Cozinheiro"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Aventureiro",
+			"Cozinheiro",
+			"Crafts de Cozinheiro"
+		],
+		"pageKind": "craft"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "mapas-de-aventureiro",
+		"url": "https://wiki.pokexgames.com/index.php/Mapas_de_Aventureiro",
+		"title": {
+			"pt-BR": "Mapas de Aventureiro",
+			"en": "Mapas de Aventureiro",
+			"es": "Mapas de Aventureiro"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Aventureiro",
+			"Mapas de Aventureiro"
+		],
+		"pageKind": "map"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "arqueologo-dungeons",
+		"url": "https://wiki.pokexgames.com/index.php/Arqueólogo#Dungeons",
+		"title": {
+			"pt-BR": "Arqueólogo: Dungeons",
+			"en": "Arqueólogo: Dungeons",
+			"es": "Arqueólogo: Dungeons"
+		},
+		"navigationPath": [
+			"Profissões",
+			"Aventureiro",
+			"Arqueólogo",
+			"Dungeons"
+		],
+		"pageKind": "dungeons"
+	},
+	{
+		"category": "professions",
+		"categoryLabel": {
+			"pt-BR": "Profissões",
+			"en": "Professions",
+			"es": "Profesiones"
+		},
+		"slug": "profissoes",
+		"url": "https://wiki.pokexgames.com/index.php/Profissões",
+		"title": {
+			"pt-BR": "Profissões",
+			"en": "Profissões",
+			"es": "Profissões"
+		},
+		"navigationPath": [
+			"Profissões"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "article",
+			"excludeSlugs": [
+				"profissoes"
+			]
+		}
+	}
+]

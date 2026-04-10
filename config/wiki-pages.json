@@ -1,0 +1,167 @@
+[
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "volcanic",
+		"url": "https://wiki.pokexgames.com/index.php/Volcanic",
+		"title": {
+			"pt-BR": "Volcanic",
+			"en": "Volcanic",
+			"es": "Volcanic"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "raibolt",
+		"url": "https://wiki.pokexgames.com/index.php/Raibolt",
+		"title": {
+			"pt-BR": "Raibolt",
+			"en": "Raibolt",
+			"es": "Raibolt"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "orebound",
+		"url": "https://wiki.pokexgames.com/index.php/Orebound",
+		"title": {
+			"pt-BR": "Orebound",
+			"en": "Orebound",
+			"es": "Orebound"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "naturia",
+		"url": "https://wiki.pokexgames.com/index.php/Naturia",
+		"title": {
+			"pt-BR": "Naturia",
+			"en": "Naturia",
+			"es": "Naturia"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "gardestrike",
+		"url": "https://wiki.pokexgames.com/index.php/Gardestrike",
+		"title": {
+			"pt-BR": "Gardestrike",
+			"en": "Gardestrike",
+			"es": "Gardestrike"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "ironhard",
+		"url": "https://wiki.pokexgames.com/index.php/Ironhard",
+		"title": {
+			"pt-BR": "Ironhard",
+			"en": "Ironhard",
+			"es": "Ironhard"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "wingeon",
+		"url": "https://wiki.pokexgames.com/index.php/Wingeon",
+		"title": {
+			"pt-BR": "Wingeon",
+			"en": "Wingeon",
+			"es": "Wingeon"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "psycraft",
+		"url": "https://wiki.pokexgames.com/index.php/Psycraft",
+		"title": {
+			"pt-BR": "Psycraft",
+			"en": "Psycraft",
+			"es": "Psycraft"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "seavell",
+		"url": "https://wiki.pokexgames.com/index.php/Seavell",
+		"title": {
+			"pt-BR": "Seavell",
+			"en": "Seavell",
+			"es": "Seavell"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "Clãs",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "malefic",
+		"url": "https://wiki.pokexgames.com/index.php/Malefic",
+		"title": {
+			"pt-BR": "Malefic",
+			"en": "Malefic",
+			"es": "Malefic"
+		}
+	},
+	{
+		"category": "tasks",
+		"categoryLabel": {
+			"pt-BR": "Tasks",
+			"en": "Tasks",
+			"es": "Tasks"
+		},
+		"slug": "tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Tasks",
+		"title": {
+			"pt-BR": "Tasks",
+			"en": "Tasks",
+			"es": "Tasks"
+		}
+	}
+]

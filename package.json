@@ -1,0 +1,16 @@
+{
+	"name": "pokexgames-wiki-data",
+	"private": true,
+	"version": "0.1.0",
+	"description": "Scrape, validate and publish normalized PokeXGames wiki JSON bundles.",
+	"type": "module",
+	"scripts": {
+		"sync": "node scripts/sync-wiki.mjs",
+		"validate": "node scripts/validate-bundle.mjs",
+		"build": "node scripts/sync-wiki.mjs",
+		"ci": "node scripts/sync-wiki.mjs --ci"
+	},
+	"engines": {
+		"node": ">=20"
+	}
+}

@@ -6,7 +6,7 @@ This repo owns:
 - source page inventory
 - wiki scraping and normalization
 - JSON bundle validation
-- publishing `manifest.json` and `pages/<slug>.json`
+- publishing `manifest.json`, nested `pages/...json`, and a root `index.html` landing page for GitHub Pages consumers
 
 This repo does not own:
 - app-side caching
@@ -60,6 +60,7 @@ npm run validate
 ```
 
 `npm run sync` fetches source pages, writes `dist/manifest.json` and `dist/pages/*.json`, then validates the generated bundle.
+It also writes `dist/index.html`, which serves as a human-readable landing page for the published GitHub Pages site.
 
 ## Source Inventory
 
@@ -91,8 +92,11 @@ Current known limitation:
 GitHub Actions runs the daily sync and deploys the generated `dist/` folder to GitHub Pages.
 
 Default published URLs:
+- `https://<owner>.github.io/pokexgames-wiki-data/`
 - `https://<owner>.github.io/pokexgames-wiki-data/manifest.json`
 - `https://<owner>.github.io/pokexgames-wiki-data/pages/<slug>.json`
+
+The root URL is intentionally human-readable and documents the bundle shape, basic consumer notes, and visible category/page coverage by loading `manifest.json` client-side.
 
 ## Validation Rules
 

@@ -1,0 +1,945 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>pokexgames-wiki-data</title>
+	<link rel="icon" type="image/svg+xml"
+		href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%23ead9bf"/><path d="M16 22a4 4 0 0 1 4-4h10l4 4h10a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4V22Z" fill="%2391512c"/><path d="M16 27h32v15a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4V27Z" fill="%23f7efe2"/></svg>'>
+	<style>
+		:root {
+			color-scheme: light;
+			--bg: #efe8d8;
+			--bg-2: #f8f3e8;
+			--panel: rgba(255, 251, 243, 0.94);
+			--panel-strong: #fffdf8;
+			--text: #241c16;
+			--muted: #6d6258;
+			--line: rgba(78, 56, 33, 0.12);
+			--accent: #91512c;
+			--accent-strong: #6f391b;
+			--accent-soft: #efe0cf;
+			--shadow: 0 18px 40px rgba(67, 45, 19, 0.10);
+			--shadow-strong: 0 24px 60px rgba(67, 45, 19, 0.14);
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			font-family: Georgia, "Times New Roman", serif;
+			color: var(--text);
+			background: linear-gradient(180deg, #f7f1e6 0%, #efe7d8 100%);
+			background-attachment: fixed;
+		}
+
+		a {
+			color: inherit;
+			text-decoration: none;
+		}
+
+		code {
+			font-family: Consolas, "Courier New", monospace;
+			font-size: 0.92em;
+			padding: 0.15rem 0.35rem;
+			border-radius: 8px;
+			background: rgba(111, 57, 27, 0.07);
+		}
+
+		button,
+		select,
+		input {
+			font: inherit;
+		}
+
+		.page {
+			width: min(1180px, calc(100% - 32px));
+			margin: 0 auto;
+			padding: 28px 0 56px;
+		}
+
+		.hero,
+		.panel {
+			background: var(--panel);
+			border: 1px solid var(--line);
+			border-radius: 26px;
+			box-shadow: var(--shadow);
+			backdrop-filter: blur(10px);
+		}
+
+		.hero {
+			padding: 28px 34px 34px;
+			margin-bottom: 22px;
+			box-shadow: var(--shadow-strong);
+		}
+
+		.hero-top {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			margin-bottom: 20px;
+			flex-wrap: wrap;
+		}
+
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 16px;
+		}
+
+		.brand-logo {
+			width: 66px;
+			height: 66px;
+			border-radius: 20px;
+			background: #ead9bf;
+			border: 1px solid rgba(131, 87, 22, 0.14);
+			display: grid;
+			place-items: center;
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+			flex: none;
+		}
+
+		.brand-logo svg {
+			width: 42px;
+			height: 42px;
+		}
+
+		.kicker {
+			margin: 0 0 8px;
+			font-size: 0.74rem;
+			letter-spacing: 0.18em;
+			text-transform: uppercase;
+			color: var(--accent);
+		}
+
+		h1,
+		h2,
+		h3,
+		p {
+			margin-top: 0;
+		}
+
+		h1 {
+			margin: 0 0 4px;
+			font-size: clamp(2.4rem, 5vw, 4.4rem);
+			line-height: 0.92;
+			letter-spacing: -0.03em;
+		}
+
+		.lead {
+			max-width: 800px;
+			margin: 0 0 24px;
+			font-size: 1.08rem;
+			line-height: 1.65;
+			color: var(--muted);
+		}
+
+		.quick-grid,
+		.stats {
+			display: grid;
+			gap: 16px;
+		}
+
+		.quick-grid {
+			grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		}
+
+		.quick-card,
+		.stat-card {
+			background: var(--panel-strong);
+			border: 1px solid var(--line);
+			border-radius: 20px;
+			padding: 18px;
+		}
+
+		.quick-card {
+			display: block;
+			transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+		}
+
+		.quick-card:hover {
+			transform: translateY(-3px);
+			background: #fff7eb;
+			border-color: rgba(111, 57, 27, 0.20);
+			box-shadow: 0 16px 32px rgba(73, 49, 23, 0.12);
+		}
+
+		.quick-card:active {
+			transform: translateY(-1px) scale(0.99);
+		}
+
+		.quick-card .icon {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 42px;
+			height: 42px;
+			border-radius: 14px;
+			margin-bottom: 12px;
+			font-size: 1.1rem;
+			background: var(--accent-soft);
+			color: var(--accent-strong);
+		}
+
+		.quick-card strong,
+		.stat-card strong {
+			display: block;
+			margin-bottom: 6px;
+			font-size: 1rem;
+		}
+
+		.quick-card span,
+		.stat-card span,
+		.meta-text,
+		.status {
+			color: var(--muted);
+			line-height: 1.55;
+		}
+
+		.language-select,
+		.search,
+		.category-chip,
+		.copy-btn {
+			border: 1px solid var(--line);
+			background: #fff7eb;
+			color: inherit;
+			outline: none;
+		}
+
+		.language-select,
+		.search {
+			padding: 12px 14px;
+			border-radius: 999px;
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+		}
+
+		.language-select {
+			min-width: 220px;
+			cursor: pointer;
+			background: linear-gradient(180deg, #f9f0e3 0%, #f2e5d2 100%);
+		}
+
+		.search {
+			width: min(420px, 100%);
+			min-height: 46px;
+			line-height: 1.2;
+			background: #fffdf9;
+			appearance: none;
+			-webkit-appearance: none;
+		}
+
+		.search::-webkit-search-decoration,
+		.search::-webkit-search-cancel-button,
+		.search::-webkit-search-results-button,
+		.search::-webkit-search-results-decoration {
+			-webkit-appearance: none;
+			display: none;
+		}
+
+		.search::placeholder {
+			color: #8a7a6a;
+			opacity: 1;
+		}
+
+		.language-select:focus,
+		.search:focus {
+			border-color: rgba(111, 57, 27, 0.42);
+			box-shadow: 0 0 0 4px rgba(145, 81, 44, 0.10);
+		}
+
+		.layout {
+			display: grid;
+			grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.85fr);
+			gap: 22px;
+			margin-bottom: 22px;
+		}
+
+		.panel {
+			padding: 24px;
+		}
+
+		.panel h2 {
+			margin-bottom: 14px;
+			font-size: 1.4rem;
+		}
+
+		.steps {
+			padding-left: 20px;
+			margin: 0;
+			line-height: 1.72;
+			color: var(--muted);
+		}
+
+		.stats {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			margin-top: 20px;
+		}
+
+		.stat-card {
+			position: relative;
+			overflow: hidden;
+		}
+
+		.stat-card::after {
+			content: "";
+			position: absolute;
+			inset: auto -20px -28px auto;
+			width: 92px;
+			height: 92px;
+			border-radius: 50%;
+			background: radial-gradient(circle, rgba(145, 81, 44, 0.10), transparent 70%);
+		}
+
+		.info-list {
+			display: grid;
+			gap: 14px;
+		}
+
+		.info-block {
+			padding: 14px 16px;
+			border-radius: 16px;
+			border: 1px solid var(--line);
+			background: rgba(255, 255, 255, 0.42);
+		}
+
+		.info-block strong {
+			display: block;
+			margin-bottom: 5px;
+		}
+
+		.browser-panel {
+			padding: 24px;
+		}
+
+		.browser-header {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 14px;
+			align-items: end;
+			justify-content: space-between;
+			margin-bottom: 16px;
+		}
+
+		.browser-copy {
+			max-width: 620px;
+		}
+
+		.controls {
+			display: flex;
+			gap: 10px;
+			align-items: center;
+			flex-wrap: wrap;
+		}
+
+		.category-bar {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px;
+			margin-bottom: 18px;
+			padding: 10px;
+			border-radius: 18px;
+			background: rgba(255, 248, 238, 0.78);
+			border: 1px solid rgba(78, 56, 33, 0.08);
+		}
+
+		.category-chip {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			padding: 10px 14px;
+			border-radius: 999px;
+			cursor: pointer;
+			appearance: none;
+			-webkit-appearance: none;
+			background: linear-gradient(180deg, #f9f0e3 0%, #f1e3d1 100%);
+			color: var(--text);
+			transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease;
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+		}
+
+		.category-chip:hover {
+			transform: translateY(-1px);
+			border-color: rgba(111, 57, 27, 0.20);
+			box-shadow: 0 8px 18px rgba(73, 49, 23, 0.08);
+		}
+
+		.category-chip.active {
+			background: linear-gradient(180deg, #eed7b7 0%, #e5ca9f 100%);
+			border-color: rgba(111, 57, 27, 0.26);
+			color: var(--accent-strong);
+			font-weight: 700;
+		}
+
+		.category-chip:active {
+			transform: translateY(0) scale(0.99);
+		}
+
+		.category-chip:focus,
+		.category-chip:focus-visible {
+			border-color: rgba(111, 57, 27, 0.26);
+			box-shadow: 0 0 0 4px rgba(145, 81, 44, 0.10);
+		}
+
+		.category-chip-count {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 24px;
+			height: 24px;
+			padding: 0 8px;
+			border-radius: 999px;
+			background: rgba(111, 57, 27, 0.10);
+			font-size: 0.78rem;
+			color: var(--accent-strong);
+		}
+
+		.browser-summary {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			margin-bottom: 12px;
+			flex-wrap: wrap;
+		}
+
+		.summary-badge {
+			padding: 8px 12px;
+			border-radius: 999px;
+			background: rgba(111, 57, 27, 0.08);
+			color: var(--accent-strong);
+			font-size: 0.9rem;
+		}
+
+		.page-table {
+			display: grid;
+			gap: 10px;
+		}
+
+		.browser-results {
+			min-height: 640px;
+			display: flex;
+			flex-direction: column;
+		}
+
+		.page-row {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			gap: 12px;
+			align-items: center;
+			padding: 14px 16px;
+			border-radius: 16px;
+			border: 1px solid transparent;
+			background: linear-gradient(180deg, #f7f0e5 0%, #f2e8d8 100%);
+			transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+		}
+
+		.page-row:hover {
+			transform: translateY(-2px);
+			background: linear-gradient(180deg, #fbf4e8 0%, #f5ead7 100%);
+			border-color: rgba(111, 57, 27, 0.16);
+			box-shadow: 0 10px 20px rgba(73, 49, 23, 0.08);
+		}
+
+		.page-main {
+			min-width: 0;
+		}
+
+		.page-title-line {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			flex-wrap: wrap;
+			margin-bottom: 6px;
+		}
+
+		.page-title {
+			font-weight: 700;
+			font-size: 1rem;
+		}
+
+		.page-slug {
+			padding: 4px 8px;
+			border-radius: 999px;
+			font-size: 0.76rem;
+			background: rgba(111, 57, 27, 0.08);
+			color: var(--accent-strong);
+			font-family: Consolas, "Courier New", monospace;
+		}
+
+		.page-summary {
+			font-size: 0.9rem;
+			line-height: 1.5;
+			color: var(--muted);
+			display: -webkit-box;
+			-webkit-line-clamp: 2;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
+
+		.page-actions {
+			display: flex;
+			gap: 8px;
+			align-items: center;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+		}
+
+		.page-link,
+		.copy-btn {
+			padding: 10px 12px;
+			border-radius: 12px;
+			font-size: 0.88rem;
+			cursor: pointer;
+			transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease;
+		}
+
+		.page-link {
+			border: 1px solid rgba(111, 57, 27, 0.14);
+			background: #fffdfa;
+		}
+
+		.copy-btn {
+			background: linear-gradient(180deg, #f9f0e3 0%, #f2e5d2 100%);
+		}
+
+		.page-link:hover,
+		.copy-btn:hover {
+			transform: translateY(-1px);
+			border-color: rgba(111, 57, 27, 0.24);
+			box-shadow: 0 8px 18px rgba(73, 49, 23, 0.08);
+		}
+
+		.copy-btn.copied {
+			background: linear-gradient(180deg, #ead9bf 0%, #e3cfb0 100%);
+			color: var(--accent-strong);
+			font-weight: 700;
+		}
+
+		.status {
+			margin: 0;
+		}
+
+		.hidden {
+			display: none;
+		}
+
+		@media (max-width: 880px) {
+			.layout {
+				grid-template-columns: 1fr;
+			}
+		}
+
+		@media (max-width: 720px) {
+			.page-row {
+				grid-template-columns: 1fr;
+			}
+
+			.page-actions {
+				justify-content: flex-start;
+			}
+		}
+
+		@media (max-width: 640px) {
+			.page {
+				width: min(100% - 20px, 100%);
+				padding: 18px 0 36px;
+			}
+
+			.hero,
+			.panel,
+			.browser-panel {
+				padding: 18px;
+				border-radius: 20px;
+			}
+
+			.stats {
+				grid-template-columns: 1fr;
+			}
+
+			.browser-results {
+				min-height: 520px;
+			}
+		}
+	</style>
+</head>
+
+<body>
+	<div class="page">
+		<section class="hero">
+			<div class="hero-top">
+				<div class="brand">
+					<div class="brand-logo" aria-hidden="true">
+						<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path d="M16 22a4 4 0 0 1 4-4h10l4 4h10a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4V22Z"
+								fill="#91512c" />
+							<path d="M16 27h32v15a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4V27Z" fill="#fff7eb" />
+							<path d="M22 33h12" stroke="#91512c" stroke-width="3" stroke-linecap="round" />
+							<path d="M22 39h18" stroke="#c2874a" stroke-width="3" stroke-linecap="round" />
+						</svg>
+					</div>
+					<div>
+						<p class="kicker" data-i18n="kicker">Bundle estático da wiki</p>
+						<h1>pokexgames-wiki-data</h1>
+					</div>
+				</div>
+				<select id="languageSelect" class="language-select" aria-label="Idioma">
+					<option value="pt-BR">Português (Brasil)</option>
+					<option value="en">English</option>
+					<option value="es">Español</option>
+				</select>
+			</div>
+			<p class="lead" data-i18n="lead">Referência publicada para quem consome o bundle da wiki do PokeXGames. Use
+				esta página para inspecionar o manifesto, navegar pelos JSONs gerados e confirmar os caminhos de
+				transporte expostos aos consumidores.</p>
+			<div class="quick-grid">
+				<a class="quick-card" href="./manifest.json">
+					<span class="icon">{} </span>
+					<strong>manifest.json</strong>
+					<span data-i18n-html="manifestCard">Índice principal do bundle com versão de schema, categorias,
+						resumos de páginas e o <code>pagePath</code> canônico de cada item.</span>
+				</a>
+				<a class="quick-card" href="./discovered-pages.json">
+					<span class="icon">[]</span>
+					<strong>discovered-pages.json</strong>
+					<span data-i18n="discoveredCard">Artefato de revisão/debug que mostra as páginas descobertas
+						recursivamente a partir das páginas-semente configuradas.</span>
+				</a>
+				<a class="quick-card" href="https://github.com/tatael/pokexgames-wiki-data">
+					<span class="icon">::</span>
+					<strong data-i18n="repositoryTitle">Repositório</strong>
+					<span data-i18n="repositoryCard">Scraper, pipeline de normalização, inventário de origem e regras de
+						validação usadas para publicar este bundle.</span>
+				</a>
+			</div>
+		</section>
+
+		<div class="layout">
+			<section class="panel">
+				<h2 data-i18n="howItWorksTitle">Como funciona</h2>
+				<ol class="steps">
+					<li data-i18n-html="step1">O GitHub Actions executa um fluxo diário de sincronização e publicação,
+						regenerando o <code>manifest.json</code> e os arquivos aninhados em <code>pages/...</code>.</li>
+					<li data-i18n-html="step2">Consumidores devem buscar primeiro o <code>manifest.json</code> e depois
+						seguir o <code>pagePath</code> de cada entrada para carregar o JSON real da página.</li>
+					<li data-i18n="step3">Não tente adivinhar caminhos a partir do slug. O manifesto é a fonte de
+						verdade dos caminhos de transporte.</li>
+					<li data-i18n="step4">Se uma atualização ou publicação falhar, os apps consumidores podem continuar
+						usando sua cópia local em cache até que uma sincronização posterior seja concluída com sucesso.
+					</li>
+				</ol>
+				<div class="stats">
+					<div class="stat-card"><strong data-i18n="schemaLabel">Versão do schema</strong><span
+							id="schemaValue">Carregando...</span></div>
+					<div class="stat-card"><strong data-i18n="updatedAtLabel">Atualizado em</strong><span
+							id="updatedAtValue">Carregando...</span></div>
+					<div class="stat-card"><strong data-i18n="categoriesLabel">Categorias</strong><span
+							id="categoryCountValue">Carregando...</span></div>
+					<div class="stat-card"><strong data-i18n="pagesLabel">Páginas</strong><span
+							id="pageCountValue">Carregando...</span></div>
+				</div>
+			</section>
+
+			<aside class="panel">
+				<h2 data-i18n="notesTitle">Notas</h2>
+				<div class="info-list">
+					<div class="info-block"><strong data-i18n="transportTitle">Transporte vs cache local</strong>
+						<p class="meta-text" data-i18n="transportText">Este bundle não inclui caminhos específicos de
+							cache do app. Os consumidores devem sintetizar seus próprios campos locais e persistir um
+							cache de fallback.</p>
+					</div>
+					<div class="info-block"><strong data-i18n="localesTitle">Idiomas</strong>
+						<p class="meta-text" data-i18n-html="localesText">Os idiomas publicados são <code>pt-BR</code>,
+							<code>en</code> e <code>es</code>. Por enquanto, os textos fora do português espelham o
+							conteúdo normalizado em português.
+						</p>
+					</div>
+					<div class="info-block"><strong data-i18n="pathStructureTitle">Estrutura de caminhos</strong>
+						<p class="meta-text" data-i18n-html="pathStructureText">Os arquivos são publicados de forma
+							aninhada por categoria e hierarquia, por exemplo
+							<code>pages/professions/estilista/...json</code>.
+						</p>
+					</div>
+				</div>
+			</aside>
+		</div>
+
+		<section class="panel browser-panel">
+			<div class="browser-header">
+				<div class="browser-copy">
+					<h2 style="margin-bottom: 6px;" data-i18n="browserTitle">Páginas JSON disponíveis</h2>
+					<p class="status" id="status">Carregando manifest.json...</p>
+				</div>
+				<div class="controls"><input id="searchInput" class="search" type="text" spellcheck="false"
+						placeholder="Filtrar categorias, slugs ou títulos de páginas"
+						aria-label="Filtrar categorias, slugs ou títulos de páginas"></div>
+			</div>
+			<div id="categoryBar" class="category-bar"></div>
+			<div class="browser-summary">
+				<p id="activeCategoryLabel" class="status"></p><span id="activeCategoryCount"
+					class="summary-badge"></span>
+			</div>
+			<div class="browser-results">
+				<div id="pageTable" class="page-table"></div>
+				<p id="emptyState" class="status hidden" data-i18n="emptyState">Nenhuma categoria ou página corresponde
+					ao
+					filtro atual.</p>
+			</div>
+		</section>
+	</div>
+
+	<script>
+		const translations = {
+			"pt-BR": {
+				documentTitle: "pokexgames-wiki-data",
+				kicker: "Bundle estático da wiki",
+				lead: "Referência publicada para quem consome o bundle da wiki do PokeXGames. Use esta página para consultar o manifesto, navegar pelos JSONs gerados e confirmar os caminhos disponibilizados para consumo.",
+				manifestCard: 'Índice principal do bundle com versão de schema, categorias, resumos de páginas e o <code>pagePath</code> canônico de cada item.',
+				discoveredCard: "Artefato de revisão/debug que mostra as páginas descobertas recursivamente a partir das páginas-semente configuradas.",
+				repositoryTitle: "Repositório",
+				repositoryCard: "Scraper, pipeline de normalização, inventário de origem e regras de validação usadas para publicar este bundle.",
+				howItWorksTitle: "Como funciona",
+				step1: 'O GitHub Actions executa diariamente o fluxo de sincronização e publicação, recriando o <code>manifest.json</code> e os arquivos aninhados em <code>pages/...</code>.',
+				step2: 'Quem consumir este bundle deve buscar primeiro o <code>manifest.json</code> e, em seguida, usar o <code>pagePath</code> de cada entrada para carregar o JSON correspondente.',
+				step3: "Não tente montar caminhos a partir do slug. O manifesto é a fonte de verdade para localizar os arquivos publicados.",
+				step4: "Se uma atualização ou publicação falhar, as aplicações consumidoras podem continuar usando a cópia local em cache até que uma sincronização posterior seja concluída com sucesso.",
+				schemaLabel: "Versão do schema",
+				updatedAtLabel: "Atualizado em",
+				categoriesLabel: "Categorias",
+				pagesLabel: "Páginas",
+				notesTitle: "Notas",
+				transportTitle: "Transporte vs cache local",
+				transportText: "Este bundle não inclui caminhos específicos de cache da aplicação. Cada consumidor deve montar seus próprios campos locais e manter um cache de fallback.",
+				localesTitle: "Idiomas",
+				localesText: 'Os idiomas publicados são <code>pt-BR</code>, <code>en</code> e <code>es</code>. Por enquanto, os textos fora do português ainda espelham o conteúdo normalizado em português.',
+				pathStructureTitle: "Estrutura de caminhos",
+				pathStructureText: 'Os arquivos são publicados em uma estrutura aninhada por categoria e hierarquia, por exemplo <code>pages/professions/estilista/...json</code>.',
+				browserTitle: "Páginas JSON disponíveis",
+				searchPlaceholder: "Filtrar categorias, slugs ou títulos de páginas",
+				searchAria: "Filtrar categorias, slugs ou títulos de páginas",
+				loadingManifest: "Carregando manifest.json...",
+				loadedManifest: "Carregado a partir de manifest.json",
+				couldNotLoad: "Não foi possível carregar o manifest.json.",
+				emptyState: "Nenhuma categoria ou página corresponde ao filtro atual.",
+				fileCount: "arquivo",
+				fileCountPlural: "arquivos",
+				allCategories: "Todas as categorias",
+				openJson: "Abrir JSON",
+				copyPath: "Copiar caminho",
+				copiedPath: "Copiado",
+				showing: "Exibindo",
+				allShort: "Todas"
+			},
+			"en": {
+				documentTitle: "pokexgames-wiki-data",
+				kicker: "Static Wiki Bundle",
+				lead: "Published reference for anyone consuming the PokeXGames wiki bundle. Use this page to inspect the manifest, browse generated JSON files, and confirm the transport paths exposed to consumers.",
+				manifestCard: 'Bundle index with schema version, categories, page summaries, and each page\'s canonical <code>pagePath</code>.',
+				discoveredCard: "Review/debug artifact showing pages recursively discovered from configured seed pages.",
+				repositoryTitle: "Repository",
+				repositoryCard: "Scraper, normalization pipeline, source inventory, and validation rules used to publish this bundle.",
+				howItWorksTitle: "How It Works",
+				step1: 'GitHub Actions runs a sync and publish flow every day, regenerating <code>manifest.json</code> and the nested <code>pages/...</code> files.',
+				step2: 'Consumers should fetch <code>manifest.json</code> first, then follow each page entry\'s <code>pagePath</code> to load the actual JSON file.',
+				step3: "Do not guess file locations from slugs. The manifest is the source of truth for transport paths.",
+				step4: "If a refresh or publish fails, consumer apps can keep using their previously cached local copy until a later sync succeeds.",
+				schemaLabel: "Schema Version",
+				updatedAtLabel: "Updated At",
+				categoriesLabel: "Categories",
+				pagesLabel: "Pages",
+				notesTitle: "Notes",
+				transportTitle: "Transport vs local cache",
+				transportText: "This bundle does not include app-specific cache paths. Consumers should synthesize any local-only storage fields themselves and persist their own fallback cache.",
+				localesTitle: "Locales",
+				localesText: 'Published locales are <code>pt-BR</code>, <code>en</code>, and <code>es</code>. For now, non-Portuguese text mirrors normalized Portuguese content.',
+				pathStructureTitle: "Path structure",
+				pathStructureText: 'Files are intentionally nested by category and hierarchy, for example <code>pages/professions/estilista/...json</code>.',
+				browserTitle: "Available JSON Pages",
+				searchPlaceholder: "Filter categories, slugs, or page titles",
+				searchAria: "Filter categories, slugs, or page titles",
+				loadingManifest: "Loading manifest.json...",
+				loadedManifest: "Loaded from manifest.json",
+				couldNotLoad: "Could not load manifest.json.",
+				emptyState: "No categories or pages match the current filter.",
+				fileCount: "file",
+				fileCountPlural: "files",
+				allCategories: "All categories",
+				openJson: "Open JSON",
+				copyPath: "Copy path",
+				copiedPath: "Copied",
+				showing: "Showing",
+				allShort: "All"
+			},
+			"es": {
+				documentTitle: "pokexgames-wiki-data",
+				kicker: "Bundle estático de la wiki",
+				lead: "Referencia publicada para quienes consumen el bundle de la wiki de PokeXGames. Usa esta página para inspeccionar el manifiesto, navegar por los JSON generados y confirmar las rutas de transporte expuestas a los consumidores.",
+				manifestCard: 'Índice principal del bundle con versión de esquema, categorías, resúmenes de páginas y el <code>pagePath</code> canónico de cada elemento.',
+				discoveredCard: "Artefacto de revisión/debug que muestra las páginas descubiertas recursivamente a partir de las páginas semilla configuradas.",
+				repositoryTitle: "Repositorio",
+				repositoryCard: "Scraper, pipeline de normalización, inventario de origen y reglas de validación usadas para publicar este bundle.",
+				howItWorksTitle: "Cómo funciona",
+				step1: 'GitHub Actions ejecuta un flujo diario de sincronización y publicación, regenerando el <code>manifest.json</code> y los archivos anidados en <code>pages/...</code>.',
+				step2: 'Los consumidores deben obtener primero <code>manifest.json</code> y luego seguir el <code>pagePath</code> de cada entrada para cargar el JSON real de la página.',
+				step3: "No intentes adivinar rutas a partir del slug. El manifiesto es la fuente de verdad para las rutas de transporte.",
+				step4: "Si una actualización o publicación falla, las apps consumidoras pueden seguir usando su copia local en caché hasta que una sincronización posterior finalice correctamente.",
+				schemaLabel: "Versión del esquema",
+				updatedAtLabel: "Actualizado el",
+				categoriesLabel: "Categorías",
+				pagesLabel: "Páginas",
+				notesTitle: "Notas",
+				transportTitle: "Transporte vs caché local",
+				transportText: "Este bundle no incluye rutas específicas de caché de la app. Los consumidores deben sintetizar sus propios campos locales y persistir una caché de respaldo.",
+				localesTitle: "Idiomas",
+				localesText: 'Los idiomas publicados son <code>pt-BR</code>, <code>en</code> y <code>es</code>. Por ahora, los textos fuera del portugués reflejan el contenido normalizado en portugués.',
+				pathStructureTitle: "Estructura de rutas",
+				pathStructureText: 'Los archivos se publican de forma anidada por categoría y jerarquía, por ejemplo <code>pages/professions/estilista/...json</code>.',
+				browserTitle: "Páginas JSON disponibles",
+				searchPlaceholder: "Filtrar categorías, slugs o títulos de páginas",
+				searchAria: "Filtrar categorías, slugs o títulos de páginas",
+				loadingManifest: "Cargando manifest.json...",
+				loadedManifest: "Cargado desde manifest.json",
+				couldNotLoad: "No se pudo cargar manifest.json.",
+				emptyState: "Ninguna categoría o página coincide con el filtro actual.",
+				fileCount: "archivo",
+				fileCountPlural: "archivos",
+				allCategories: "Todas las categorías",
+				openJson: "Abrir JSON",
+				copyPath: "Copiar ruta",
+				copiedPath: "Copiado",
+				showing: "Mostrando",
+				allShort: "Todas"
+			}
+		};
+
+		let currentLocale = "pt-BR";
+		let currentManifest = null;
+		let activeCategory = "all";
+		const categoryBarEl = document.getElementById("categoryBar");
+		const pageTableEl = document.getElementById("pageTable");
+		const activeCategoryLabelEl = document.getElementById("activeCategoryLabel");
+		const activeCategoryCountEl = document.getElementById("activeCategoryCount");
+		const emptyStateEl = document.getElementById("emptyState");
+		const statusEl = document.getElementById("status");
+		const searchInputEl = document.getElementById("searchInput");
+		const languageSelectEl = document.getElementById("languageSelect");
+
+		function t(key) { return translations[currentLocale]?.[key] ?? translations["pt-BR"][key] ?? key; }
+		function getLocalizedValue(map, fallback = "") {
+			if (!map || typeof map !== "object") return fallback;
+			return map[currentLocale] || map["pt-BR"] || map.en || map.es || Object.values(map)[0] || fallback;
+		}
+		function escapeHtml(value) {
+			return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+		}
+		function getCategories(manifest) {
+			return [{ id: "all", label: { "pt-BR": t("allCategories"), en: t("allCategories"), es: t("allCategories") } }, ...(manifest.categories || [])];
+		}
+		function getFilteredPages(manifest) {
+			const normalizedQuery = searchInputEl.value.trim().toLowerCase();
+			return (manifest.pages || []).filter((page) => {
+				if (activeCategory !== "all" && page.category !== activeCategory) return false;
+				if (!normalizedQuery) return true;
+				const haystack = [page.category, page.slug, page.pagePath, getLocalizedValue(page.title), getLocalizedValue(page.summary)].join(" ").toLowerCase();
+				return haystack.includes(normalizedQuery);
+			});
+		}
+		function renderCategoryBar(manifest) {
+			categoryBarEl.innerHTML = getCategories(manifest).map((category) => {
+				const label = category.id === "all" ? t("allShort") : getLocalizedValue(category.label, category.id);
+				const count = category.id === "all"
+					? (manifest.pages || []).length
+					: (manifest.pages || []).filter((page) => page.category === category.id).length;
+				return '<button class="category-chip' + (category.id === activeCategory ? ' active' : '') + '" data-category="' + escapeHtml(category.id) + '">' +
+					'<span>' + escapeHtml(label) + '</span>' +
+					'<span class="category-chip-count">' + count + '</span>' +
+					'</button>';
+			}).join("");
+			for (const button of categoryBarEl.querySelectorAll("[data-category]")) {
+				button.addEventListener("click", () => { activeCategory = button.dataset.category; renderBrowser(manifest); });
+			}
+		}
+		function renderBrowser(manifest) {
+			renderCategoryBar(manifest);
+			const pages = getFilteredPages(manifest);
+			const categoryLabel = activeCategory === "all" ? t("allCategories") : getLocalizedValue((manifest.categories || []).find((item) => item.id === activeCategory)?.label, activeCategory);
+			activeCategoryLabelEl.textContent = t("showing") + ' ' + categoryLabel;
+			activeCategoryCountEl.textContent = pages.length + ' ' + (pages.length === 1 ? t("fileCount") : t("fileCountPlural"));
+			if (!pages.length) {
+				pageTableEl.innerHTML = "";
+				emptyStateEl.classList.remove("hidden");
+				return;
+			}
+			emptyStateEl.classList.add("hidden");
+			pageTableEl.innerHTML = pages.map((page) => {
+				const title = escapeHtml(getLocalizedValue(page.title, page.slug));
+				const summary = escapeHtml(getLocalizedValue(page.summary, ""));
+				const slug = escapeHtml(page.slug);
+				const fullPath = new URL('./pages/' + page.pagePath, window.location.href).href;
+				const path = escapeHtml(fullPath);
+				return '<div class="page-row"><div class="page-main"><div class="page-title-line"><span class="page-title">' + title + '</span><span class="page-slug">' + slug + '</span></div><div class="page-summary">' + summary + '</div></div><div class="page-actions"><a class="page-link" href="./pages/' + page.pagePath + '">' + escapeHtml(t("openJson")) + '</a><button class="copy-btn" data-copy="' + path + '">' + escapeHtml(t("copyPath")) + '</button></div></div>';
+			}).join("");
+			for (const button of pageTableEl.querySelectorAll('.copy-btn')) {
+				button.addEventListener('click', async () => {
+					const original = t('copyPath');
+					try {
+						await navigator.clipboard.writeText(button.dataset.copy || '');
+						button.textContent = t('copiedPath');
+						button.classList.add('copied');
+						setTimeout(() => { button.textContent = original; button.classList.remove('copied'); }, 1400);
+					} catch (error) { console.error(error); }
+				});
+			}
+		}
+		function applyTranslations() {
+			document.documentElement.lang = currentLocale;
+			document.title = t('documentTitle');
+			for (const element of document.querySelectorAll('[data-i18n]')) element.textContent = t(element.dataset.i18n);
+			for (const element of document.querySelectorAll('[data-i18n-html]')) element.innerHTML = t(element.dataset.i18nHtml);
+			searchInputEl.placeholder = t('searchPlaceholder');
+			searchInputEl.setAttribute('aria-label', t('searchAria'));
+			emptyStateEl.textContent = t('emptyState');
+			if (!currentManifest) statusEl.textContent = t('loadingManifest');
+		}
+		async function main() {
+			try {
+				applyTranslations();
+				languageSelectEl.value = currentLocale;
+				languageSelectEl.addEventListener('change', () => {
+					currentLocale = languageSelectEl.value;
+					applyTranslations();
+					if (currentManifest) { statusEl.textContent = t('loadedManifest'); renderBrowser(currentManifest); }
+				});
+				searchInputEl.addEventListener('input', () => { if (currentManifest) renderBrowser(currentManifest); });
+				const response = await fetch('./manifest.json', { cache: 'no-store' });
+				if (!response.ok) throw new Error('HTTP ' + response.status);
+				const manifest = await response.json();
+				currentManifest = manifest;
+				document.getElementById('schemaValue').textContent = String(manifest.schemaVersion ?? '-');
+				document.getElementById('updatedAtValue').textContent = manifest.updatedAt || '-';
+				document.getElementById('categoryCountValue').textContent = String((manifest.categories || []).length);
+				document.getElementById('pageCountValue').textContent = String((manifest.pages || []).length);
+				statusEl.textContent = t('loadedManifest');
+				renderBrowser(manifest);
+			} catch (error) {
+				statusEl.textContent = t('couldNotLoad');
+				pageTableEl.innerHTML = '';
+				categoryBarEl.innerHTML = '';
+				activeCategoryLabelEl.textContent = '';
+				activeCategoryCountEl.textContent = '';
+				emptyStateEl.classList.add('hidden');
+				document.getElementById('schemaValue').textContent = '-';
+				document.getElementById('updatedAtValue').textContent = '-';
+				document.getElementById('categoryCountValue').textContent = '-';
+				document.getElementById('pageCountValue').textContent = '-';
+				console.error(error);
+			}
+		}
+		void main();
+	</script>
+</body>
+
+</html>

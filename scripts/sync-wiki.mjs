@@ -1,4 +1,5 @@
 import path from "node:path";
+import { copyFile } from "node:fs/promises";
 
 import {
 	PAGES_DIR,
@@ -137,6 +138,10 @@ async function main() {
 	};
 
 	await writeJson(path.join(process.cwd(), "dist", "manifest.json"), manifest);
+	await copyFile(
+		path.join(process.cwd(), "scripts", "templates", "index.html"),
+		path.join(process.cwd(), "dist", "index.html")
+	);
 	await validateBundle();
 
 	console.log(`Synced ${pages.length} wiki pages into dist/.`);

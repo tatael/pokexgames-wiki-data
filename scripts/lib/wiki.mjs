@@ -353,16 +353,129 @@ export function buildPagePath(entry) {
 	return [...directories, fileName].join("/");
 }
 
+const TABBER_FALLBACK_PATTERN = /^Tabber\s+requer\s+Javascript\s+para\s+funcionar\.?\s*/i;
+
+const CONTENT_LIST_HEADING_TOKENS = [
+	"informacoes importantes",
+	"informaciones importantes",
+	"important information",
+	"localizacao da rift",
+	"rift location",
+	"jardim de",
+	"acessando o calabouco",
+	"segunda etapa",
+	"segredo",
+	"boss alternativo",
+];
+
+function isContentListHeading(value) {
+	const normalized = value
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, " ")
+		.trim();
+
+	return CONTENT_LIST_HEADING_TOKENS.some((token) => normalized.includes(token));
+}
+
+function cleanTableCellText(text) {
+	if (!text) return "";
+	let t = text;
+	// "Interface BDD PVE.png" → "BDD PvE", "Interface OffTank PVP.png" → "OffTank PvP"
+	t = t.replace(/\bInterface\s+([\w][\w\s]*?)\s+PVE\.png\b/gi, "$1 PvE");
+	t = t.replace(/\bInterface\s+([\w][\w\s]*?)\s+PVP\.png\b/gi, "$1 PvP");
+	// Type images: "Normal1.png" → "Normal", "Flying.png" → "Flying"
+	t = t.replace(/\b([A-Za-z][a-z]+)\d*\.(png|jpg)\b/g, "$1");
+	// Sprite/icon filenames starting with digits: "018-shPidgeot.png" → ""
+	t = t.replace(/\b\d[\w-]*\.(png|jpg)\b/gi, "");
+	t = t.replace(/\s+/g, " ").trim();
+	return t;
+}
+
+function findHeaderIndex(headers, candidates) {
+	const normalized = headers.map((h) =>
+		h.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
+	);
+
+	for (let i = 0; i < normalized.length; i++) {
+		if (candidates.some((c) => normalized[i].includes(c))) return i;
+	}
+
+	return -1;
+}
+
+function extractCellContent(cellHtml) {
+	// Expand img alt attributes to text before stripping tags
+	const withAlt = cellHtml.replace(/<img\b[^>]*\balt="([^"]*)"[^>]*\/?>/gi, " $1 ");
+	return stripHtml(withAlt).trim();
+}
+
+function extractTableRows(html) {
+	const rows = [];
+	const tableRegex = /<table\b[^>]*>([\s\S]*?)<\/table>/gi;
+
+	for (const tableMatch of html.matchAll(tableRegex)) {
+		const tableHtml = tableMatch[1];
+		const allRows = [];
+		const trRegex = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+		for (const trMatch of tableHtml.matchAll(trRegex)) {
+			allRows.push(trMatch[1]);
+		}
+
+		if (allRows.length < 2) continue;
+
+		// Locate header row (all-<th> row)
+		let headerCells = null;
+		let dataStart = 0;
+		for (let i = 0; i < allRows.length; i++) {
+			if (/<th\b/i.test(allRows[i]) && !/<td\b/i.test(allRows[i])) {
+				const thRegex = /<th\b[^>]*>([\s\S]*?)<\/th>/gi;
+				headerCells = [...allRows[i].matchAll(thRegex)].map((m) => extractCellContent(m[1]));
+				dataStart = i + 1;
+				break;
+			}
+		}
+
+		const nameCol = headerCells ? findHeaderIndex(headerCells, ["nome", "name", "pokemon"]) : -1;
+		const pveCol = headerCells ? findHeaderIndex(headerCells, ["funcao pve", "pve"]) : -1;
+		const pvpCol = headerCells ? findHeaderIndex(headerCells, ["funcao pvp", "pvp"]) : -1;
+
+		for (let i = dataStart; i < allRows.length; i++) {
+			const rowHtml = allRows[i];
+			if (!/<td\b/i.test(rowHtml)) continue;
+			const tdRegex = /<td\b[^>]*>([\s\S]*?)<\/td>/gi;
+			const cells = [...rowHtml.matchAll(tdRegex)].map((m) => cleanTableCellText(extractCellContent(m[1])));
+			if (cells.every((c) => !c)) continue;
+
+			if (nameCol >= 0 && cells[nameCol]) {
+				const name = cells[nameCol];
+				const pve = pveCol >= 0 ? cells[pveCol] : "";
+				const pvp = pvpCol >= 0 ? cells[pvpCol] : "";
+				const roles = [pve && `PvE: ${pve}`, pvp && `PvP: ${pvp}`].filter(Boolean).join(" / ");
+				rows.push(`* ${name}${roles ? ` (${roles})` : ""}`);
+			} else {
+				const joined = cells.filter(Boolean).join(" | ");
+				if (joined) rows.push(`* ${joined}`);
+			}
+		}
+	}
+
+	return rows;
+}
+
 export function extractLines(html) {
 	const lines = [];
 	const blockRegex = /<(p|li|h2|h3|h4)[^>]*>(.*?)<\/(p|li|h2|h3|h4)>/gis;
 
 	for (const match of html.matchAll(blockRegex)) {
 		const kind = match[1]?.toLowerCase();
-		const body = stripHtml(match[2] ?? "");
-		if (!kind || !body) {
-			continue;
-		}
+		const raw = stripHtml(match[2] ?? "");
+		if (!kind || !raw) continue;
+
+		// Strip "Tabber requer Javascript" prefix but keep any trailing content
+		const body = raw.replace(TABBER_FALLBACK_PATTERN, "").trim();
+		if (!body) continue;
 
 		if (kind === "li") {
 			lines.push(`* ${body}`);
@@ -376,6 +489,10 @@ export function extractLines(html) {
 
 		lines.push(body);
 	}
+
+	// Extract table rows (handles wiki tables not covered by block elements)
+	const tableRows = extractTableRows(html);
+	lines.push(...tableRows);
 
 	if (lines.length === 0) {
 		const fallback = stripHtml(html);
@@ -721,7 +838,8 @@ async function discoverChildrenRecursive({
 			excludeSlugs.has(childSlug) ||
 			excludeTitles.has(link.title) ||
 			isTranslatedVariantTitle(link.title) ||
-			isTranslatedVariantTitle(link.label)
+			isTranslatedVariantTitle(link.label) ||
+			(link.headingPath || []).some(isContentListHeading)
 		) {
 			continue;
 		}

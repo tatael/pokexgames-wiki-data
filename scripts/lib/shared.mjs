@@ -6,15 +6,32 @@ export const PT_BR = "pt-BR";
 export const SOURCE_NAME = "PokeXGames Wiki";
 export const ROOT_DIR = process.cwd();
 export const CONFIG_PATH = path.join(ROOT_DIR, "config", "wiki-pages.json");
+export const POKEMON_DISCOVERY_CACHE_PATH = path.join(ROOT_DIR, ".cache", "pokemon-pages.generated.json");
 export const DIST_DIR = path.join(ROOT_DIR, "dist");
 export const DIST_BUILD_DIR = path.join(ROOT_DIR, "dist.build");
 export const DIST_PREVIOUS_DIR = path.join(ROOT_DIR, "dist.prev");
 export const PAGES_DIR = path.join(DIST_DIR, "pages");
 export const PAGES_BUILD_DIR = path.join(DIST_BUILD_DIR, "pages");
 export const DISCOVERED_CONFIG_PATH = path.join(DIST_DIR, "discovered-pages.json");
-export const WIKI_FETCH_TIMEOUT_MS = 60000;
-export const WIKI_DISCOVERY_CONCURRENCY = 2;
-export const WIKI_SYNC_CONCURRENCY = 2;
+
+function readPositiveIntEnv(name, fallback) {
+	const raw = process.env[name];
+	const parsed = Number.parseInt(raw ?? "", 10);
+	return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function readBoolEnv(name, fallback = false) {
+	const raw = process.env[name];
+	if (raw == null || raw === "") return fallback;
+	return /^(1|true|yes|on)$/i.test(raw);
+}
+
+export const WIKI_FETCH_TIMEOUT_MS = readPositiveIntEnv("WIKI_FETCH_TIMEOUT_MS", 60000);
+export const WIKI_FETCH_RETRY_ATTEMPTS = readPositiveIntEnv("WIKI_FETCH_RETRY_ATTEMPTS", 3);
+export const WIKI_DISCOVERY_CONCURRENCY = readPositiveIntEnv("WIKI_DISCOVERY_CONCURRENCY", 48);
+export const WIKI_SYNC_CONCURRENCY = readPositiveIntEnv("WIKI_SYNC_CONCURRENCY", 24);
+export const WIKI_DISCOVERY_CACHE_HOURS = readPositiveIntEnv("WIKI_DISCOVERY_CACHE_HOURS", 168);
+export const WIKI_DISCOVERY_FORCE = readBoolEnv("WIKI_DISCOVERY_FORCE", false);
 
 export async function readJson(filePath) {
 	return JSON.parse(await readFile(filePath, "utf8"));

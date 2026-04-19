@@ -49,8 +49,8 @@ Each `pages/<slug>.json` contains:
 - `metadata`
 
 `images`, when present, contains the canonical remote wiki assets already resolved during sync:
-- `sprite.url`: static list/chip image, typically `.png`
-- `hero.url`: profile/reader image, typically `.gif`
+- Pokémon pages now publish `hero.url` as the single canonical image field used for both base pages and variants
+- non-Pokémon pages may still publish `sprite.url` and/or `hero.url` depending on the source page assets
 
 Consumer apps should use these published image URLs as the source of truth and only own local binary caching/downloading on their side.
 
@@ -70,6 +70,12 @@ npm run serve
 
 `npm run sync` fetches source pages, writes `dist/manifest.json` and `dist/pages/*.json`, then validates the generated bundle.
 It also writes `dist/index.html`, which serves as a human-readable landing page for the published GitHub Pages site.
+
+Useful environment overrides:
+- `WIKI_DISCOVERY_FORCE=1`: rebuild the generated Pokémon inventory instead of reusing the cached file
+- `WIKI_DISCOVERY_CONCURRENCY=48`: control API-based Pokémon discovery parallelism
+- `WIKI_SYNC_CONCURRENCY=24`: control page sync parallelism
+- `WIKI_DISCOVERY_CACHE_HOURS=168`: control how long `.cache/pokemon-pages.generated.json` is reused
 
 `npm run serve` starts a local HTTP server at `http://127.0.0.1:8787` that serves the `dist/` folder.
 Set `PORT=<number>` to use a different port.
@@ -107,6 +113,7 @@ Discovery behavior:
 - translated variant pages such as `(ES)` / `(EN)` are skipped during recursive discovery
 - generic heading labels such as `Índice`, `Introdução`, or `Primeros pasos` are ignored in generated navigation paths
 - semantic child pages prefer normalized filenames such as `crafts.json`, `workshop.json`, `dungeons.json`, and `maps.json`
+- Pokémon pages are discovered through the MediaWiki API, cached locally in `.cache/pokemon-pages.generated.json`, and then synced like any other page entry
 
 Current known limitation:
 - `Profissões` likely needs custom pathing/discovery rules beyond the generic recursive heuristics, because cross-linked profession systems can still produce semantically wrong branches if treated as a pure link graph

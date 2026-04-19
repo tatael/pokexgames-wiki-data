@@ -1,20 +1,42 @@
+import { stat } from "node:fs/promises";
+
 import {
 	CONFIG_PATH,
 	DISCOVERED_CONFIG_PATH,
+	POKEMON_DISCOVERY_CACHE_PATH,
 	PT_BR,
+	WIKI_DISCOVERY_CACHE_HOURS,
 	WIKI_DISCOVERY_CONCURRENCY,
+	WIKI_DISCOVERY_FORCE,
 	buildLocalizedText,
 	buildPagePath,
 	buildSlug,
 	readJson,
 	writeJson,
 } from "./shared.mjs";
-import { fetchWikiHtml, runWithConcurrency } from "./transport.mjs";
+import { fetchWikiApiJson, fetchWikiHtml, runWithConcurrency } from "./transport.mjs";
 import {
 	extractArticleHtml,
 	extractArticleWikiLinks,
 	mergeNavigationPath,
 } from "./extract.mjs";
+
+const POKEMON_CATEGORY_LABEL = {
+	"pt-BR": "Pokémon",
+	en: "Pokemon",
+	es: "Pokémon",
+};
+
+const POKEMON_DISCOVERY_TOKEN_BLACKLIST = new Set([
+	"addon", "addons", "adventure", "anniversary", "arcade", "arena", "bag", "backpack", "ball", "banner",
+	"battle", "bed", "berry", "boost", "boss", "bottle", "box", "camera", "cam", "capsule", "carpet", "chair",
+	"coin", "costume", "cup", "decoration", "detector", "disk", "dungeon", "egg", "elixir", "esp", "event",
+	"en", "eng", "es", "pt", "br",
+	"factory", "figure", "fireplace", "fossil", "gem", "guide", "holder", "item", "juice", "key", "lab", "locker",
+	"map", "mission", "missions", "npc", "outfit", "page", "park", "planner", "potion", "present", "professor",
+	"quest", "rewards", "route", "salad", "search", "signs", "sofa", "stone", "system", "systems", "table", "task",
+	"tasks", "tea", "ticket", "token", "tower", "trainer", "transportes", "tv", "tutorial", "vip", "workshop",
+]);
 
 function validateLocalizedMap(value, fieldName) {
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -82,8 +104,8 @@ export function validateConfig(config) {
 				throw new Error(`config.${entry.slug}.children must be an object when present`);
 			}
 
-			if (entry.children.mode !== "discover-links") {
-				throw new Error(`config.${entry.slug}.children.mode must be "discover-links"`);
+			if (!["discover-links", "discover-pokemon-api"].includes(entry.children.mode)) {
+				throw new Error(`config.${entry.slug}.children.mode must be "discover-links" or "discover-pokemon-api"`);
 			}
 
 			for (const field of ["excludeSlugs", "excludeTitles"]) {
@@ -112,6 +134,15 @@ export function validateConfig(config) {
 				}
 			}
 		}
+	}
+}
+
+async function pathExistsFreshHours(readPath, maxAgeHours) {
+	try {
+		const info = await stat(readPath);
+		return (Date.now() - info.mtimeMs) < (maxAgeHours * 60 * 60 * 1000);
+	} catch {
+		return false;
 	}
 }
 
@@ -170,6 +201,133 @@ export function inferDiscoveredPageKind(defaultPageKind, link, titleValue) {
 	if (looksLikeMapPage(combined)) return "map";
 
 	return defaultPageKind || "article";
+}
+
+function normalizeDiscoveryText(value) {
+	return String(value ?? "")
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.trim();
+}
+
+export function looksLikePokemonDiscoveryCandidate(title) {
+	const raw = String(title ?? "").trim();
+	if (!raw) return false;
+	if (/\d/.test(raw)) return false;
+	if (/[:/=]/.test(raw)) return false;
+	if (raw.split(/\s+/).filter(Boolean).length > 4) return false;
+	if (/\((?!TM\)|TR\))/i.test(raw)) return false;
+
+	const words = normalizeDiscoveryText(raw).split(/[^a-z0-9]+/).filter(Boolean);
+	if (!words.length) return false;
+	if (words.some((word) => POKEMON_DISCOVERY_TOKEN_BLACKLIST.has(word))) return false;
+	return true;
+}
+
+export function isPokemonSectionSignature(sections) {
+	const tokens = new Set(
+		(sections ?? [])
+			.map((section) => normalizeDiscoveryText(String(section.line ?? "").replace(/<[^>]+>/g, " ")))
+			.filter(Boolean)
+	);
+
+	return tokens.has("informacoes gerais")
+		&& tokens.has("movimentos")
+		&& tokens.has("efetividades");
+}
+
+async function fetchAllWikiPageTitles() {
+	const titles = [];
+	let apcontinue = "";
+
+	while (true) {
+		const payload = await fetchWikiApiJson({
+			action: "query",
+			list: "allpages",
+			aplimit: "max",
+			format: "json",
+			apcontinue,
+		});
+
+		titles.push(...(payload?.query?.allpages ?? []).map((page) => String(page.title ?? "").trim()).filter(Boolean));
+		apcontinue = payload?.continue?.apcontinue ?? "";
+		if (!apcontinue) break;
+	}
+
+	return titles;
+}
+
+async function fetchPageSections(title) {
+	const payload = await fetchWikiApiJson({
+		action: "parse",
+		page: title,
+		prop: "sections",
+		format: "json",
+	});
+
+	return payload?.parse?.sections ?? [];
+}
+
+async function discoverPokemonEntries(rootEntry) {
+	if (!WIKI_DISCOVERY_FORCE && await pathExistsFreshHours(POKEMON_DISCOVERY_CACHE_PATH, WIKI_DISCOVERY_CACHE_HOURS)) {
+		const cached = await readJson(POKEMON_DISCOVERY_CACHE_PATH);
+		return cached.pages ?? [];
+	}
+
+	let stalePages = [];
+	try {
+		const cached = await readJson(POKEMON_DISCOVERY_CACHE_PATH);
+		stalePages = cached.pages ?? [];
+	} catch {
+		stalePages = [];
+	}
+
+	try {
+		const allTitles = await fetchAllWikiPageTitles();
+		const candidates = allTitles.filter(looksLikePokemonDiscoveryCandidate);
+		const pages = (await runWithConcurrency(candidates, WIKI_DISCOVERY_CONCURRENCY, async (title) => {
+			const sections = await fetchPageSections(title);
+			if (!isPokemonSectionSignature(sections)) return null;
+
+			const slug = buildSlug(title, "");
+			if (!slug) return null;
+
+			return {
+				category: "pokemon",
+				categoryLabel: POKEMON_CATEGORY_LABEL,
+				slug,
+				url: `https://wiki.pokexgames.com/index.php/${encodeURIComponent(title.replaceAll(" ", "_"))}`,
+				title: buildLocalizedText(title),
+				pageKind: "pokemon",
+				navigationPath: ["Pokémon", title],
+				discoveredBy: "pokemon-api",
+				parentSlug: rootEntry.slug,
+				pagePath: buildPagePath({
+					category: "pokemon",
+					slug,
+					title: buildLocalizedText(title),
+					pageKind: "pokemon",
+					navigationPath: ["Pokémon", title],
+				}),
+			};
+		})).filter(Boolean).sort((left, right) => left.slug.localeCompare(right.slug, "en"));
+
+		await writeJson(POKEMON_DISCOVERY_CACHE_PATH, {
+			generatedAt: new Date().toISOString(),
+			pageCount: pages.length,
+			pages,
+		});
+
+		return pages;
+	} catch (error) {
+		if (stalePages.length) {
+			console.warn(`pokemon discovery failed, using stale cache: ${error instanceof Error ? error.message : error}`);
+			return stalePages;
+		}
+
+		throw error;
+	}
 }
 
 function isLikelyRecursiveBranchNode(entry) {
@@ -323,6 +481,27 @@ export async function expandConfigWithDiscoveredChildren(config) {
 			discoveredEntries,
 		})
 	);
+
+	const pokemonDiscoverRoots = config.filter((entry) => entry.children?.mode === "discover-pokemon-api");
+	for (const rootEntry of pokemonDiscoverRoots) {
+		const pokemonEntries = await discoverPokemonEntries(rootEntry);
+		for (const entry of pokemonEntries) {
+			if (seenSlugs.has(entry.slug)) continue;
+			expanded.push(entry);
+			seenSlugs.add(entry.slug);
+			discoveredEntries.push({
+				parentSlug: rootEntry.slug,
+				discoveredFromSlug: rootEntry.slug,
+				slug: entry.slug,
+				url: entry.url,
+				title: entry.title,
+				navigationPath: entry.navigationPath,
+				pageKind: entry.pageKind,
+				pagePath: entry.pagePath,
+				discoveredBy: "pokemon-api",
+			});
+		}
+	}
 
 	await writeJson(DISCOVERED_CONFIG_PATH, discoveredEntries);
 	return expanded;

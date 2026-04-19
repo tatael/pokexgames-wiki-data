@@ -268,9 +268,96 @@
 			"mode": "discover-links",
 			"pageKind": "boss",
 			"excludeSlugs": [
-				"boss-fight"
+				"boss-fight",
+				"boss-fight-entei",
+				"boss-fight-raikou",
+				"boss-fight-suicune"
 			],
 			"maxDepth": 2
+		}
+	},
+	{
+		"category": "boss-fight",
+		"categoryLabel": {
+			"pt-BR": "Boss Fight",
+			"en": "Boss Fight",
+			"es": "Boss Fight"
+		},
+		"slug": "boss-fight-entei",
+		"url": "https://wiki.pokexgames.com/index.php/Boss_Fight_-_Entei",
+		"title": {
+			"pt-BR": "Boss Fight - Entei",
+			"en": "Boss Fight - Entei",
+			"es": "Boss Fight - Entei"
+		},
+		"navigationPath": [
+			"Boss Fight",
+			"Boss Fight - Entei"
+		],
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "boss",
+			"excludeSlugs": [
+				"boss-fight",
+				"boss-fight-entei"
+			],
+			"maxDepth": 1
+		}
+	},
+	{
+		"category": "boss-fight",
+		"categoryLabel": {
+			"pt-BR": "Boss Fight",
+			"en": "Boss Fight",
+			"es": "Boss Fight"
+		},
+		"slug": "boss-fight-raikou",
+		"url": "https://wiki.pokexgames.com/index.php/Boss_Fight_-_Raikou",
+		"title": {
+			"pt-BR": "Boss Fight - Raikou",
+			"en": "Boss Fight - Raikou",
+			"es": "Boss Fight - Raikou"
+		},
+		"navigationPath": [
+			"Boss Fight",
+			"Boss Fight - Raikou"
+		],
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "boss",
+			"excludeSlugs": [
+				"boss-fight",
+				"boss-fight-raikou"
+			],
+			"maxDepth": 1
+		}
+	},
+	{
+		"category": "boss-fight",
+		"categoryLabel": {
+			"pt-BR": "Boss Fight",
+			"en": "Boss Fight",
+			"es": "Boss Fight"
+		},
+		"slug": "boss-fight-suicune",
+		"url": "https://wiki.pokexgames.com/index.php/Boss_Fight_-_Suicune",
+		"title": {
+			"pt-BR": "Boss Fight - Suicune",
+			"en": "Boss Fight - Suicune",
+			"es": "Boss Fight - Suicune"
+		},
+		"navigationPath": [
+			"Boss Fight",
+			"Boss Fight - Suicune"
+		],
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "boss",
+			"excludeSlugs": [
+				"boss-fight",
+				"boss-fight-suicune"
+			],
+			"maxDepth": 1
 		}
 	},
 	{
@@ -537,7 +624,10 @@
 			"Sistemas",
 			"Pokélog"
 		],
-		"pageKind": "system"
+		"pageKind": "system",
+		"children": {
+			"mode": "discover-pokemon-api"
+		}
 	},
 	{
 		"category": "systems",

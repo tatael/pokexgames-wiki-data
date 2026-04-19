@@ -21,9 +21,7 @@ import {
 	extractTitle,
 } from "./lib/extract.mjs";
 import {
-	collectWikiImageUrls,
 	extractPageImages,
-	extractPageImagesFromUrls,
 } from "./lib/images.mjs";
 import { loadConfig } from "./lib/discovery.mjs";
 import { prepareBuildDir, publishBuildDir } from "./lib/output.mjs";
@@ -37,43 +35,11 @@ import {
 } from "./lib/page-pipeline.mjs";
 import { validateBundle } from "./lib/validation.mjs";
 
-const POKEMON_SPRITE_INDEX_URL = "https://wiki.pokexgames.com/index.php/NPC_Heather_(Pok%C3%A9mon)";
-let pokemonSpriteIndexUrlsPromise = null;
-
-function isAnimatedImageUrl(url) {
-	return /\.gif(?:[?#]|$)/i.test(String(url ?? ""));
-}
-
-async function loadPokemonSpriteIndexUrls() {
-	if (!pokemonSpriteIndexUrlsPromise) {
-		pokemonSpriteIndexUrlsPromise = (async () => {
-			const html = await fetchWikiHtml(POKEMON_SPRITE_INDEX_URL);
-			if (!html) return [];
-			const articleHtml = extractArticleHtml(html);
-			return collectWikiImageUrls(articleHtml, POKEMON_SPRITE_INDEX_URL);
-		})();
-	}
-
-	return pokemonSpriteIndexUrlsPromise;
-}
-
 async function resolvePageImages({ articleHtml, sourceUrl, slug, pageKind }) {
 	const images = extractPageImages(articleHtml, sourceUrl.toString(), slug);
 	if (pageKind !== "pokemon") return images;
-	if (images?.sprite?.url && !isAnimatedImageUrl(images.sprite.url)) return images;
-
-	const spriteIndexUrls = await loadPokemonSpriteIndexUrls();
-	if (!spriteIndexUrls.length) return images;
-
-	const fallbackImages = extractPageImagesFromUrls(spriteIndexUrls, slug);
-	if (!fallbackImages?.sprite?.url || isAnimatedImageUrl(fallbackImages.sprite.url)) {
-		return images;
-	}
-
-	return {
-		...(images ?? {}),
-		sprite: fallbackImages.sprite,
-	};
+	const hero = images?.hero ?? images?.sprite ?? null;
+	return hero ? { hero } : null;
 }
 
 async function syncEntry(entry) {

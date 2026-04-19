@@ -1,10 +1,11 @@
 import http from "node:http";
 import https from "node:https";
 
-import { WIKI_FETCH_TIMEOUT_MS } from "./shared.mjs";
+import { WIKI_FETCH_RETRY_ATTEMPTS, WIKI_FETCH_TIMEOUT_MS } from "./shared.mjs";
 
 const USER_AGENT = "pokexgames-wiki-data/0.1 (+https://github.com/tatael/pokexgames-wiki-data)";
 const _fetchCache = new Map();
+const _jsonCache = new Map();
 
 function decodeHtmlBytes(bytes, contentType = "") {
 	const headerCharsetMatch = contentType.match(/charset=([^;]+)/i);
@@ -91,7 +92,7 @@ async function fetchWikiHtmlWithHttpFallback(url) {
 async function _fetchWikiHtml(url) {
 	let lastError = null;
 
-	for (let attempt = 1; attempt <= 3; attempt += 1) {
+	for (let attempt = 1; attempt <= WIKI_FETCH_RETRY_ATTEMPTS; attempt += 1) {
 		try {
 			const response = await fetch(url, {
 				headers: {
@@ -118,7 +119,7 @@ async function _fetchWikiHtml(url) {
 			} catch (fallbackError) {
 				lastError = fallbackError;
 			}
-			if (attempt < 3) {
+			if (attempt < WIKI_FETCH_RETRY_ATTEMPTS) {
 				await new Promise((resolve) => setTimeout(resolve, 750 * attempt));
 			}
 		}
@@ -137,6 +138,60 @@ export function fetchWikiHtml(url) {
 	const promise = _fetchWikiHtml(url);
 	_fetchCache.set(url, promise);
 	return promise;
+}
+
+async function _fetchJson(url) {
+	let lastError = null;
+
+	for (let attempt = 1; attempt <= WIKI_FETCH_RETRY_ATTEMPTS; attempt += 1) {
+		try {
+			const response = await fetch(url, {
+				headers: {
+					"User-Agent": USER_AGENT
+				},
+				signal: AbortSignal.timeout(WIKI_FETCH_TIMEOUT_MS)
+			});
+
+			if (!response.ok) {
+				throw new Error(`failed to fetch ${url}: HTTP ${response.status}`);
+			}
+
+			return await response.json();
+		} catch (error) {
+			lastError = error;
+			if (attempt < WIKI_FETCH_RETRY_ATTEMPTS) {
+				await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+			}
+		}
+	}
+
+	throw lastError instanceof Error
+		? new Error(`failed to fetch ${url}: ${lastError.message}`)
+		: new Error(`failed to fetch ${url}`);
+}
+
+export function fetchJson(url) {
+	if (_jsonCache.has(url)) {
+		return _jsonCache.get(url);
+	}
+
+	const promise = _fetchJson(url);
+	_jsonCache.set(url, promise);
+	return promise;
+}
+
+export function buildWikiApiUrl(params) {
+	const url = new URL("https://wiki.pokexgames.com/api.php");
+	for (const [key, value] of Object.entries(params)) {
+		if (value !== undefined && value !== null && value !== "") {
+			url.searchParams.set(key, value);
+		}
+	}
+	return url.toString();
+}
+
+export function fetchWikiApiJson(params) {
+	return fetchJson(buildWikiApiUrl(params));
 }
 
 export async function runWithConcurrency(items, limit, fn) {

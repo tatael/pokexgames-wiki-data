@@ -5,6 +5,8 @@ import { extractArticleHtml, extractArticleWikiLinks } from "../lib/extract.mjs"
 import {
 	inferDiscoveredPageKind,
 	isContentListHeading,
+	isPokemonSectionSignature,
+	looksLikePokemonDiscoveryCandidate,
 	shouldRecurseDiscoveredPage,
 	shouldSkipDiscoveredLink,
 } from "../lib/discovery.mjs";
@@ -67,4 +69,22 @@ test("discovery helper infers kinds and recursion policy correctly", () => {
 		shouldRecurseDiscoveredPage({ pageKind: "article", title: buildLocalizedText("Entei") }, 1),
 		true,
 	);
+});
+
+test("pokemon discovery helpers identify likely pokemon pages", () => {
+	assert.equal(looksLikePokemonDiscoveryCandidate("Dragonite"), true);
+	assert.equal(looksLikePokemonDiscoveryCandidate("Shiny Dragonite"), true);
+	assert.equal(looksLikePokemonDiscoveryCandidate("Dragonite Bag"), false);
+	assert.equal(looksLikePokemonDiscoveryCandidate("Arcade 2026"), false);
+
+	assert.equal(isPokemonSectionSignature([
+		{ line: "<b>Informações Gerais</b>" },
+		{ line: "<b>Movimentos</b>" },
+		{ line: "<b>Efetividades</b>" },
+	]), true);
+
+	assert.equal(isPokemonSectionSignature([
+		{ line: "<b>Introdução</b>" },
+		{ line: "<b>Recompensas</b>" },
+	]), false);
 });

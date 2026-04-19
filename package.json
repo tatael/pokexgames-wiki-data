@@ -8,7 +8,9 @@
 		"sync": "node scripts/sync-wiki.mjs",
 		"validate": "node scripts/validate-bundle.mjs",
 		"build": "node scripts/sync-wiki.mjs",
-		"ci": "node scripts/sync-wiki.mjs --ci"
+		"ci": "npm run test",
+		"test": "node --test scripts/test/*.test.mjs",
+		"serve": "node scripts/serve.mjs"
 	},
 	"engines": {
 		"node": ">=20"

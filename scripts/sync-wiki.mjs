@@ -2,31 +2,77 @@ import path from "node:path";
 import { copyFile } from "node:fs/promises";
 
 import {
-	PAGES_DIR,
+	DIST_BUILD_DIR,
+	PAGES_BUILD_DIR,
 	PT_BR,
 	SCHEMA_VERSION,
 	SOURCE_NAME,
-	buildSlug,
-	buildSummary,
+	WIKI_SYNC_CONCURRENCY,
 	buildPagePath,
-	cleanDist,
+	nowRfc3339,
+	writeJson,
+} from "./lib/shared.mjs";
+import { fetchWikiHtml, runWithConcurrency } from "./lib/transport.mjs";
+import {
+	buildSummary,
 	extractArticleHtml,
 	extractArticleFragmentHtml,
 	extractSections,
 	extractTitle,
-	fetchWikiHtml,
-	loadConfig,
-	nowRfc3339,
-	runWithConcurrency,
-	validateBundle,
-	writeJson
-} from "./lib/wiki.mjs";
+} from "./lib/extract.mjs";
+import {
+	collectWikiImageUrls,
+	extractPageImages,
+	extractPageImagesFromUrls,
+} from "./lib/images.mjs";
+import { loadConfig } from "./lib/discovery.mjs";
+import { prepareBuildDir, publishBuildDir } from "./lib/output.mjs";
+import {
+	buildLocalizedSummary,
+	normalizeSections,
+	resolveCategory,
+	resolveCategoryLabel,
+	resolveDisplayTitle,
+	resolvePokemonProfile,
+} from "./lib/page-pipeline.mjs";
+import { validateBundle } from "./lib/validation.mjs";
 
-function mirrorLocalizedText(value) {
+const POKEMON_SPRITE_INDEX_URL = "https://wiki.pokexgames.com/index.php/NPC_Heather_(Pok%C3%A9mon)";
+let pokemonSpriteIndexUrlsPromise = null;
+
+function isAnimatedImageUrl(url) {
+	return /\.gif(?:[?#]|$)/i.test(String(url ?? ""));
+}
+
+async function loadPokemonSpriteIndexUrls() {
+	if (!pokemonSpriteIndexUrlsPromise) {
+		pokemonSpriteIndexUrlsPromise = (async () => {
+			const html = await fetchWikiHtml(POKEMON_SPRITE_INDEX_URL);
+			if (!html) return [];
+			const articleHtml = extractArticleHtml(html);
+			return collectWikiImageUrls(articleHtml, POKEMON_SPRITE_INDEX_URL);
+		})();
+	}
+
+	return pokemonSpriteIndexUrlsPromise;
+}
+
+async function resolvePageImages({ articleHtml, sourceUrl, slug, pageKind }) {
+	const images = extractPageImages(articleHtml, sourceUrl.toString(), slug);
+	if (pageKind !== "pokemon") return images;
+	if (images?.sprite?.url && !isAnimatedImageUrl(images.sprite.url)) return images;
+
+	const spriteIndexUrls = await loadPokemonSpriteIndexUrls();
+	if (!spriteIndexUrls.length) return images;
+
+	const fallbackImages = extractPageImagesFromUrls(spriteIndexUrls, slug);
+	if (!fallbackImages?.sprite?.url || isAnimatedImageUrl(fallbackImages.sprite.url)) {
+		return images;
+	}
+
 	return {
-		[PT_BR]: value,
-		en: value,
-		es: value
+		...(images ?? {}),
+		sprite: fallbackImages.sprite,
 	};
 }
 
@@ -34,8 +80,8 @@ async function syncEntry(entry) {
 	const sourceUrl = new URL(entry.url);
 	const sourceFragment = sourceUrl.hash ? decodeURIComponent(sourceUrl.hash.slice(1)) : "";
 	sourceUrl.hash = "";
-	const html = await fetchWikiHtml(sourceUrl.toString());
 
+	const html = await fetchWikiHtml(sourceUrl.toString());
 	if (!html) {
 		console.warn(`skipping ${entry.slug}: page not found (${entry.url})`);
 		return null;
@@ -44,82 +90,84 @@ async function syncEntry(entry) {
 	const articleHtml = extractArticleFragmentHtml(extractArticleHtml(html), sourceFragment);
 	const fallbackTitle = entry.title?.[PT_BR] || entry.slug;
 	const resolvedTitle = fallbackTitle || extractTitle(html, entry.slug);
-	const slug = buildSlug(entry.slug, buildSlug(resolvedTitle, "wiki-page"));
 	const sectionsBase = extractSections(articleHtml, resolvedTitle);
-	const summary = buildSummary(sectionsBase);
+	const sections = normalizeSections(sectionsBase);
+	const summary = buildLocalizedSummary(buildSummary(sectionsBase));
 	const fetchedAt = nowRfc3339();
+	const profile = resolvePokemonProfile(sections);
+	const resolvedCategory = resolveCategory(entry.category, entry.slug, profile);
+	const resolvedCategoryLabel = resolveCategoryLabel(resolvedCategory, entry.categoryLabel);
+	const pageKind = profile ? "pokemon" : (entry.pageKind || "article");
+	const images = await resolvePageImages({
+		articleHtml,
+		sourceUrl,
+		slug: entry.slug,
+		pageKind,
+	});
 
-	const sections = sectionsBase.map((section) => ({
-		...section,
-		heading: mirrorLocalizedText(section.heading[PT_BR] || ""),
-		paragraphs: {
-			[PT_BR]: section.paragraphs[PT_BR] || [],
-			en: section.paragraphs[PT_BR] || [],
-			es: section.paragraphs[PT_BR] || []
-		},
-		items: {
-			[PT_BR]: section.items[PT_BR] || [],
-			en: section.items[PT_BR] || [],
-			es: section.items[PT_BR] || []
-		}
-	}));
+	const displayTitle = resolveDisplayTitle(entry.title, resolvedCategoryLabel);
+
+	const pagePath = buildPagePath({
+		category: resolvedCategory,
+		navigationPath: entry.navigationPath,
+		title: entry.title,
+		slug: entry.slug,
+		pageKind,
+	});
 
 	const page = {
-		category: entry.category,
-		slug,
+		category: resolvedCategory,
+		slug: entry.slug,
 		url: entry.url,
 		source: SOURCE_NAME,
 		fetchedAt,
-		title: entry.title,
-		summary: {
-			[PT_BR]: summary[PT_BR],
-			en: summary[PT_BR],
-			es: summary[PT_BR]
-		},
+		pageKind,
+		title: displayTitle,
+		summary,
+		...(profile ? { profile } : {}),
+		...(images ? { images } : {}),
 		sections,
 		metadata: {
 			sourceType: "wiki-sync",
-			pageKind: entry.pageKind || "article",
+			pageKind,
 			navigationPath: Array.isArray(entry.navigationPath) ? entry.navigationPath.join(" > ") : "",
-			sourceFragment
-		}
+			sourceFragment,
+		},
 	};
 
-	const pagePath = buildPagePath({
-		category: entry.category,
-		navigationPath: entry.navigationPath,
-		title: entry.title,
-		slug
-	});
-
-	await writeJson(path.join(PAGES_DIR, ...pagePath.split("/")), page);
+	await writeJson(path.join(PAGES_BUILD_DIR, ...pagePath.split("/")), page);
 
 	return {
-		categoryId: entry.category,
-		categoryLabel: entry.categoryLabel,
+		categoryId: resolvedCategory,
+		categoryLabel: resolvedCategoryLabel,
 		pageEntry: {
-			category: entry.category,
-			slug,
+			category: resolvedCategory,
+			slug: entry.slug,
 			url: entry.url,
-			title: entry.title,
-			summary: page.summary,
+			pageKind,
+			title: displayTitle,
+			summary,
+			...(profile ? { profile } : {}),
+			...(images ? { images } : {}),
 			fetchedAt,
-			pagePath
-		}
+			pagePath,
+		},
 	};
 }
 
 async function main() {
-	await cleanDist();
+	await prepareBuildDir();
 	const config = await loadConfig();
-
 	const categoriesMap = new Map();
 	const pages = [];
 
-	const results = await runWithConcurrency(config, 6, syncEntry);
+	const results = await runWithConcurrency(config, WIKI_SYNC_CONCURRENCY, syncEntry);
 	for (const result of results) {
 		if (!result) continue;
-		categoriesMap.set(result.categoryId, { id: result.categoryId, label: result.categoryLabel });
+		categoriesMap.set(result.categoryId, {
+			id: result.categoryId,
+			label: result.categoryLabel,
+		});
 		pages.push(result.pageEntry);
 	}
 
@@ -134,15 +182,17 @@ async function main() {
 		source: SOURCE_NAME,
 		updatedAt: nowRfc3339(),
 		categories: [...categoriesMap.values()],
-		pages
+		pages,
 	};
 
-	await writeJson(path.join(process.cwd(), "dist", "manifest.json"), manifest);
+	await writeJson(path.join(DIST_BUILD_DIR, "manifest.json"), manifest);
 	await copyFile(
 		path.join(process.cwd(), "scripts", "templates", "index.html"),
-		path.join(process.cwd(), "dist", "index.html")
+		path.join(DIST_BUILD_DIR, "index.html")
 	);
-	await validateBundle();
+
+	await validateBundle(DIST_BUILD_DIR);
+	await publishBuildDir();
 
 	console.log(`Synced ${pages.length} wiki pages into dist/.`);
 }

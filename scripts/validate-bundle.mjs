@@ -1,4 +1,4 @@
-import { distExists, validateBundle } from "./lib/wiki.mjs";
+import { distExists, validateBundle } from "./lib/validation.mjs";
 
 async function main() {
 	if (!(await distExists())) {

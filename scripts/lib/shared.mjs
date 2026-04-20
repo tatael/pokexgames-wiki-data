@@ -51,7 +51,59 @@ export function normalizeWhitespace(value) {
 }
 
 export function decodeHtmlEntities(value) {
-	return value
+	const namedEntities = {
+		nbsp: " ",
+		amp: "&",
+		quot: "\"",
+		apos: "'",
+		lt: "<",
+		gt: ">",
+		ccedil: "ç",
+		Ccedil: "Ç",
+		atilde: "ã",
+		Atilde: "Ã",
+		otilde: "õ",
+		Otilde: "Õ",
+		aacute: "á",
+		Aacute: "Á",
+		eacute: "é",
+		Eacute: "É",
+		iacute: "í",
+		Iacute: "Í",
+		oacute: "ó",
+		Oacute: "Ó",
+		uacute: "ú",
+		Uacute: "Ú",
+		agrave: "à",
+		Agrave: "À",
+		egrave: "è",
+		Egrave: "È",
+		ograve: "ò",
+		Ograve: "Ò",
+		ecirc: "ê",
+		Ecirc: "Ê",
+		ocirc: "ô",
+		Ocirc: "Ô",
+		ucirc: "û",
+		Ucirc: "Û",
+		acirc: "â",
+		Acirc: "Â",
+		uuml: "ü",
+		Uuml: "Ü",
+		ntilde: "ñ",
+		Ntilde: "Ñ",
+	};
+
+	return String(value ?? "")
+		.replace(/&#(\d+);?/g, (_match, code) => {
+			const parsed = Number.parseInt(code, 10);
+			return Number.isFinite(parsed) ? String.fromCodePoint(parsed) : _match;
+		})
+		.replace(/&#x([0-9a-f]+);?/gi, (_match, code) => {
+			const parsed = Number.parseInt(code, 16);
+			return Number.isFinite(parsed) ? String.fromCodePoint(parsed) : _match;
+		})
+		.replace(/&([a-zA-Z][a-zA-Z0-9]+);?/g, (match, entity) => namedEntities[entity] ?? match)
 		.replaceAll("&nbsp;", " ")
 		.replaceAll("&amp;", "&")
 		.replaceAll("&quot;", "\"")

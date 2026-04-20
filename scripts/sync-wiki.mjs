@@ -33,14 +33,25 @@ import {
 	resolveCategory,
 	resolveCategoryLabel,
 	resolveDisplayTitle,
+	resolveDisplayInList,
+	resolvePageGroup,
 	resolvePokemonProfile,
 	resolveSortRank,
+	resolveTitleOverride,
 } from "./lib/page-pipeline.mjs";
 import { validateBundle } from "./lib/validation.mjs";
 
 async function resolvePageImages({ articleHtml, sourceUrl, slug, pageKind }) {
 	const images = extractPageImages(articleHtml, sourceUrl.toString(), slug);
-	if (pageKind !== "pokemon") return images;
+	if (pageKind !== "pokemon") {
+		const leadSpriteUrl = extractLeadWikiImageUrl(articleHtml, sourceUrl.toString(), "sprite");
+		if (!leadSpriteUrl) return images;
+		return {
+			...(images ?? {}),
+			sprite: images?.sprite ?? { url: leadSpriteUrl },
+			hero: { url: leadSpriteUrl },
+		};
+	}
 	const leadHeroUrl = extractLeadWikiImageUrl(articleHtml, sourceUrl.toString(), "hero");
 	const discoveredImages = leadHeroUrl || images?.hero || images?.sprite
 		? null
@@ -65,7 +76,7 @@ async function syncEntry(entry) {
 	const articleHtml = extractArticleFragmentHtml(extractArticleHtml(html), sourceFragment);
 	const fallbackTitle = entry.title?.[PT_BR] || entry.slug;
 	const resolvedTitle = fallbackTitle || extractTitle(html, entry.slug);
-	const sectionsBase = extractSections(articleHtml, resolvedTitle);
+	const sectionsBase = extractSections(articleHtml, resolvedTitle, sourceUrl.toString());
 	const sections = normalizeSections(sectionsBase);
 	const fetchedAt = nowRfc3339();
 	const profile = resolvePokemonProfile(sections);
@@ -73,7 +84,9 @@ async function syncEntry(entry) {
 	const resolvedCategoryLabel = resolveCategoryLabel(resolvedCategory, entry.categoryLabel);
 	const pageKind = profile ? "pokemon" : (entry.pageKind || "article");
 	const rawSummary = buildSummary(sectionsBase);
-	const fallbackSummary = entry.title?.[PT_BR] || resolvedTitle || entry.slug;
+	const displayTitle = resolveTitleOverride({ category: resolvedCategory, slug: entry.slug })
+		?? resolveDisplayTitle(entry.title, resolvedCategoryLabel);
+	const fallbackSummary = displayTitle?.[PT_BR] || entry.title?.[PT_BR] || resolvedTitle || entry.slug;
 	const summary = buildLocalizedSummary(rawSummary, fallbackSummary);
 	const images = await resolvePageImages({
 		articleHtml,
@@ -82,8 +95,21 @@ async function syncEntry(entry) {
 		pageKind,
 	});
 
-	const displayTitle = resolveDisplayTitle(entry.title, resolvedCategoryLabel);
 	const sortRank = resolveSortRank({ category: resolvedCategory, slug: entry.slug, title: displayTitle });
+	const navigationPath = Array.isArray(entry.navigationPath) ? entry.navigationPath : [];
+	const pageGroup = resolvePageGroup({
+		category: resolvedCategory,
+		slug: entry.slug,
+		title: displayTitle,
+		navigationPath,
+	});
+	const displayInList = resolveDisplayInList({
+		category: resolvedCategory,
+		slug: entry.slug,
+		title: displayTitle,
+		pageKind,
+		navigationPath,
+	});
 
 	const pagePath = buildPagePath({
 		category: resolvedCategory,
@@ -103,6 +129,8 @@ async function syncEntry(entry) {
 		title: displayTitle,
 		summary,
 		...(sortRank !== null ? { sortRank } : {}),
+		...(displayInList === false ? { displayInList } : {}),
+		...(pageGroup ? { pageGroup } : {}),
 		...(profile ? { profile } : {}),
 		...(images ? { images } : {}),
 		sections,
@@ -127,6 +155,8 @@ async function syncEntry(entry) {
 			title: displayTitle,
 			summary,
 			...(sortRank !== null ? { sortRank } : {}),
+			...(displayInList === false ? { displayInList } : {}),
+			...(pageGroup ? { pageGroup } : {}),
 			...(profile ? { profile } : {}),
 			...(images ? { images } : {}),
 			fetchedAt,

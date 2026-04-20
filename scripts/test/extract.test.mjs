@@ -43,3 +43,22 @@ test("extractSections and buildSummary shape a pokemon page into readable blocks
 
 	assert.match(buildSummary(sections)["pt-BR"], /Nome: Absol/);
 });
+
+test("extractSections ignores wiki language flags and interface icons as media", () => {
+	const html = `
+		<h2>Introdução</h2>
+		<p>Texto.</p>
+		<img src="/images/a/aa/Spanish_Flag.png" alt="Spanish Flag">
+		<img src="/images/thumb/8/80/Interface_Tank_PVE.png/24px-Interface_Tank_PVE.png" alt="Interface Tank PVE.png">
+		<img src="/images/3/34/Banner_Daily-Gift.png" alt="Banner Daily Gift">
+	`;
+	const sections = extractSections(html, "Teste", "https://wiki.pokexgames.com/index.php/Teste");
+
+	assert.deepEqual(sections[0].media["pt-BR"], [
+		{
+			type: "image",
+			url: "https://wiki.pokexgames.com/images/3/34/Banner_Daily-Gift.png",
+			alt: "Banner Daily Gift",
+		},
+	]);
+});

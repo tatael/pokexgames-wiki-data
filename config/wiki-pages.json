@@ -444,6 +444,126 @@
 		}
 	},
 	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "bronze-dungeons",
+		"url": "https://wiki.pokexgames.com/index.php/Spoiler_das_Masmorras#Bronze_Dungeons",
+		"title": {
+			"pt-BR": "Bronze Dungeons",
+			"en": "Bronze Dungeons",
+			"es": "Bronze Dungeons"
+		},
+		"navigationPath": [
+			"Dimensional Zone",
+			"Bronze Dungeons"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "silver-dungeons",
+		"url": "https://wiki.pokexgames.com/index.php/Spoiler_das_Masmorras#Silver_Dungeons",
+		"title": {
+			"pt-BR": "Silver Dungeons",
+			"en": "Silver Dungeons",
+			"es": "Silver Dungeons"
+		},
+		"navigationPath": [
+			"Dimensional Zone",
+			"Silver Dungeons"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "golden-dungeons",
+		"url": "https://wiki.pokexgames.com/index.php/Spoiler_das_Masmorras#Golden_Dungeons",
+		"title": {
+			"pt-BR": "Golden Dungeons",
+			"en": "Golden Dungeons",
+			"es": "Golden Dungeons"
+		},
+		"navigationPath": [
+			"Dimensional Zone",
+			"Golden Dungeons"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "crystal-dungeons",
+		"url": "https://wiki.pokexgames.com/index.php/Spoiler_das_Masmorras#Crystal_Dungeons",
+		"title": {
+			"pt-BR": "Crystal Dungeons",
+			"en": "Crystal Dungeons",
+			"es": "Crystal Dungeons"
+		},
+		"navigationPath": [
+			"Dimensional Zone",
+			"Crystal Dungeons"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "master-dungeons",
+		"url": "https://wiki.pokexgames.com/index.php/Spoiler_das_Masmorras#Master_Dungeons",
+		"title": {
+			"pt-BR": "Master Dungeons",
+			"en": "Master Dungeons",
+			"es": "Master Dungeons"
+		},
+		"navigationPath": [
+			"Dimensional Zone",
+			"Master Dungeons"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "embedded-tower",
+		"categoryLabel": {
+			"pt-BR": "Embedded Tower",
+			"en": "Embedded Tower",
+			"es": "Embedded Tower"
+		},
+		"slug": "embedded-tower-quinto-andar",
+		"url": "https://wiki.pokexgames.com/index.php/Embedded_Tower_-_Quinto_Andar",
+		"title": {
+			"pt-BR": "Quinto Andar",
+			"en": "Fifth Floor",
+			"es": "Quinto Piso"
+		},
+		"navigationPath": [
+			"Embedded Tower",
+			"Quinto Andar"
+		],
+		"pageKind": "tower"
+	},
+	{
 		"category": "nightmare-world",
 		"categoryLabel": {
 			"pt-BR": "Nightmare World",
@@ -634,6 +754,106 @@
 			],
 			"maxDepth": 2
 		}
+	},
+	{
+		"category": "territory-guardians",
+		"categoryLabel": {
+			"pt-BR": "Guardiões de Território",
+			"en": "Territory Guardians",
+			"es": "Guardianes de Territorio"
+		},
+		"slug": "dorabelle",
+		"url": "https://wiki.pokexgames.com/index.php/Guardiões_de_Território#Dorabelle-0",
+		"title": {
+			"pt-BR": "Dorabelle",
+			"en": "Dorabelle",
+			"es": "Dorabelle"
+		},
+		"navigationPath": [
+			"Guardiões de Território",
+			"Dorabelle"
+		],
+		"pageKind": "guardian-boss"
+	},
+	{
+		"category": "territory-guardians",
+		"categoryLabel": {
+			"pt-BR": "Guardiões de Território",
+			"en": "Territory Guardians",
+			"es": "Guardianes de Territorio"
+		},
+		"slug": "giant-tyranitar",
+		"url": "https://wiki.pokexgames.com/index.php/Guardiões_de_Território#Giant_Tyranitar-1",
+		"title": {
+			"pt-BR": "Giant Tyranitar",
+			"en": "Giant Tyranitar",
+			"es": "Giant Tyranitar"
+		},
+		"navigationPath": [
+			"Guardiões de Território",
+			"Giant Tyranitar"
+		],
+		"pageKind": "guardian-boss"
+	},
+	{
+		"category": "territory-guardians",
+		"categoryLabel": {
+			"pt-BR": "Guardiões de Território",
+			"en": "Territory Guardians",
+			"es": "Guardianes de Territorio"
+		},
+		"slug": "giant-dragonair",
+		"url": "https://wiki.pokexgames.com/index.php/Guardiões_de_Território#Giant_Dragonair-1",
+		"title": {
+			"pt-BR": "Giant Dragonair",
+			"en": "Giant Dragonair",
+			"es": "Giant Dragonair"
+		},
+		"navigationPath": [
+			"Guardiões de Território",
+			"Giant Dragonair"
+		],
+		"pageKind": "guardian-boss"
+	},
+	{
+		"category": "territory-guardians",
+		"categoryLabel": {
+			"pt-BR": "Guardiões de Território",
+			"en": "Territory Guardians",
+			"es": "Guardianes de Territorio"
+		},
+		"slug": "giant-mamoswine",
+		"url": "https://wiki.pokexgames.com/index.php/Guardiões_de_Território#Giant_Mamoswine-1",
+		"title": {
+			"pt-BR": "Giant Mamoswine",
+			"en": "Giant Mamoswine",
+			"es": "Giant Mamoswine"
+		},
+		"navigationPath": [
+			"Guardiões de Território",
+			"Giant Mamoswine"
+		],
+		"pageKind": "guardian-boss"
+	},
+	{
+		"category": "territory-guardians",
+		"categoryLabel": {
+			"pt-BR": "Guardiões de Território",
+			"en": "Territory Guardians",
+			"es": "Guardianes de Territorio"
+		},
+		"slug": "giant-magcargo",
+		"url": "https://wiki.pokexgames.com/index.php/Guardiões_de_Território#Giant_Magcargo-1",
+		"title": {
+			"pt-BR": "Giant Magcargo",
+			"en": "Giant Magcargo",
+			"es": "Giant Magcargo"
+		},
+		"navigationPath": [
+			"Guardiões de Território",
+			"Giant Magcargo"
+		],
+		"pageKind": "guardian-boss"
 	},
 	{
 		"category": "systems",

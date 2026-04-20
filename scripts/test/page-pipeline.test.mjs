@@ -4,9 +4,11 @@ import assert from "node:assert/strict";
 import {
 	buildLocalizedSummary,
 	resolveCategory,
+	resolveDisplayInList,
+	resolvePageGroup,
 	resolveSortRank,
 } from "../lib/page-pipeline.mjs";
-import { PT_BR, buildLocalizedText } from "../lib/shared.mjs";
+import { PT_BR, buildLocalizedText, decodeHtmlEntities } from "../lib/shared.mjs";
 
 test("resolveCategory routes normalized wiki pages to their source categories", () => {
 	assert.equal(resolveCategory("items", "daily-kill", null, {
@@ -19,7 +21,13 @@ test("resolveCategory routes normalized wiki pages to their source categories", 
 		title: buildLocalizedText("Christmas Defender Granbull"),
 		navigationPath: ["Itens", "Mochilas", "Mochilas de Eventos"],
 		pageKind: "item",
-	}), "quests");
+	}), "events");
+
+	assert.equal(resolveCategory("items", "dz-giant-onix", null, {
+		title: buildLocalizedText("DZ Giant Onix"),
+		navigationPath: ["Itens", "Mochilas"],
+		pageKind: "item",
+	}), "dimensional-zone");
 
 	assert.equal(resolveCategory("items", "aggron", { [PT_BR]: { name: "Aggron" } }, {
 		title: buildLocalizedText("Aggron"),
@@ -29,7 +37,7 @@ test("resolveCategory routes normalized wiki pages to their source categories", 
 	assert.equal(resolveCategory("mystery-dungeons", "mystery-dungeon-the-darkness", null, {
 		title: buildLocalizedText("Mystery Dungeon - The Darkness"),
 		pageKind: "dungeons",
-	}), "territory-guardians");
+	}), "mystery-dungeons");
 });
 
 test("buildLocalizedSummary replaces the generic local-sync placeholder", () => {
@@ -39,12 +47,72 @@ test("buildLocalizedSummary replaces the generic local-sync placeholder", () => 
 	);
 });
 
+test("decodeHtmlEntities normalizes numeric and accented title entities", () => {
+	assert.equal(decodeHtmlEntities("Dorabelle&#039;s Wrath &amp; Benef&iacute;cios"), "Dorabelle's Wrath & Benefícios");
+});
+
+test("resolveDisplayInList hides aliases and non-card pages from category lists", () => {
+	assert.equal(resolveDisplayInList({
+		category: "nightmare-world",
+		slug: "beneficios-vip-esp",
+		title: buildLocalizedText("Benefícios VIP (ESP)"),
+		pageKind: "system",
+	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "professions",
+		slug: "aventureiro",
+		title: buildLocalizedText("Aventureiro"),
+		pageKind: "profession",
+	}), true);
+
+	assert.equal(resolveDisplayInList({
+		category: "dimensional-zone",
+		slug: "dz-ambipom",
+		title: buildLocalizedText("DZ Ambipom"),
+		pageKind: "zone",
+	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "dimensional-zone",
+		slug: "bronze-dungeons",
+		title: buildLocalizedText("Bronze Dungeons"),
+		pageKind: "zone",
+	}), true);
+
+	assert.equal(resolveDisplayInList({
+		category: "professions",
+		slug: "researcher",
+		title: buildLocalizedText("Researcher"),
+		pageKind: "profession",
+	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "npcs",
+		slug: "dimensional-mountain-quest",
+		title: buildLocalizedText("Dimensional Mountain Quest"),
+		pageKind: "npc",
+	}), false);
+});
+
+test("resolvePageGroup publishes Nightmare Rift list sections", () => {
+	assert.deepEqual(resolvePageGroup({
+		category: "nightmare-rifts",
+		slug: "weekly-rifts",
+		title: buildLocalizedText("Weekly Rifts"),
+	}), {
+		[PT_BR]: "Rifts Semanais",
+		en: "Weekly Rifts",
+		es: "Rifts Semanales",
+	});
+});
+
 test("resolveSortRank publishes category-specific card order", () => {
 	assert.equal(resolveSortRank({
 		category: "embedded-tower",
 		slug: "camara-do-jirachi",
 		title: buildLocalizedText("Câmara do Jirachi"),
-	}), 60);
+	}), 40);
 
 	assert.equal(resolveSortRank({
 		category: "dimensional-zone",

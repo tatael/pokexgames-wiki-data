@@ -119,6 +119,10 @@ export async function validateBundle(distDir = DIST_DIR) {
 
 		validateLocalizedMap(summary.title, `manifest.pages.${summary.slug}.title`);
 		validateLocalizedMap(summary.summary, `manifest.pages.${summary.slug}.summary`);
+		if (summary.pageGroup !== undefined) validateLocalizedMap(summary.pageGroup, `manifest.pages.${summary.slug}.pageGroup`);
+		if (summary.displayInList !== undefined && typeof summary.displayInList !== "boolean") {
+			throw new Error(`manifest page "${summary.slug}".displayInList must be a boolean when present`);
+		}
 		validateImageSet(summary.images, `manifest.pages.${summary.slug}.images`);
 		assertRfc3339(summary.fetchedAt, `manifest.pages.${summary.slug}.fetchedAt`);
 
@@ -152,6 +156,13 @@ export async function validateBundle(distDir = DIST_DIR) {
 
 		validateLocalizedMap(page.title, `pages.${summary.slug}.title`);
 		validateLocalizedMap(page.summary, `pages.${summary.slug}.summary`);
+		if (page.pageGroup !== undefined) validateLocalizedMap(page.pageGroup, `pages.${summary.slug}.pageGroup`);
+		if (page.displayInList !== summary.displayInList) {
+			throw new Error(`page file "${summary.slug}.json" has mismatched displayInList`);
+		}
+		if (JSON.stringify(page.pageGroup ?? null) !== JSON.stringify(summary.pageGroup ?? null)) {
+			throw new Error(`page file "${summary.slug}.json" has mismatched pageGroup`);
+		}
 		validateImageSet(page.images, `pages.${summary.slug}.images`);
 		assertRfc3339(page.fetchedAt, `pages.${summary.slug}.fetchedAt`);
 

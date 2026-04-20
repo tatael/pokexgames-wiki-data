@@ -1,6 +1,7 @@
 ﻿import {
 	PT_BR,
 	buildSlug,
+	decodeHtmlEntities,
 	normalizeWhitespace,
 	stripHtml,
 } from "./shared.mjs";
@@ -61,7 +62,7 @@ export function decodeWikiTitleFromUrl(url) {
 		return null;
 	}
 
-	return decodeURIComponent(rawTitle).replaceAll("_", " ");
+	return decodeHtmlEntities(decodeURIComponent(rawTitle).replaceAll("_", " "));
 }
 
 export function buildWikiUrlFromTitle(title) {
@@ -296,7 +297,57 @@ export function extractLines(html) {
 	return lines;
 }
 
-export function extractSections(html, title) {
+function absolutizeWikiAssetUrl(pageUrl, rawSrc) {
+	const source = String(rawSrc ?? "").trim();
+	if (!source) return null;
+	try {
+		const url = new URL(source, pageUrl);
+		if (url.hostname !== "wiki.pokexgames.com" || !url.pathname.includes("/images/")) return null;
+		return url.toString();
+	} catch {
+		return null;
+	}
+}
+
+function isNoiseMediaAsset(url, alt = "") {
+	const source = `${url} ${alt}`
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase();
+
+	if (/\/\d{1,2}px-[^/]+$/i.test(url)) return true;
+	return /(?:^|[\/_\s-])(?:flag|bandeira|bandera|english|spanish|portuguese|usa|eua|united[-_\s]?states|spain|brasil|brazil|espanol|idioma|language)(?:[._\s-]|$)/i.test(source)
+		|| /(?:^|[\/_\s-])interface[-_\s]/i.test(source)
+		|| /(?:^|[\/_\s-])pokedexicon(?:[._\s-]|$)/i.test(source)
+		|| /\/images\/[0-9a-f]\/[0-9a-f]{2}\/(?:bug|dark|dragon|electric|fairy|fighting|fire|flying|ghost|grass|ground|ice|normal|poison|psychic|rock|steel|water)\.(?:png|gif|jpe?g|webp)(?:\?|$)/i.test(url);
+}
+
+function extractMedia(html, pageUrl = "") {
+	if (!pageUrl) return [];
+	const media = [];
+	const seen = new Set();
+	const add = (type, rawUrl, alt = "") => {
+		const url = absolutizeWikiAssetUrl(pageUrl, rawUrl);
+		if (!url || seen.has(url)) return;
+		if (isNoiseMediaAsset(url, alt)) return;
+		seen.add(url);
+		media.push({ type, url, alt: stripHtml(alt || "") });
+	};
+
+	for (const match of String(html ?? "").matchAll(/<img\b[^>]*>/gi)) {
+		const tag = match[0];
+		add("image", tag.match(/\bsrc="([^"]+)"/i)?.[1] ?? tag.match(/\bdata-src="([^"]+)"/i)?.[1], tag.match(/\balt="([^"]*)"/i)?.[1] ?? "");
+	}
+
+	for (const match of String(html ?? "").matchAll(/<(?:video|source)\b[^>]*>/gi)) {
+		const tag = match[0];
+		add("video", tag.match(/\bsrc="([^"]+)"/i)?.[1] ?? tag.match(/\bdata-src="([^"]+)"/i)?.[1], tag.match(/\balt="([^"]*)"/i)?.[1] ?? "");
+	}
+
+	return media;
+}
+
+export function extractSections(html, title, pageUrl = "") {
 	const headingRegex = /<h2[^>]*>(.*?)<\/h2>/gis;
 	const headings = [];
 
@@ -326,6 +377,7 @@ export function extractSections(html, title) {
 				heading: { [PT_BR]: "Visão geral" },
 				paragraphs: { [PT_BR]: paragraphs },
 				items: { [PT_BR]: items },
+				media: { [PT_BR]: extractMedia(html, pageUrl) },
 			},
 		];
 	}
@@ -344,6 +396,7 @@ export function extractSections(html, title) {
 			heading: { [PT_BR]: entry.heading },
 			paragraphs: { [PT_BR]: paragraphs },
 			items: { [PT_BR]: items },
+			media: { [PT_BR]: extractMedia(slice, pageUrl) },
 		};
 	});
 }

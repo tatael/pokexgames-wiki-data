@@ -33,7 +33,11 @@ const SECTION_KIND_BY_ID = {
 	"historia": "prose",
 	"lore": "prose",
 	"pokemon-recomendados": "pokemon-group",
-	"recompensas": "rewards"
+	"pokemon": "pokemon-group",
+	"pokemons": "pokemon-group",
+	"recompensa": "rewards",
+	"recompensas": "rewards",
+	"rewards": "rewards"
 };
 
 function normalizeForRarity(value) {
@@ -453,6 +457,12 @@ function classifySectionKind(id, headingText) {
 	}
 
 	const normHeading = normalizeIdToken(headingText ?? "");
+	if (normHeading === "recompensa" || normHeading === "recompensas" || normHeading === "rewards") {
+		return "rewards";
+	}
+	if (normHeading === "pokemon" || normHeading === "pokemons" || normHeading === "pokemon recomendados") {
+		return "pokemon-group";
+	}
 	if (normHeading && (TIER_SECTION_PATTERN.test(normHeading) || TIER_SECTION_PATTERN.test(normHeading.replace(/ /g, "")))) {
 		return "tier";
 	}

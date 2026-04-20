@@ -66,6 +66,11 @@ test("discovery helper infers kinds and recursion policy correctly", () => {
 	);
 
 	assert.equal(
+		shouldRecurseDiscoveredPage({ pageKind: "article", title: buildLocalizedText("Embedded Tower EN") }, 1),
+		false,
+	);
+
+	assert.equal(
 		shouldRecurseDiscoveredPage({ pageKind: "article", title: buildLocalizedText("Entei") }, 1),
 		true,
 	);

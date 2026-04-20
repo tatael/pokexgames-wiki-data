@@ -279,11 +279,20 @@ export function parsePokemonItemText(item) {
 	if (!roleMatch) return null;
 	const exclusive = namePart.endsWith("*");
 	const name = namePart.replace(/\s*\*\s*$/, "").trim();
+	const cleanRole = (value) => {
+		const role = String(value ?? "")
+			.replace(/\bLink\b/gi, "")
+			.split("/")
+			.map((part) => part.replace(/\s+/g, " ").trim())
+			.filter(Boolean)
+			.join(" / ");
+		return role || "Not";
+	};
 	return {
 		name,
 		exclusive,
-		pve: roleMatch[1].trim() || "Not",
-		pvp: roleMatch[2].trim() || "Not"
+		pve: cleanRole(roleMatch[1]),
+		pvp: cleanRole(roleMatch[2])
 	};
 }
 

@@ -147,7 +147,9 @@ async function pathExistsFreshHours(readPath, maxAgeHours) {
 }
 
 export function isTranslatedVariantTitle(value) {
-	return /\((ES|EN|PT-BR|PT|BR)\)\s*$/i.test(value.trim());
+	const title = value.trim();
+	return /\((ES|EN|PT-BR|PT|BR)\)\s*$/i.test(title)
+		|| /\b(ES|EN|PT-BR|PT|BR)\s*$/i.test(title);
 }
 
 const CONTENT_LIST_HEADING_TOKENS = [
@@ -192,6 +194,21 @@ function looksLikeMapPage(value) {
 	return /\bmapa(s)?\b|\bmaps?\b/i.test(value);
 }
 
+function looksLikeQuestPage(value) {
+	return /\bquests?\b|\bmissoes?\b|\bmission(s)?\b/i.test(value);
+}
+
+function looksLikeEventPage(value) {
+	return /\beventos?\b|\bevents?\b|\bdefender\b/i.test(value);
+}
+
+function looksLikeNonItemPage(value) {
+	return looksLikeQuestPage(value)
+		|| looksLikeEventPage(value)
+		|| looksLikeDungeonPage(value)
+		|| /\bboss\b/i.test(value);
+}
+
 export function inferDiscoveredPageKind(defaultPageKind, link, titleValue) {
 	const combined = `${titleValue} ${(link.headingPath || []).join(" ")}`;
 
@@ -199,6 +216,9 @@ export function inferDiscoveredPageKind(defaultPageKind, link, titleValue) {
 	if (looksLikeCraftPage(combined)) return "craft";
 	if (looksLikeDungeonPage(combined)) return "dungeons";
 	if (looksLikeMapPage(combined)) return "map";
+	if (defaultPageKind === "item" && looksLikeQuestPage(combined)) return "quest";
+	if (defaultPageKind === "item" && looksLikeEventPage(combined)) return "event";
+	if (defaultPageKind === "item" && looksLikeNonItemPage(combined)) return "article";
 
 	return defaultPageKind || "article";
 }
@@ -371,6 +391,13 @@ export function shouldSkipDiscoveredLink({
 	excludeTitles,
 }) {
 	const childSlug = buildSlug(link.title, "");
+	const rootCategory = rootEntry.category || "";
+	const titleText = `${link.title} ${link.label}`;
+	const embeddedTowerAlias = rootCategory === "embedded-tower"
+		&& (
+			/^embedded-tower-(en|es|pt|br)$/i.test(childSlug)
+			|| /\b(primer|cuarto|quinto|sexto|septimo|piso|funcionamiento|recompensas\s+de\s+la)\b/i.test(normalizeDiscoveryText(titleText))
+		);
 	return (
 		!childSlug
 		|| childSlug === parentEntry.slug
@@ -380,6 +407,7 @@ export function shouldSkipDiscoveredLink({
 		|| excludeTitles.has(link.title)
 		|| isTranslatedVariantTitle(link.title)
 		|| isTranslatedVariantTitle(link.label)
+		|| embeddedTowerAlias
 		|| (link.headingPath || []).some(isContentListHeading)
 	);
 }

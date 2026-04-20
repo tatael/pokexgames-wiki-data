@@ -32,15 +32,81 @@ export function resolvePokemonProfile(sections) {
 	return null;
 }
 
-export function resolveCategory(category, slug, profile) {
-	if (category === "boss-fight" && profile && !slug.startsWith("boss-fight-")) {
+const GUARDIAN_DUNGEON_SLUGS = new Set([
+	"mystery-dungeon-dorabelle-s-wrath",
+	"mystery-dungeon-the-darkness",
+	"mystery-dungeon-the-celestial-serpent",
+	"mystery-dungeon-below-zero",
+	"mystery-dungeon-the-magma-insurgency",
+]);
+
+function normalizeCategoryText(value) {
+	return String(value ?? "")
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase();
+}
+
+function looksLikeDailyMission(title, navigationPath = []) {
+	const text = normalizeCategoryText(`${title} ${navigationPath.join(" ")}`);
+	return /\bdaily\s+(kill|catch|dz|gift)\b/.test(text)
+		|| /\bmissoes?\s+diarias?\b/.test(text);
+}
+
+function looksLikeQuestOrEvent(title, navigationPath = [], pageKind = "") {
+	const text = normalizeCategoryText(`${title} ${navigationPath.join(" ")} ${pageKind}`);
+	return /\bquest\b/.test(text)
+		|| /\beventos?\b/.test(text)
+		|| /\bdungeons?\b/.test(text)
+		|| /\bboss\b/.test(text)
+		|| /\bdefender\b/.test(text);
+}
+
+export function resolveCategory(category, slug, profile, entry = {}) {
+	if (profile) {
 		return "pokemon";
+	}
+
+	if (GUARDIAN_DUNGEON_SLUGS.has(slug)) {
+		return "territory-guardians";
+	}
+
+	if (category === "items") {
+		const title = entry.title?.[PT_BR] ?? entry.title?.en ?? slug;
+		const navigationPath = Array.isArray(entry.navigationPath) ? entry.navigationPath : [];
+		const pageKind = entry.pageKind ?? "";
+		if (looksLikeDailyMission(title, navigationPath)) return "daily-missions";
+		if (looksLikeQuestOrEvent(title, navigationPath, pageKind)) return "quests";
 	}
 
 	return category;
 }
 
 export function resolveCategoryLabel(categoryId, fallbackLabel) {
+	if (categoryId === "territory-guardians") {
+		return {
+			"pt-BR": "Guardiões de Território",
+			en: "Territory Guardians",
+			es: "Guardianes de Territorio",
+		};
+	}
+
+	if (categoryId === "daily-missions") {
+		return {
+			"pt-BR": "Missões Diárias",
+			en: "Daily Missions",
+			es: "Misiones Diarias",
+		};
+	}
+
+	if (categoryId === "quests") {
+		return {
+			"pt-BR": "Quests",
+			en: "Quests",
+			es: "Quests",
+		};
+	}
+
 	if (categoryId === "pokemon") {
 		return {
 			"pt-BR": "Pokémon",
@@ -77,6 +143,42 @@ export function resolveDisplayTitle(titleMap, categoryLabelMap) {
 	);
 }
 
+export function resolveSortRank({ category, slug, title }) {
+	const text = normalizeCategoryText(`${slug} ${title?.[PT_BR] ?? title?.en ?? ""}`);
+	if (category === "embedded-tower") {
+		if (/\bprimeiro\b|\bfirst\b|primer/.test(text)) return 10;
+		if (/\bsegundo\b|\bsecond\b/.test(text)) return 20;
+		if (/\bterceiro\b|\bthird\b/.test(text)) return 30;
+		if (/\bquarto\b|\bfourth\b|cuarto/.test(text)) return 40;
+		if (/\bquinto\b|\bfifth\b|quinto/.test(text)) return 50;
+		if (/camara|jirachi/.test(text)) return 60;
+		if (/\bsexto\b|\bsixth\b|sexto/.test(text)) return 70;
+		if (/\bsetimo\b|\bseventh\b|septimo/.test(text)) return 80;
+		if (/wes\s+quest/.test(text)) return 90;
+		return 100;
+	}
+
+	if (category === "dimensional-zone") {
+		if (/bronze/.test(text)) return 10;
+		if (/silver|prata/.test(text)) return 20;
+		if (/gold|golden|ouro/.test(text)) return 30;
+		if (/crystal|cristal/.test(text)) return 40;
+		if (/master/.test(text)) return 50;
+		return 100;
+	}
+
+	if (category === "territory-guardians") {
+		if (/dorabelle/.test(text)) return 10;
+		if (/tyranitar|darkness/.test(text)) return 20;
+		if (/dragonair|celestial/.test(text)) return 30;
+		if (/mamoswine|below-zero|below zero/.test(text)) return 40;
+		if (/magcargo|magma/.test(text)) return 50;
+		return 100;
+	}
+
+	return null;
+}
+
 export function normalizeSections(sectionsBase) {
 	return sectionsBase.map((section) => {
 		const paragraphs = section.paragraphs?.[PT_BR] || [];
@@ -98,12 +200,14 @@ export function normalizeSections(sectionsBase) {
 	});
 }
 
-export function buildLocalizedSummary(summary) {
-	const baseValue = summary?.[PT_BR] || "";
+export function buildLocalizedSummary(summary, fallbackValue = "") {
+	const rawValue = summary?.[PT_BR] || "";
+	const baseValue = rawValue === "Conteúdo local sincronizado da wiki."
+		? fallbackValue
+		: rawValue;
 	return {
 		[PT_BR]: baseValue,
 		en: baseValue,
 		es: baseValue,
 	};
 }
-

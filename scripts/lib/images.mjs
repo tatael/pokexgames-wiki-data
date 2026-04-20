@@ -1,3 +1,5 @@
+import { fetchWikiApiJson } from "./transport.mjs";
+
 const VARIANT_MARKERS = [
 	"shiny",
 	"mega",
@@ -57,6 +59,10 @@ function stripVariantMarkers(value) {
 	}
 
 	return normalized;
+}
+
+function stripFormNumbers(value) {
+	return normalizeImageKey(value).replace(/\d+/g, "");
 }
 
 function imageMatchTokens(value) {
@@ -124,7 +130,10 @@ function matchesFormIdentity(stem, slug) {
 	const expectedCore = stripVariantMarkers(slug);
 	const { stemCore, stemMarkers } = normalizeStemForIdentity(stem, expectedMarkers);
 
-	return Boolean(expectedCore) && expectedCore === stemCore && expectedMarkers.size === stemMarkers.size
+	const sameCore = expectedCore === stemCore
+		|| (/\d/.test(expectedCore) && stripFormNumbers(expectedCore) === stripFormNumbers(stemCore));
+
+	return Boolean(expectedCore) && sameCore && expectedMarkers.size === stemMarkers.size
 		&& [...expectedMarkers].every((marker) => stemMarkers.has(marker));
 }
 
@@ -209,6 +218,21 @@ function absolutizeWikiImageUrl(pageUrl, rawSrc) {
 	return `${prefix}/${source}`;
 }
 
+function firstImageCandidatesFromTag(tag, pageUrl) {
+	const values = [];
+	const push = (raw) => {
+		const abs = absolutizeWikiImageUrl(pageUrl, raw);
+		if (!abs || !abs.includes("/images/") || values.includes(abs)) return;
+		values.push(abs);
+		const original = extractThumbnailOriginalUrl(abs);
+		if (original && !values.includes(original)) values.push(original);
+	};
+
+	push(tag.match(/\bsrc="([^"]+)"/i)?.[1]);
+	push(tag.match(/\bdata-src="([^"]+)"/i)?.[1]);
+	return values;
+}
+
 function extractThumbnailOriginalUrl(absoluteUrl) {
 	// MediaWiki thumbnails: /images/thumb/x/xx/File.ext/200px-File.ext
 	// → recover original:   /images/x/xx/File.ext
@@ -271,20 +295,125 @@ function toImageAsset(url) {
 	return url ? { url } : undefined;
 }
 
-export function extractPageImagesFromUrls(urls, slug) {
-	if (!urls.length || !slug) return null;
+function showdownPokemonSlug(slug) {
+	const tokens = String(slug ?? "")
+		.toLowerCase()
+		.split(/[^a-z0-9]+/)
+		.filter(Boolean)
+		.filter((token) => !["tm", "tr", "boss", "champion", "golden", "big"].includes(token));
+	if (!tokens.length) return "";
 
-	const spriteUrl = selectImageUrlFor(urls, "sprite", slug);
-	const heroUrl = selectImageUrlFor(urls, "hero", slug);
+	const isShiny = tokens.includes("shiny");
+	const formTokens = tokens.filter((token) => token !== "shiny");
+	const withoutNumbers = formTokens.filter((token) => !/^\d+$/.test(token));
+	const normalizedTokens = withoutNumbers.length ? withoutNumbers : formTokens;
+	if (!normalizedTokens.length) return "";
+
+	if (normalizedTokens[0] === "alolan" && normalizedTokens.length > 1) {
+		return `${normalizedTokens.slice(1).join("-")}-alola`;
+	}
+	if (normalizedTokens[0] === "galarian" && normalizedTokens.length > 1) {
+		return `${normalizedTokens.slice(1).join("-")}-galar`;
+	}
+	if (normalizedTokens[0] === "hisuian" && normalizedTokens.length > 1) {
+		return `${normalizedTokens.slice(1).join("-")}-hisui`;
+	}
+	if (normalizedTokens[0] === "paldean" && normalizedTokens.length > 1) {
+		return `${normalizedTokens.slice(1).join("-")}-paldea`;
+	}
+	if (normalizedTokens[0] === "mega" && normalizedTokens.length > 1) {
+		return `${normalizedTokens.slice(1).join("-")}-mega`;
+	}
+
+	return normalizedTokens.join("-");
+}
+
+function generatedPokemonImageSet(slug) {
+	const showdownSlug = showdownPokemonSlug(slug);
+	if (!showdownSlug) return null;
+	const url = `https://play.pokemonshowdown.com/sprites/gen5/${showdownSlug}.png`;
+	return {
+		sprite: toImageAsset(url),
+		hero: toImageAsset(url),
+	};
+}
+
+function unique(values) {
+	return [...new Set(values.filter(Boolean))];
+}
+
+function fileSearchTermsForSlug(slug) {
+	const tokens = imageMatchTokens(slug);
+	const core = stripVariantMarkers(slug);
+	return unique([
+		...tokens,
+		core,
+		core.replace(/^\d+/, ""),
+	].filter((value) => String(value).length >= 3));
+}
+
+export async function discoverWikiFileImageUrls(slug, fetchApiJson = fetchWikiApiJson) {
+	const urls = [];
+	const seen = new Set();
+
+	for (const term of fileSearchTermsForSlug(slug)) {
+		const payload = await fetchApiJson({
+			action: "query",
+			generator: "search",
+			gsrnamespace: "6",
+			gsrlimit: "20",
+			gsrsearch: term,
+			prop: "imageinfo",
+			iiprop: "url",
+			format: "json",
+		});
+
+		for (const page of Object.values(payload?.query?.pages ?? {})) {
+			for (const imageInfo of page?.imageinfo ?? []) {
+				const url = imageInfo?.url;
+				if (typeof url !== "string" || !url.includes("/images/") || seen.has(url)) continue;
+				seen.add(url);
+				urls.push(url);
+			}
+		}
+	}
+
+	return urls;
+}
+
+export function extractPageImagesFromUrls(urls, slug) {
+	if (!slug) return null;
+
+	const sourceUrls = Array.isArray(urls) ? urls : [];
+	const spriteUrl = selectImageUrlFor(sourceUrls, "sprite", slug);
+	const heroUrl = selectImageUrlFor(sourceUrls, "hero", slug);
 	const images = {
 		...(spriteUrl ? { sprite: toImageAsset(spriteUrl) } : {}),
-		...(heroUrl ? { hero: toImageAsset(heroUrl) } : {}),
+		...(heroUrl || spriteUrl ? { hero: toImageAsset(heroUrl || spriteUrl) } : {}),
 	};
 
 	return Object.keys(images).length ? images : null;
 }
 
+export async function discoverPageImages(slug, fetchApiJson = fetchWikiApiJson) {
+	const urls = await discoverWikiFileImageUrls(slug, fetchApiJson);
+	return extractPageImagesFromUrls(urls, slug) ?? generatedPokemonImageSet(slug);
+}
+
 export function extractPageImages(html, pageUrl, slug) {
 	const urls = collectWikiImageUrls(html, pageUrl);
 	return extractPageImagesFromUrls(urls, slug);
+}
+
+export function extractLeadWikiImageUrl(html, pageUrl, kind = "hero") {
+	for (const match of String(html ?? "").matchAll(/<img[^>]+>/gi)) {
+		const candidates = firstImageCandidatesFromTag(match[0], pageUrl);
+		for (const candidate of candidates) {
+			if (!matchesExpectedExtension(candidate, kind)) continue;
+			if (kind === "sprite" && isGenericSpriteAsset(candidate)) continue;
+			return candidate;
+		}
+	}
+
+	return null;
 }

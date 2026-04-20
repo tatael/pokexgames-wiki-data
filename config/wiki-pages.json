@@ -415,6 +415,35 @@
 		}
 	},
 	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "spoiler-das-masmorras",
+		"url": "https://wiki.pokexgames.com/index.php/Spoiler_das_Masmorras",
+		"title": {
+			"pt-BR": "Spoiler das Masmorras",
+			"en": "Dungeon Spoilers",
+			"es": "Spoiler de Mazmorras"
+		},
+		"navigationPath": [
+			"Dimensional Zone",
+			"Spoiler das Masmorras"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "zone",
+			"excludeSlugs": [
+				"dimensional-zone",
+				"spoiler-das-masmorras"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
 		"category": "nightmare-world",
 		"categoryLabel": {
 			"pt-BR": "Nightmare World",
@@ -628,6 +657,26 @@
 		"children": {
 			"mode": "discover-pokemon-api"
 		}
+	},
+	{
+		"category": "pokemon",
+		"categoryLabel": {
+			"pt-BR": "Pokémon",
+			"en": "Pokémon",
+			"es": "Pokémon"
+		},
+		"slug": "elite-farfetch-d",
+		"url": "https://wiki.pokexgames.com/index.php/Elite_Farfetch%27D",
+		"title": {
+			"pt-BR": "Elite Farfetch'D",
+			"en": "Elite Farfetch'D",
+			"es": "Elite Farfetch'D"
+		},
+		"navigationPath": [
+			"Pokémon",
+			"Elite Farfetch'D"
+		],
+		"pageKind": "pokemon"
 	},
 	{
 		"category": "systems",

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { structureSection, parseRewardItemText } from "../lib/transform.mjs";
+import { structureSection, parsePokemonItemText, parseRewardItemText } from "../lib/transform.mjs";
 import { PT_BR } from "../lib/shared.mjs";
 
 function localizedSection(section) {
@@ -76,4 +76,31 @@ test("parseRewardItemText keeps ranking places and loot difficulties structured"
 			qty: null,
 		},
 	);
+});
+
+test("parsePokemonItemText preserves multiple roles in the same PvE or PvP field", () => {
+	assert.deepEqual(
+		parsePokemonItemText("Shiny Pupitar (PvE: OTDD PvE / BDD PvE / PvP: Tank PvP)"),
+		{
+			name: "Shiny Pupitar",
+			exclusive: false,
+			pve: "OTDD PvE / BDD PvE",
+			pvp: "Tank PvP",
+		},
+	);
+});
+
+test("structureSection removes bogus Link role text from pokemon table rows", () => {
+	const tier = structureSection(localizedSection({
+		id: "tier-1",
+		heading: "Tier 1",
+		items: ["Azumarill (PvE: Link / PvP: Tank PvP)"],
+	}));
+
+	assert.deepEqual(tier.pokemon[PT_BR][0], {
+		name: "Azumarill",
+		exclusive: false,
+		pve: "Not",
+		pvp: "Tank PvP",
+	});
 });

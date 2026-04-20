@@ -183,12 +183,8 @@ function cleanTableCellText(text) {
 	t = t.replace(/\bInterface\s+([\w][\w\s]*?)\s+PVP\.png\b/gi, "$1 PvP");
 	t = t.replace(/\b([A-Za-z][a-z]+)\d*\.(png|jpg)\b/g, "$1");
 	t = t.replace(/\b\d[\w-]*\.(png|jpg)\b/gi, "");
+	t = t.replace(/\bLink\b/gi, "");
 	t = t.replace(/\s+/g, " ").trim();
-	const pvxCount = (t.match(/\bPv[EP]\b/g) ?? []).length;
-	if (pvxCount > 1) {
-		const firstRoleMatch = t.match(/^(.*?\bPv[EP]\b)/);
-		if (firstRoleMatch) t = firstRoleMatch[1].trim();
-	}
 
 	return t;
 }

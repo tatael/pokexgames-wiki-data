@@ -4,8 +4,11 @@ import assert from "node:assert/strict";
 import {
 	buildLocalizedSummary,
 	resolveCategory,
+	resolveCategoryLabel,
+	resolveDisplayTitle,
 	resolveDisplayInList,
 	resolvePageGroup,
+	resolveTitleOverride,
 	resolveSortRank,
 } from "../lib/page-pipeline.mjs";
 import { PT_BR, buildLocalizedText, decodeHtmlEntities } from "../lib/shared.mjs";
@@ -38,6 +41,18 @@ test("resolveCategory routes normalized wiki pages to their source categories", 
 		title: buildLocalizedText("Mystery Dungeon - The Darkness"),
 		pageKind: "dungeons",
 	}), "mystery-dungeons");
+
+	assert.equal(resolveCategory("items", "the-chosen-one-quest", null, {
+		title: buildLocalizedText("The Chosen One Quest"),
+		navigationPath: ["Itens", "Mochilas", "Mochilas de Quest"],
+		pageKind: "quest",
+	}), "quests");
+
+	assert.equal(resolveCategory("items", "ditto-backpack", null, {
+		title: buildLocalizedText("Ditto Backpack"),
+		navigationPath: ["Itens", "Mochilas", "Mochilas de Quest"],
+		pageKind: "quest",
+	}), "items");
 });
 
 test("buildLocalizedSummary replaces the generic local-sync placeholder", () => {
@@ -45,6 +60,10 @@ test("buildLocalizedSummary replaces the generic local-sync placeholder", () => 
 		buildLocalizedSummary({ [PT_BR]: "Conteúdo local sincronizado da wiki." }, "Daily Kill"),
 		{ [PT_BR]: "Daily Kill", en: "Daily Kill", es: "Daily Kill" },
 	);
+});
+
+test("resolveCategoryLabel keeps normalized categories distinct", () => {
+	assert.equal(resolveCategoryLabel("dimensional-zone", buildLocalizedText("Itens"))[PT_BR], "Dimensional Zone");
 });
 
 test("decodeHtmlEntities normalizes numeric and accented title entities", () => {
@@ -93,6 +112,84 @@ test("resolveDisplayInList hides aliases and non-card pages from category lists"
 		title: buildLocalizedText("Dimensional Mountain Quest"),
 		pageKind: "npc",
 	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "nightmare-world",
+		slug: "beneficios-vip",
+		title: buildLocalizedText("Benefícios VIP"),
+		pageKind: "nightmare",
+	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "nightmare-world",
+		slug: "subject-14",
+		title: buildLocalizedText("Subject (14)"),
+		pageKind: "nightmare",
+	}), true);
+
+	assert.equal(resolveDisplayInList({
+		category: "ultra-lab",
+		slug: "dz-wynaut",
+		title: buildLocalizedText("DZ Wynaut"),
+		pageKind: "lab",
+	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "ultra-lab",
+		slug: "advanced-ultra-lab-raibolt",
+		title: buildLocalizedText("Advanced Ultra Lab - Raibolt"),
+		pageKind: "lab",
+	}), true);
+});
+
+test("resolveDisplayTitle and title overrides remove redundant category prefixes", () => {
+	assert.deepEqual(
+		resolveDisplayTitle(buildLocalizedText("Advanced Ultra Lab - Raibolt"), buildLocalizedText("Ultra Lab")),
+		buildLocalizedText("Laboratório Raibolt"),
+	);
+	assert.deepEqual(
+		resolveTitleOverride({ category: "tasks", slug: "tasks" }),
+		buildLocalizedText("Kanto Tasks"),
+	);
+});
+
+test("resolveDisplayInList filters event and Nightmare Rift category noise", () => {
+	assert.equal(resolveDisplayInList({
+		category: "events",
+		slug: "pikachu-backpack",
+		title: buildLocalizedText("Pikachu Backpack"),
+		pageKind: "item",
+		navigationPath: ["Eventos", "Mochilas de Eventos"],
+	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "events",
+		slug: "christmas-defender-granbull",
+		title: buildLocalizedText("Christmas Defender Granbull"),
+		pageKind: "item",
+		navigationPath: ["Eventos"],
+	}), true);
+
+	assert.equal(resolveDisplayInList({
+		category: "nightmare-rifts",
+		slug: "cozinheiro",
+		title: buildLocalizedText("Cozinheiro"),
+		pageKind: "profession",
+	}), false);
+});
+
+test("resolvePageGroup publishes item filter groups", () => {
+	assert.equal(resolvePageGroup({
+		category: "items",
+		slug: "ditto-backpack",
+		title: buildLocalizedText("Ditto Backpack"),
+	})[PT_BR], "Mochilas");
+
+	assert.equal(resolvePageGroup({
+		category: "items",
+		slug: "compressed-nightmare-gem",
+		title: buildLocalizedText("Compressed Nightmare Gem"),
+	})[PT_BR], "Moedas e tokens");
 });
 
 test("resolvePageGroup publishes Nightmare Rift list sections", () => {

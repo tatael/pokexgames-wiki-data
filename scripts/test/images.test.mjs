@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { discoverPageImages, extractPageImagesFromUrls } from "../lib/images.mjs";
+import { discoverPageImages, extractLeadWikiImageUrl, extractPageImagesFromUrls } from "../lib/images.mjs";
 
 test("extractPageImagesFromUrls prefers static sprite assets over gif fallbacks", () => {
 	const images = extractPageImagesFromUrls([
@@ -69,4 +69,19 @@ test("discoverPageImages falls back to generated pokemon showdown sprite urls", 
 		sprite: { url: "https://play.pokemonshowdown.com/sprites/gen5/smeargle.png" },
 		hero: { url: "https://play.pokemonshowdown.com/sprites/gen5/smeargle.png" },
 	});
+});
+
+test("extractLeadWikiImageUrl skips language flags and interface chrome", () => {
+	const html = `
+		<img src="/images/8/81/ES.png" alt="ES.png">
+		<img src="/images/e/eb/EN.png" alt="EN.png">
+		<img src="/images/a/aa/Spanish_Flag.png" alt="Spanish Flag">
+		<img src="/images/thumb/8/80/Interface_Tank_PVE.png/24px-Interface_Tank_PVE.png" alt="Interface Tank PVE.png">
+		<img src="/images/3/34/Banner_Daily-Gift.png" alt="Banner Daily Gift">
+	`;
+
+	assert.equal(
+		extractLeadWikiImageUrl(html, "https://wiki.pokexgames.com/index.php/Daily_Gift", "sprite"),
+		"https://wiki.pokexgames.com/images/3/34/Banner_Daily-Gift.png",
+	);
 });

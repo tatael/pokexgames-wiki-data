@@ -303,6 +303,11 @@ export function parsePokemonItemText(item) {
 export function parseRewardItemText(item) {
 	const raw = String(item ?? "").trim();
 	if (!raw) return null;
+	const normalizedRaw = normalizeIdToken(raw);
+	if (["item raridade", "item quantidade raridade", "colocacao recompensa"].includes(normalizedRaw)) return null;
+	if (/^(facil|normal|dificil|easy|hard|platinum|ultra|hyper|master|grand master|recompensa semanal|recompensa de temporada)$/.test(normalizedRaw)) {
+		return { type: "difficulty", difficulty: raw };
+	}
 
 	const pipeIdx = raw.indexOf("|");
 	if (pipeIdx >= 0) {
@@ -345,15 +350,19 @@ export function parseRewardItemText(item) {
 
 function propagateDifficulty(rewards) {
 	let currentDifficulty = null;
-	return rewards.map((reward) => {
+	return rewards.flatMap((reward) => {
+		if (reward.type === "difficulty") {
+			currentDifficulty = reward.difficulty;
+			return [];
+		}
 		if (reward.type === "loot") {
 			if (reward.difficulty !== null) {
 				currentDifficulty = reward.difficulty;
 			} else if (currentDifficulty !== null) {
-				return { ...reward, difficulty: currentDifficulty };
+				return [{ ...reward, difficulty: currentDifficulty }];
 			}
 		}
-		return reward;
+		return [reward];
 	});
 }
 
@@ -449,6 +458,29 @@ function parseVariantEntryText(raw) {
 	};
 }
 
+function looksLikeRawPokemonReferenceText(value) {
+	const text = String(value ?? "").trim();
+	if (!text) return false;
+	if (text.includes("|")) {
+		const parts = text.split(/\s*\|\s*/).filter(Boolean);
+		return parts.length > 0 && parts.every(looksLikeRawPokemonReferenceText);
+	}
+	if (/^\d{3,4}\s*[-_.]\s*(?:sh|shiny|mega|alolan|galarian|hisuian)?\s*[a-z0-9' ._-]+$/i.test(text)) return true;
+	if (/^\d{3,4}\s*[-_.]\s*(?:sh|shiny|mega|alolan|galarian|hisuian)?\s*[a-z0-9' ._-]+\s+[a-z][a-z0-9' ._-]*$/i.test(text)) return true;
+	if (/^\d{3,4}\s*[-_.]\s*\S+\.(?:png|gif|webp|jpe?g)\s+\d{3,4}\s*[-_.]\s*.+$/i.test(text)) return true;
+	if (/^\S+\.(?:png|gif|webp|jpe?g)\s+\d{3,4}\s*[-_.]\s*.+$/i.test(text)) return true;
+	return /^\S+\.(?:png|gif|webp|jpe?g)\s+\S.+$/i.test(text);
+}
+
+function cleanRawPokemonReferenceItems(itemsByLocale = {}) {
+	const cleaned = {};
+	for (const locale of Object.keys(itemsByLocale ?? {})) {
+		cleaned[locale] = (itemsByLocale[locale] ?? [])
+			.filter((item) => !looksLikeRawPokemonReferenceText(item));
+	}
+	return cleaned;
+}
+
 function classifySectionKind(id, headingText) {
 	const normId = normalizeIdToken(id);
 	const normIdNoSpace = normId.replace(/ /g, "");
@@ -457,7 +489,7 @@ function classifySectionKind(id, headingText) {
 	}
 
 	const normHeading = normalizeIdToken(headingText ?? "");
-	if (normHeading === "recompensa" || normHeading === "recompensas" || normHeading === "rewards") {
+	if (normHeading === "recompensa" || normHeading === "recompensas" || normHeading === "rewards" || /premios|premiacoes|premios dos baus/.test(normHeading)) {
 		return "rewards";
 	}
 	if (normHeading === "pokemon" || normHeading === "pokemons" || normHeading === "pokemon recomendados") {
@@ -476,6 +508,10 @@ export function structureSection(section) {
 	const kind = classifySectionKind(id, headingText);
 	const result = { ...section, kind };
 	const normalizedId = normalizeIdToken(id);
+
+	if (!["rewards", "tier", "pokemon-group"].includes(kind)) {
+		result.items = cleanRawPokemonReferenceItems(section.items);
+	}
 
 	if (kind === "tier") {
 		const pokemon = {};

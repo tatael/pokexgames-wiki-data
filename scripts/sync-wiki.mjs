@@ -41,10 +41,33 @@ import {
 } from "./lib/page-pipeline.mjs";
 import { validateBundle } from "./lib/validation.mjs";
 
-async function resolvePageImages({ articleHtml, sourceUrl, slug, pageKind }) {
+const TERRITORY_GUARDIAN_BANNERS = {
+	dorabelle: "https://wiki.pokexgames.com/images/thumb/7/7f/Banner_Bolinha_MD_-_Dorabelle%27s_Wrath.webp/308px-Banner_Bolinha_MD_-_Dorabelle%27s_Wrath.webp.png",
+	"giant-tyranitar": "https://wiki.pokexgames.com/images/thumb/1/1f/Banner_Bolinha_MD_-_The_Darkness.webp/308px-Banner_Bolinha_MD_-_The_Darkness.webp.png",
+	"giant-dragonair": "https://wiki.pokexgames.com/images/thumb/a/ab/Banner_Bolinha_MD_-_The_Celestial_Serpent.webp/308px-Banner_Bolinha_MD_-_The_Celestial_Serpent.webp.png",
+	"giant-mamoswine": "https://wiki.pokexgames.com/images/thumb/9/92/Banner_Bolinha_MD_-_Below_Zero.webp/308px-Banner_Bolinha_MD_-_Below_Zero.webp.png",
+	"giant-magcargo": "https://wiki.pokexgames.com/images/thumb/9/98/Banner_Bolinha_MD_-_The_Magma_Insurgency.webp/308px-Banner_Bolinha_MD_-_The_Magma_Insurgency.webp.png",
+};
+
+async function resolvePageImages({ articleHtml, sourceUrl, slug, pageKind, category }) {
+	if (category === "territory-guardians" && pageKind === "guardian-boss" && TERRITORY_GUARDIAN_BANNERS[slug]) {
+		const url = TERRITORY_GUARDIAN_BANNERS[slug];
+		return {
+			sprite: { url },
+			hero: { url },
+		};
+	}
+
 	const images = extractPageImages(articleHtml, sourceUrl.toString(), slug);
 	if (pageKind !== "pokemon") {
 		const leadSpriteUrl = extractLeadWikiImageUrl(articleHtml, sourceUrl.toString(), "sprite");
+		if (category === "territory-guardians" && pageKind === "guardian-boss" && leadSpriteUrl) {
+			return {
+				...(images ?? {}),
+				sprite: { url: leadSpriteUrl },
+				hero: { url: leadSpriteUrl },
+			};
+		}
 		if (!leadSpriteUrl) return images;
 		return {
 			...(images ?? {}),
@@ -93,6 +116,7 @@ async function syncEntry(entry) {
 		sourceUrl,
 		slug: entry.slug,
 		pageKind,
+		category: resolvedCategory,
 	});
 
 	const sortRank = resolveSortRank({ category: resolvedCategory, slug: entry.slug, title: displayTitle });
@@ -159,6 +183,7 @@ async function syncEntry(entry) {
 			...(pageGroup ? { pageGroup } : {}),
 			...(profile ? { profile } : {}),
 			...(images ? { images } : {}),
+			...(navigationPath.length ? { navigationPath } : {}),
 			fetchedAt,
 			pagePath,
 		},

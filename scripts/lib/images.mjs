@@ -1,4 +1,5 @@
 import { fetchWikiApiJson } from "./transport.mjs";
+import { isNoiseMediaAsset } from "./extract.mjs";
 
 const VARIANT_MARKERS = [
 	"shiny",
@@ -295,6 +296,11 @@ function toImageAsset(url) {
 	return url ? { url } : undefined;
 }
 
+function isNoiseImageSet(images) {
+	const urls = [images?.sprite?.url, images?.hero?.url].filter(Boolean);
+	return urls.length > 0 && urls.every((url) => isNoiseMediaAsset(url, ""));
+}
+
 function showdownPokemonSlug(slug) {
 	const tokens = String(slug ?? "")
 		.toLowerCase()
@@ -392,7 +398,7 @@ export function extractPageImagesFromUrls(urls, slug) {
 		...(heroUrl || spriteUrl ? { hero: toImageAsset(heroUrl || spriteUrl) } : {}),
 	};
 
-	return Object.keys(images).length ? images : null;
+	return Object.keys(images).length && !isNoiseImageSet(images) ? images : null;
 }
 
 export async function discoverPageImages(slug, fetchApiJson = fetchWikiApiJson) {
@@ -407,8 +413,11 @@ export function extractPageImages(html, pageUrl, slug) {
 
 export function extractLeadWikiImageUrl(html, pageUrl, kind = "hero") {
 	for (const match of String(html ?? "").matchAll(/<img[^>]+>/gi)) {
-		const candidates = firstImageCandidatesFromTag(match[0], pageUrl);
+		const tag = match[0];
+		const alt = tag.match(/\balt="([^"]*)"/i)?.[1] ?? "";
+		const candidates = firstImageCandidatesFromTag(tag, pageUrl);
 		for (const candidate of candidates) {
+			if (isNoiseMediaAsset(candidate, alt)) continue;
 			if (!matchesExpectedExtension(candidate, kind)) continue;
 			if (kind === "sprite" && isGenericSpriteAsset(candidate)) continue;
 			return candidate;

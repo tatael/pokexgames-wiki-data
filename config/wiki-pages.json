@@ -1095,7 +1095,15 @@
 		"navigationPath": [
 			"Secret Lab"
 		],
-		"pageKind": "system"
+		"pageKind": "system",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "system",
+			"excludeSlugs": [
+				"secret-lab"
+			],
+			"maxDepth": 1
+		}
 	},
 	{
 		"category": "systems",

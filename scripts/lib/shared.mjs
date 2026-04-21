@@ -145,7 +145,9 @@ export function decodeHtmlEntities(value) {
 }
 
 export function stripHtml(value) {
-	const withoutTags = value.replace(/<[^>]+>/gs, " ");
+	const withoutScripts = String(value ?? "")
+		.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ");
+	const withoutTags = withoutScripts.replace(/<[^>]+>/gs, " ");
 	return normalizeWhitespace(decodeHtmlEntities(withoutTags.trim()));
 }
 

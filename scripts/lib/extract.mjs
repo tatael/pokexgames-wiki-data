@@ -13,8 +13,18 @@ export function extractArticleFragmentHtml(html, fragment) {
 		return html;
 	}
 
+	const normalizedFragment = buildSlug(fragment.replaceAll("_", " "), fragment).replace(/-/g, " ");
+	const panelRegex = /<article\b[^>]*\bdata-title=(?:"([^"]+)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/article>/gi;
+	for (const match of html.matchAll(panelRegex)) {
+		const title = decodeHtmlEntities(match[1] || match[2] || match[3] || "");
+		const normalizedTitle = buildSlug(title, "").replace(/-/g, " ");
+		if (normalizedTitle && normalizedTitle === normalizedFragment.replace(/\s+\d+$/, "")) {
+			return match[0];
+		}
+	}
+
 	const escapedFragment = fragment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	const headingRegex = /<h([2-4])[^>]*>[\s\S]*?<\/h\1>/gi;
+	const headingRegex = /<h([1-4])[^>]*>[\s\S]*?<\/h\1>/gi;
 	const headings = [];
 
 	for (const match of html.matchAll(headingRegex)) {
@@ -33,7 +43,11 @@ export function extractArticleFragmentHtml(html, fragment) {
 		});
 	}
 
-	const currentHeadingIndex = headings.findIndex((heading) => new RegExp(`id=["']${escapedFragment}["']`, "i").test(heading.html));
+	const currentHeadingIndex = headings.findIndex((heading) => {
+		if (new RegExp(`id=["']${escapedFragment}["']`, "i").test(heading.html)) return true;
+		const headingText = stripHtml(heading.html);
+		return buildSlug(headingText, "").replace(/-/g, " ") === normalizedFragment;
+	});
 	if (currentHeadingIndex < 0) {
 		return html;
 	}
@@ -133,7 +147,72 @@ export function extractArticleWikiLinks(html, pageUrl) {
 		});
 	}
 
+	const questData = extractWindowQuestData(html);
+	if (questData) {
+		try {
+			const quests = JSON.parse(questData.replace(/,\s*([}\]])/g, "$1"));
+			for (const quest of quests) {
+				const name = String(quest?.name ?? "").trim();
+				if (!name) continue;
+				const link = String(quest?.link ?? "").trim() || buildWikiUrlFromTitle(name);
+				let resolved;
+				try {
+					resolved = new URL(link, baseUrl);
+				} catch {
+					continue;
+				}
+				if (resolved.hostname !== "wiki.pokexgames.com" || !resolved.pathname.startsWith("/index.php/")) continue;
+				const title = decodeWikiTitleFromUrl(resolved.toString()) ?? name;
+				results.push({
+					url: resolved.toString(),
+					title,
+					label: name,
+					headingPath: [String(quest?.category ?? "").trim()].filter(Boolean),
+				});
+			}
+		} catch {
+			// Ignore malformed widget data and keep regular link discovery.
+		}
+	}
+
 	return results;
+}
+
+function extractWindowQuestData(html) {
+	const source = String(html ?? "");
+	const markerMatch = [...source.matchAll(/window\.quests\s*=/g)].pop();
+	if (!markerMatch) return "";
+	const arrayStart = source.indexOf("[", markerMatch.index ?? 0);
+	if (arrayStart < 0) return "";
+	let depth = 0;
+	let inString = false;
+	let quote = "";
+	let escaped = false;
+	for (let index = arrayStart; index < source.length; index += 1) {
+		const char = source[index];
+		if (inString) {
+			if (escaped) {
+				escaped = false;
+			} else if (char === "\\") {
+				escaped = true;
+			} else if (char === quote) {
+				inString = false;
+				quote = "";
+			}
+			continue;
+		}
+		if (char === '"' || char === "'") {
+			inString = true;
+			quote = char;
+			continue;
+		}
+		if (char === "[") depth += 1;
+		if (char === "]") {
+			depth -= 1;
+			if (depth === 0) return source.slice(arrayStart, index + 1);
+		}
+	}
+	return "";
 }
 
 function isNoiseNavigationSegment(value) {
@@ -309,14 +388,16 @@ function absolutizeWikiAssetUrl(pageUrl, rawSrc) {
 	}
 }
 
-function isNoiseMediaAsset(url, alt = "") {
+export function isNoiseMediaAsset(url, alt = "") {
 	const source = `${url} ${alt}`
 		.normalize("NFD")
 		.replace(/[\u0300-\u036f]/g, "")
 		.toLowerCase();
 
 	if (/\/\d{1,2}px-[^/]+$/i.test(url)) return true;
-	return /(?:^|[\/_\s-])(?:flag|bandeira|bandera|english|spanish|portuguese|usa|eua|united[-_\s]?states|spain|brasil|brazil|espanol|idioma|language)(?:[._\s-]|$)/i.test(source)
+	return /\/images\/[0-9a-f]\/[0-9a-f]{2}\/(?:en|es|pt|pt-br)\.(?:png|gif|jpe?g|webp)(?:\?|$)/i.test(url)
+		|| /(?:^|[\/_\s-])(?:flag|bandeira|bandera|english|spanish|portuguese|usa|eua|united[-_\s]?states|spain|brasil|brazil|espanol|idioma|language)(?:[._\s-]|$)/i.test(source)
+		|| /(?:^|[\/_\s-])(?:semvip|comvip|diamond)(?:[._\s-]|$)/i.test(source)
 		|| /(?:^|[\/_\s-])interface[-_\s]/i.test(source)
 		|| /(?:^|[\/_\s-])pokedexicon(?:[._\s-]|$)/i.test(source)
 		|| /\/images\/[0-9a-f]\/[0-9a-f]{2}\/(?:bug|dark|dragon|electric|fairy|fighting|fire|flying|ghost|grass|ground|ice|normal|poison|psychic|rock|steel|water)\.(?:png|gif|jpe?g|webp)(?:\?|$)/i.test(url);
@@ -326,32 +407,128 @@ function extractMedia(html, pageUrl = "") {
 	if (!pageUrl) return [];
 	const media = [];
 	const seen = new Set();
-	const add = (type, rawUrl, alt = "") => {
+	const readTagAttr = (tag, name) => {
+		const match = String(tag ?? "").match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+		return match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
+	};
+	const readDimension = (tag, name, rawUrl = "") => {
+		const attrValue = readTagAttr(tag, name);
+		const attrNumber = Number.parseInt(String(attrValue).replace(/[^\d]/g, ""), 10);
+		if (Number.isFinite(attrNumber) && attrNumber > 0) return attrNumber;
+		if (name !== "width") return null;
+		const thumbMatch = String(rawUrl ?? "").match(/\/(\d+)px-[^/]+$/i);
+		const thumbWidth = Number.parseInt(thumbMatch?.[1] ?? "", 10);
+		return Number.isFinite(thumbWidth) && thumbWidth > 0 ? thumbWidth : null;
+	};
+	const inferPokemonSlug = (url, alt) => {
+		const filename = decodeURIComponent(String(alt || url).split(/[/?#]/).filter(Boolean).pop() ?? "")
+			.replace(/\.[a-z0-9]+$/i, "")
+			.replace(/^(\d+)[-_ ]*/, "")
+			.trim();
+		if (!filename || /^(banner|task|map|possivel|possible|syncamore|barry|diamond|comvip|semvip|check|checkmark|x|tower|wish)(?:\b|[-_])/i.test(filename)) return null;
+		return buildSlug(filename, "");
+	};
+	const inferWikiLinkSlug = (href) => {
+		try {
+			const target = new URL(href, pageUrl);
+			if (target.hostname !== "wiki.pokexgames.com" || !target.pathname.startsWith("/index.php/")) return null;
+			const title = decodeURIComponent(target.pathname.slice("/index.php/".length)).replaceAll("_", " ");
+			if (!title || title.includes(":")) return null;
+			return buildSlug(title, "");
+		} catch {
+			return null;
+		}
+	};
+	const add = (type, rawUrl, alt = "", metadata = {}) => {
 		const url = absolutizeWikiAssetUrl(pageUrl, rawUrl);
 		if (!url || seen.has(url)) return;
 		if (isNoiseMediaAsset(url, alt)) return;
 		seen.add(url);
-		media.push({ type, url, alt: stripHtml(alt || "") });
+		const entry = { type, url, alt: stripHtml(alt || "") };
+		if (metadata.width) entry.width = metadata.width;
+		if (metadata.height) entry.height = metadata.height;
+		const slug = metadata.slug || inferPokemonSlug(url, entry.alt);
+		if (slug) entry.slug = slug;
+		media.push(entry);
 	};
+
+	for (const match of String(html ?? "").matchAll(/<a\b[^>]*\bhref=(?:"([^"]+)"|'([^']*)'|([^\s>]+))[^>]*>\s*(<img\b[^>]*>)\s*<\/a>/gi)) {
+		const href = match[1] ?? match[2] ?? match[3] ?? "";
+		const tag = match[4] ?? "";
+		const rawUrl = readTagAttr(tag, "src") || readTagAttr(tag, "data-src");
+		add("image", rawUrl, readTagAttr(tag, "alt"), {
+			width: readDimension(tag, "width", rawUrl),
+			height: readDimension(tag, "height", rawUrl),
+			slug: inferWikiLinkSlug(href),
+		});
+	}
 
 	for (const match of String(html ?? "").matchAll(/<img\b[^>]*>/gi)) {
 		const tag = match[0];
-		add("image", tag.match(/\bsrc="([^"]+)"/i)?.[1] ?? tag.match(/\bdata-src="([^"]+)"/i)?.[1], tag.match(/\balt="([^"]*)"/i)?.[1] ?? "");
+		const rawUrl = readTagAttr(tag, "src") || readTagAttr(tag, "data-src");
+		add("image", rawUrl, readTagAttr(tag, "alt"), {
+			width: readDimension(tag, "width", rawUrl),
+			height: readDimension(tag, "height", rawUrl),
+		});
 	}
 
 	for (const match of String(html ?? "").matchAll(/<(?:video|source)\b[^>]*>/gi)) {
 		const tag = match[0];
-		add("video", tag.match(/\bsrc="([^"]+)"/i)?.[1] ?? tag.match(/\bdata-src="([^"]+)"/i)?.[1], tag.match(/\balt="([^"]*)"/i)?.[1] ?? "");
+		const rawUrl = readTagAttr(tag, "src") || readTagAttr(tag, "data-src");
+		add("video", rawUrl, readTagAttr(tag, "alt"), {
+			width: readDimension(tag, "width", rawUrl),
+			height: readDimension(tag, "height", rawUrl),
+		});
 	}
 
 	return media;
 }
 
+function stripMediaAndScript(html) {
+	return String(html ?? "")
+		.replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+		.replace(/<(?:video|source)\b[\s\S]*?<\/video>/gi, " ")
+		.replace(/<(?:video|source)\b[^>]*>/gi, " ")
+		.replace(/<img\b[^>]*>/gi, " ");
+}
+
+function extractTabberPanelLines(html) {
+	const lines = [];
+	const panelRegex = /<article\b[^>]*\bdata-title=(?:"([^"]+)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/article>/gi;
+	for (const match of String(html ?? "").matchAll(panelRegex)) {
+		const title = decodeHtmlEntities(match[1] ?? match[2] ?? match[3] ?? "").trim();
+		const body = stripHtml(stripMediaAndScript(match[4] ?? "")).trim();
+		if (title) lines.push(`# ${title}`);
+		if (body) lines.push(body);
+	}
+
+	return lines;
+}
+
+function extractRewardTabberLines(html) {
+	const lines = [];
+	const panelRegex = /<article\b[^>]*\bdata-title=(?:"([^"]+)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/article>/gi;
+	for (const match of String(html ?? "").matchAll(panelRegex)) {
+		const title = decodeHtmlEntities(match[1] ?? match[2] ?? match[3] ?? "").trim();
+		const panelHtml = match[4] ?? "";
+		if (title) lines.push(`* ${title}`);
+		const rows = extractTableRows(panelHtml);
+		if (rows.length) {
+			lines.push(...rows);
+			continue;
+		}
+		const body = stripHtml(stripMediaAndScript(panelHtml)).trim();
+		if (body) lines.push(`* ${body}`);
+	}
+
+	return lines;
+}
+
 export function extractSections(html, title, pageUrl = "") {
-	const headingRegex = /<h2[^>]*>(.*?)<\/h2>/gis;
+	let headingRegex = /<h2[^>]*>(.*?)<\/h2>/gis;
 	const headings = [];
 
-	for (const match of html.matchAll(headingRegex)) {
+	for (const match of String(html ?? "").matchAll(headingRegex)) {
 		const fullMatch = match[0];
 		const headingText = stripHtml(match[1] ?? "");
 		const start = match.index ?? -1;
@@ -361,6 +538,26 @@ export function extractSections(html, title, pageUrl = "") {
 				end: start + fullMatch.length,
 				heading: headingText,
 			});
+		}
+	}
+
+	if (headings.length > 0 && headings.every((entry) => buildSlug(entry.heading, "") === "indice")) {
+		headings.length = 0;
+	}
+
+	if (headings.length === 0) {
+		headingRegex = /<h3[^>]*>(.*?)<\/h3>/gis;
+		for (const match of String(html ?? "").matchAll(headingRegex)) {
+			const fullMatch = match[0];
+			const headingText = stripHtml(match[1] ?? "");
+			const start = match.index ?? -1;
+			if (start >= 0) {
+				headings.push({
+					start,
+					end: start + fullMatch.length,
+					heading: headingText,
+				});
+			}
 		}
 	}
 
@@ -385,7 +582,9 @@ export function extractSections(html, title, pageUrl = "") {
 	return headings.map((entry, index) => {
 		const nextStart = headings[index + 1]?.start ?? html.length;
 		const slice = html.slice(entry.end, nextStart);
-		const lines = extractLines(slice);
+		const isRewardSection = buildSlug(entry.heading, "") === "recompensas" || buildSlug(entry.heading, "") === "recompensa" || buildSlug(entry.heading, "") === "rewards";
+		const tabberLines = isRewardSection ? extractRewardTabberLines(slice) : extractTabberPanelLines(slice);
+		const lines = tabberLines.length ? tabberLines : extractLines(slice);
 		const paragraphs = lines.filter((line) => !line.startsWith("* "));
 		const items = lines
 			.filter((line) => line.startsWith("* "))

@@ -81,6 +81,34 @@ const TERRITORY_GUARDIAN_BOSS_SLUGS = new Set([
 	"giant-magcargo",
 ]);
 
+const DIMENSIONAL_EVENT_DUNGEON_SLUGS = new Set([
+	"dz-queen-s-hive",
+	"dz-flower-s-garden",
+]);
+
+const NIGHTMARE_WORLD_TOP_LEVEL_SLUGS = new Set([
+	"nightmare-world",
+	"nightmare-hunts",
+	"nightmare-transportes",
+	"nightmare-disk",
+	"nightmare-brotherhood",
+	"nightmare-crystal",
+	"subject-14",
+	"sistema-de-pokemon-t1h",
+]);
+
+const ULTRA_LAB_TOP_LEVEL_SLUG_PATTERNS = [
+	/^ultra-lab$/,
+	/^advanced-ultra-lab-/,
+	/^ultra-lab-alpha-/,
+	/^golden-gauntlet$/,
+	/^nightmare-chests$/,
+	/^nightmare-pokegear$/,
+	/^npc-sidis-s-3$/,
+	/^sarkies-quest$/,
+	/^the-duke-resistance$/,
+];
+
 function normalizeCategoryText(value) {
 	return cleanDisplayText(value)
 		.normalize("NFD")
@@ -94,16 +122,12 @@ function looksLikeDailyMission(title, navigationPath = []) {
 		|| /\bmissoes?\s+diarias?\b/.test(text);
 }
 
-function looksLikeQuestOrEvent(title, navigationPath = [], pageKind = "") {
-	const text = normalizeCategoryText(`${title} ${navigationPath.join(" ")} ${pageKind}`);
-	return /\bquest\b/.test(text)
-		|| /\beventos?\b/.test(text)
-		|| /\bdungeons?\b/.test(text)
-		|| /\bboss\b/.test(text)
-		|| /\bdefender\b/.test(text);
-}
-
 function looksLikeActualQuestSpoiler(title, navigationPath = [], pageKind = "") {
+	const titleOnly = normalizeCategoryText(title);
+	if (/\bquest\b/.test(titleOnly) && !/\b(item|items|itens|bag|bags|backpack|box|camera|coin|coins?|stone|ticket|token|rewards?)\b/.test(titleOnly)) {
+		return true;
+	}
+
 	const text = normalizeCategoryText(`${title} ${navigationPath.join(" ")} ${pageKind}`);
 	if (!/\bquest\b/.test(text) && !/\bspoilers?\b/.test(text)) return false;
 	return !/\b(item|items|itens|bag|bags|backpack|box|camera|coin|coins?|stone|ticket|token|rewards?)\b/.test(text);
@@ -111,12 +135,17 @@ function looksLikeActualQuestSpoiler(title, navigationPath = [], pageKind = "") 
 
 function looksLikeDimensionalPage(title, navigationPath = []) {
 	const text = normalizeCategoryText(`${title} ${navigationPath.join(" ")}`);
-	return /\bdz\b|\bdimensional\b/.test(text);
+	return /\bdz\b|\bdimensional\b|\bqueen s hive\b|\bflower s garden\b/.test(text);
 }
 
 function looksLikeEventPage(title, navigationPath = []) {
 	const text = normalizeCategoryText(`${title} ${navigationPath.join(" ")}`);
-	return /\beventos?\b|\bevents?\b|\bdefender\b|\bchristmas\b|\bnatal\b/.test(text);
+	return /\beventos?\b|\bevents?\b|\bdefender\b|\bchristmas\b|\bnatal\b|\beaster\b|\bpascoa\b|\bhalloween\b|\banniversary\b|\baniversario\b|\bsummer\b|\bvalentine\b|\bnamorados\b|\bpokepark\b|\bpoke\s+park\b/.test(text);
+}
+
+function looksLikeItemNoise(title, navigationPath = [], slug = "") {
+	const text = normalizeCategoryText(`${slug} ${title} ${navigationPath.join(" ")}`);
+	return /\b(backpack|bag|mochila|coin|coins?|camera|cam|token|ticket|box|capsule|stone|ore|gem|ball|cake cam)\b/.test(text);
 }
 
 function looksLikeNonNpcPage(title, navigationPath = []) {
@@ -162,9 +191,19 @@ export function resolveCategory(category, slug, profile, entry = {}) {
 		const pageKind = entry.pageKind ?? "";
 		if (looksLikeDailyMission(title, navigationPath)) return "daily-missions";
 		if (looksLikeActualQuestSpoiler(title, navigationPath, pageKind)) return "quests";
+		if (DIMENSIONAL_EVENT_DUNGEON_SLUGS.has(slug)) return "dimensional-zone";
 		if (looksLikeDimensionalPage(title, navigationPath)) return "dimensional-zone";
 		if (looksLikeEventPage(title, navigationPath)) return "events";
-		if (looksLikeQuestOrEvent(title, navigationPath, pageKind)) return "systems";
+	}
+
+	if (category === "events" && DIMENSIONAL_EVENT_DUNGEON_SLUGS.has(slug)) {
+		return "dimensional-zone";
+	}
+
+	if (category === "events") {
+		const title = entry.title?.[PT_BR] ?? entry.title?.en ?? slug;
+		const navigationPath = Array.isArray(entry.navigationPath) ? entry.navigationPath : [];
+		if (looksLikeItemNoise(title, navigationPath, slug)) return "items";
 	}
 
 	if (category === "npcs") {
@@ -191,6 +230,14 @@ export function resolveCategoryLabel(categoryId, fallbackLabel) {
 			"pt-BR": "Missões Diárias",
 			en: "Daily Missions",
 			es: "Misiones Diarias",
+		};
+	}
+
+	if (categoryId === "dimensional-zone") {
+		return {
+			"pt-BR": "Dimensional Zone",
+			en: "Dimensional Zone",
+			es: "Dimensional Zone",
 		};
 	}
 
@@ -264,6 +311,16 @@ export function resolveDisplayTitle(titleMap, categoryLabelMap) {
 		);
 	}
 
+	if (cleanDisplayText(categoryLabel) === "Ultra Lab") {
+		return Object.fromEntries(
+			Object.entries(title).map(([locale, value]) => {
+				const cleanValue = cleanDisplayText(value);
+				const clanMatch = cleanValue.match(/^Advanced Ultra Lab\s*[-:]\s*(.+)$/i);
+				return [locale, clanMatch ? `Laboratório ${clanMatch[1].trim()}` : cleanValue];
+			})
+		);
+	}
+
 	return title;
 }
 
@@ -284,11 +341,13 @@ function professionTitleOverride(slug) {
 
 export function resolveTitleOverride({ category, slug }) {
 	if (category === "professions") return professionTitleOverride(slug);
+	if (category === "tasks" && slug === "tasks") return localizedGroup("Kanto Tasks", "Kanto Tasks", "Kanto Tasks");
 	return null;
 }
 
 export function resolveDisplayInList({ category, slug, title, pageKind, navigationPath = [] }) {
 	const titleText = title?.[PT_BR] ?? title?.en ?? slug;
+	const normalizedText = normalizeCategoryText(`${slug} ${titleText} ${navigationPath.join(" ")} ${pageKind ?? ""}`);
 	if (isTranslatedVariantTitle(titleText)) return false;
 
 	if (category === "professions") {
@@ -307,8 +366,26 @@ export function resolveDisplayInList({ category, slug, title, pageKind, navigati
 		return TERRITORY_GUARDIAN_BOSS_SLUGS.has(slug);
 	}
 
+	if (category === "nightmare-world") {
+		return NIGHTMARE_WORLD_TOP_LEVEL_SLUGS.has(slug);
+	}
+
+	if (category === "ultra-lab") {
+		return ULTRA_LAB_TOP_LEVEL_SLUG_PATTERNS.some((pattern) => pattern.test(slug));
+	}
+
+	if (category === "events" && slug !== "events") {
+		return looksLikeEventPage(titleText, navigationPath)
+			&& !looksLikeItemNoise(titleText, navigationPath, slug);
+	}
+
+	if (category === "nightmare-rifts" && slug !== "nightmare-rifts") {
+		return /\brift/.test(normalizedText)
+			&& !/\b(profissao|profession|arqueolog|archeolog|cozinheir|cook|food|comida|minigame|item|itens)\b/.test(normalizedText);
+	}
+
 	if (category === "quests" && slug !== "quests") {
-		return looksLikeActualQuestSpoiler(titleText, navigationPath, pageKind);
+		return pageKind === "quest" || looksLikeActualQuestSpoiler(titleText, navigationPath, pageKind);
 	}
 
 	if (category === "npcs" && slug !== "npcs") {
@@ -319,11 +396,25 @@ export function resolveDisplayInList({ category, slug, title, pageKind, navigati
 }
 
 export function resolvePageGroup({ category, slug, title, navigationPath = [] }) {
+	if (category === "items") {
+		const text = normalizeCategoryText(`${slug} ${title?.[PT_BR] ?? title?.en ?? ""} ${navigationPath.join(" ")}`);
+		if (/\b(backpack|bag|mochila|mochilas)\b/.test(text)) return localizedGroup("Mochilas", "Backpacks", "Mochilas");
+		if (/\b(coin|coins?|token|ticket|currency|moeda|gem|gems?)\b/.test(text)) return localizedGroup("Moedas e tokens", "Coins and tokens", "Monedas y tokens");
+		if (/\b(capsule|capsula|pokeball|poke ball|ball|balls)\b/.test(text)) return localizedGroup("Cápsulas e balls", "Capsules and balls", "Cápsulas y balls");
+		if (/\b(profissao|profession|craft|ore|ingot|wool|fur|feather|wood|seed)\b/.test(text)) return localizedGroup("Profissões", "Professions", "Profesiones");
+		if (/\b(stone|pedra|evolution|evolucao)\b/.test(text)) return localizedGroup("Pedras", "Stones", "Piedras");
+		if (/\b(outfit|addon|clothes|roupa)\b/.test(text)) return localizedGroup("Outfits", "Outfits", "Outfits");
+		return localizedGroup("Outros", "Other", "Otros");
+	}
+
 	if (category !== "nightmare-rifts") return null;
 
 	const text = normalizeCategoryText(`${slug} ${title?.[PT_BR] ?? title?.en ?? ""} ${navigationPath.join(" ")}`);
+	if (/\b3\b|three|tres|trio|players?|jogadores/.test(text)) {
+		return localizedGroup("3 treinadores", "3 trainers", "3 entrenadores");
+	}
 	if (/craft|profissao|profession|arqueolog|archeolog|cozinheir|cook|food|comida/.test(text)) {
-		return localizedGroup("Rifts de Crafting", "Crafting Rifts", "Rifts de Crafting");
+		return localizedGroup("Craft", "Craft", "Craft");
 	}
 	if (/weekly|semanal/.test(text)) {
 		return localizedGroup("Rifts Semanais", "Weekly Rifts", "Rifts Semanales");
@@ -332,12 +423,8 @@ export function resolvePageGroup({ category, slug, title, navigationPath = [] })
 		return localizedGroup("Rifts de Drop", "Dropped Rifts", "Rifts de Drop");
 	}
 	if (/mystic|mistico|mistica|mitico|mitica/.test(text)) {
-		return localizedGroup("Rifts Místicos", "Mystic Rifts", "Rifts Místicos");
+		return localizedGroup("Mítica", "Mystic", "Mítica");
 	}
-	if (/\b3\b|three|tres|trio|players?|jogadores/.test(text)) {
-		return localizedGroup("Rifts de 3 Jogadores", "3 Player Rifts", "Rifts de 3 Jugadores");
-	}
-
 	return localizedGroup("Outros Rifts", "Other Rifts", "Otros Rifts");
 }
 
@@ -382,7 +469,7 @@ export function resolveSortRank({ category, slug, title }) {
 	if (category === "nightmare-rifts") {
 		const group = resolvePageGroup({ category, slug, title });
 		const groupText = normalizeCategoryText(group?.[PT_BR] ?? "");
-		if (/crafting/.test(groupText)) return 10;
+		if (/craft|crafting/.test(groupText)) return 10;
 		if (/semanais|weekly/.test(groupText)) return 20;
 		if (/drop|dropped/.test(groupText)) return 30;
 		if (/misticos|mystic/.test(groupText)) return 40;
@@ -398,23 +485,47 @@ export function normalizeSections(sectionsBase) {
 		const paragraphs = section.paragraphs?.[PT_BR] || [];
 		const items = section.items?.[PT_BR] || [];
 		const media = section.media?.[PT_BR] || [];
+		const shouldKeepText = (value) => {
+			const text = cleanDisplayText(value);
+			const normalized = normalizeCategoryText(text);
+			if (!text) return false;
+			return !/document\.addeventlistener|const\s+classicons|const\s+typeicons|function\s+filterhunts|queryselectorall|innerhtml|\.hidden\s*\{|\.image-container|\.tag-button/.test(normalized);
+		};
+		const uniqueText = (values) => {
+			const seen = new Set();
+			return values.map(cleanDisplayText).filter((value) => {
+				const key = normalizeCategoryText(value);
+				if (!shouldKeepText(value) || seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			});
+		};
+		const uniqueMedia = (values) => {
+			const seen = new Set();
+			return values.filter((item) => {
+				const key = item?.url ?? "";
+				if (!key || seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			});
+		};
 		return structureSection({
 			...section,
 			heading: mirrorLocalizedText(section.heading?.[PT_BR] || ""),
 			paragraphs: {
-				[PT_BR]: paragraphs.map(cleanDisplayText),
-				en: paragraphs.map(cleanDisplayText),
-				es: paragraphs.map(cleanDisplayText),
+				[PT_BR]: uniqueText(paragraphs),
+				en: uniqueText(paragraphs),
+				es: uniqueText(paragraphs),
 			},
 			items: {
-				[PT_BR]: items.map(cleanDisplayText),
-				en: items.map(cleanDisplayText),
-				es: items.map(cleanDisplayText),
+				[PT_BR]: uniqueText(items),
+				en: uniqueText(items),
+				es: uniqueText(items),
 			},
 			media: {
-				[PT_BR]: media,
-				en: media,
-				es: media,
+				[PT_BR]: uniqueMedia(media),
+				en: uniqueMedia(media),
+				es: uniqueMedia(media),
 			},
 		});
 	});

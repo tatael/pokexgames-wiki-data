@@ -104,3 +104,17 @@ test("structureSection removes bogus Link role text from pokemon table rows", ()
 		pvp: "Tank PvP",
 	});
 });
+
+test("structureSection removes raw pokemon sprite reference rows from prose sections", () => {
+	const section = structureSection(localizedSection({
+		id: "missoes-secretas",
+		heading: "Missões secretas",
+		items: [
+			"074-Geodude Geodude | 081-Magnemite Magnemite",
+			"669.Flabébé.png Flabébé",
+			"Fale com o NPC Arthur.",
+		],
+	}));
+
+	assert.deepEqual(section.items[PT_BR], ["Fale com o NPC Arthur."]);
+});

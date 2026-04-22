@@ -1,7 +1,7 @@
 import { PT_BR, buildSlug } from "./shared.mjs";
 
 const REWARD_RARITY_TOKENS = new Set([
-	"comum", "raro", "epico", "epica", "lendario", "lendaria", "mitico", "mitica"
+	"comum", "raro", "semiraro", "epico", "epica", "ultrararo", "lendario", "lendaria", "mitico", "mitica"
 ]);
 const FACT_LABEL_RE = /(Nome|Level|Elemento|Habilidades?|Boost|Materia)\s*:/gi;
 const KNOWN_MATERIA_SLUGS = new Set([
@@ -206,7 +206,7 @@ export function stripImageRefFromText(text) {
 		if (nextUpper >= 0) s = rest.slice(nextUpper).join(" ");
 	}
 
-	return s.trim();
+	return s.replace(/^thread\s+/i, "").trim();
 }
 
 function stripPrizeRefFromText(text) {
@@ -305,7 +305,7 @@ export function parseRewardItemText(item) {
 	if (!raw) return null;
 	const normalizedRaw = normalizeIdToken(raw);
 	if (["item raridade", "item quantidade raridade", "colocacao recompensa"].includes(normalizedRaw)) return null;
-	if (/^(facil|normal|dificil|easy|hard|platinum|ultra|hyper|master|grand master|recompensa semanal|recompensa de temporada)$/.test(normalizedRaw)) {
+	if (/^(facil|normal|dificil|easy|hard|platinum|ultra|hyper|master|grand master|gold|nightmare|especialista|expert|recompensa semanal|recompensa de temporada)$/.test(normalizedRaw)) {
 		return { type: "difficulty", difficulty: raw };
 	}
 
@@ -341,11 +341,12 @@ export function parseRewardItemText(item) {
 			name = String(name).replace(DIFFICULTY_RE, "").trim();
 		}
 
-		return { type: "loot", name: name || "", difficulty, rarity: lastPart, qty: isQty ? maybeQty : null };
+		return { type: "loot", name: cleanLootRewardName(name || ""), difficulty, rarity: lastPart, qty: isQty ? maybeQty : null };
 	}
 
-	const name = parts[parts.length - 1] || parts[0] || "";
-	return { type: "loot", name, difficulty: null, rarity: null, qty: null };
+	const rawName = parts[parts.length - 1] || parts[0] || "";
+	const parsedMeta = parseTrailingRewardMeta(rawName);
+	return { type: "loot", name: parsedMeta.name, difficulty: null, rarity: parsedMeta.rarity, qty: parsedMeta.qty };
 }
 
 function propagateDifficulty(rewards) {
@@ -363,6 +364,114 @@ function propagateDifficulty(rewards) {
 			}
 		}
 		return [reward];
+	});
+}
+
+function normalizeRewardName(value) {
+	return normalizeIdToken(value).replace(/\s+/g, " ");
+}
+
+function cleanLootRewardName(value) {
+	let name = stripPrizeRefFromText(value);
+	name = name.replace(/\bDarknesss\b/gi, "Darkness");
+	const words = name.split(/\s+/).filter(Boolean);
+	if (words.length >= 2) {
+		const first = words[0].toLowerCase().replace(/s$/, "");
+		const second = words[1].toLowerCase().replace(/s$/, "");
+		if (first && first === second) name = words.slice(1).join(" ");
+	}
+	return name.trim();
+}
+
+function parseTrailingRewardMeta(rawName) {
+	const text = String(rawName ?? "").trim();
+	if (!text) return { name: "", qty: null, rarity: null };
+
+	const qtyMatch = text.match(/^(.*?)\s*\(([^)]*?\d[^)]*)\)\s*$/);
+	if (qtyMatch) {
+		return {
+			name: cleanLootRewardName(qtyMatch[1]),
+			qty: qtyMatch[2]?.trim() ?? null,
+			rarity: null,
+		};
+	}
+
+	const rarityMatch = text.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+	const rarityText = rarityMatch?.[2] ? displayStructuredText(rarityMatch[2]) : "";
+	if (rarityText && isRarityText(rarityText)) {
+		return {
+			name: cleanLootRewardName(rarityMatch[1]),
+			qty: null,
+			rarity: rarityText,
+		};
+	}
+
+	return {
+		name: cleanLootRewardName(text),
+		qty: null,
+		rarity: null,
+	};
+}
+
+function ensureLegendaryBossRewards(rewards) {
+	const loot = rewards.filter((reward) => reward?.type === "loot");
+	const difficulties = new Set(loot.map((reward) => normalizeIdToken(reward.difficulty)).filter(Boolean));
+	if (!difficulties.has("facil") || !difficulties.has("normal") || !difficulties.has("dificil")) return rewards;
+
+	const easyLegendary = loot.filter((reward) =>
+		normalizeIdToken(reward.difficulty) === "facil"
+		&& normalizeIdToken(reward.rarity) === "lendario"
+		&& /\b(tv camera|backpack|amulet)\b/i.test(String(reward.name ?? ""))
+	);
+	const normalSpecial = loot.filter((reward) =>
+		normalizeIdToken(reward.difficulty) === "normal"
+		&& /\b(sewing kit|essence)\b/i.test(String(reward.name ?? ""))
+	);
+	if (!easyLegendary.length && !normalSpecial.length) return rewards;
+
+	const output = [...rewards];
+	for (const difficulty of ["Normal", "Difícil"]) {
+		const existingNames = new Set(
+			loot
+				.filter((reward) => normalizeIdToken(reward.difficulty) === normalizeIdToken(difficulty))
+				.map((reward) => normalizeRewardName(reward.name))
+		);
+		for (const item of easyLegendary) {
+			const key = normalizeRewardName(item.name);
+			if (!key || existingNames.has(key)) continue;
+			output.push({ ...item, difficulty });
+			existingNames.add(key);
+		}
+		if (normalizeIdToken(difficulty) === "dificil") {
+			for (const item of normalSpecial) {
+				const key = normalizeRewardName(item.name);
+				if (!key || existingNames.has(key)) continue;
+				output.push({ ...item, difficulty });
+				existingNames.add(key);
+			}
+		}
+	}
+	return output;
+}
+
+function dedupeRewards(rewards) {
+	const seen = new Set();
+	return rewards.filter((reward) => {
+		const key = [
+			reward?.type,
+			normalizeIdToken(reward?.difficulty),
+			normalizeIdToken(reward?.name),
+			normalizeIdToken(reward?.rarity),
+			normalizeIdToken(reward?.qty),
+			normalizeIdToken(reward?.place),
+			...(reward?.prizes ?? []).flatMap((prize) => [
+				normalizeIdToken(prize?.name),
+				normalizeIdToken(prize?.qty),
+			]),
+		].join("|");
+		if (!key.replace(/\|/g, "") || seen.has(key)) return false;
+		seen.add(key);
+		return true;
 	});
 }
 
@@ -492,9 +601,15 @@ function classifySectionKind(id, headingText) {
 	if (normHeading === "recompensa" || normHeading === "recompensas" || normHeading === "rewards" || /premios|premiacoes|premios dos baus/.test(normHeading)) {
 		return "rewards";
 	}
+
+	if (/^habilidades?(\s+|$)/.test(normHeading)) {
+		return "info";
+	}
+
 	if (normHeading === "pokemon" || normHeading === "pokemons" || normHeading === "pokemon recomendados") {
 		return "pokemon-group";
 	}
+
 	if (normHeading && (TIER_SECTION_PATTERN.test(normHeading) || TIER_SECTION_PATTERN.test(normHeading.replace(/ /g, "")))) {
 		return "tier";
 	}
@@ -530,7 +645,7 @@ export function structureSection(section) {
 			const parsed = (section.items[locale] ?? [])
 				.map(parseRewardItemText)
 				.filter(Boolean);
-			rewards[locale] = propagateDifficulty(parsed);
+			rewards[locale] = dedupeRewards(ensureLegendaryBossRewards(propagateDifficulty(parsed)));
 		}
 
 		result.rewards = rewards;

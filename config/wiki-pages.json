@@ -193,6 +193,33 @@
 		}
 	},
 	{
+		"category": "held-items",
+		"categoryLabel": {
+			"pt-BR": "Held Itens",
+			"en": "Held Items",
+			"es": "Held Items"
+		},
+		"slug": "held-itens",
+		"url": "https://wiki.pokexgames.com/index.php/Held_Itens",
+		"title": {
+			"pt-BR": "Held Itens",
+			"en": "Held Items",
+			"es": "Held Items"
+		},
+		"navigationPath": [
+			"Held Itens"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "item",
+			"excludeSlugs": [
+				"held-itens"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
 		"category": "quests",
 		"categoryLabel": {
 			"pt-BR": "Quests",
@@ -356,6 +383,34 @@
 			"excludeSlugs": [
 				"boss-fight",
 				"boss-fight-suicune"
+			],
+			"maxDepth": 1
+		}
+	},
+	{
+		"category": "boss-fight",
+		"categoryLabel": {
+			"pt-BR": "Boss Fight",
+			"en": "Boss Fight",
+			"es": "Boss Fight"
+		},
+		"slug": "nightmare-terror",
+		"url": "https://wiki.pokexgames.com/index.php/Nightmare_Terror",
+		"title": {
+			"pt-BR": "Nightmare Terror",
+			"en": "Nightmare Terror",
+			"es": "Nightmare Terror"
+		},
+		"navigationPath": [
+			"Boss Fight",
+			"Nightmare Terror"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "boss",
+			"excludeSlugs": [
+				"nightmare-terror"
 			],
 			"maxDepth": 1
 		}

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
 	buildLocalizedSummary,
+	normalizeSections,
 	resolveCategory,
 	resolveCategoryLabel,
 	resolveDisplayTitle,
@@ -176,6 +177,30 @@ test("resolveDisplayInList filters event and Nightmare Rift category noise", () 
 		title: buildLocalizedText("Cozinheiro"),
 		pageKind: "profession",
 	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "nightmare-rifts",
+		slug: "birth-island",
+		title: buildLocalizedText("Birth Island"),
+		pageKind: "rift",
+		navigationPath: ["Nightmare Rifts", "Arqueologo", "Dungeons"],
+	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "nightmare-rifts",
+		slug: "cooks",
+		title: buildLocalizedText("Cooks"),
+		pageKind: "rift",
+		navigationPath: ["Nightmare Rifts", "Cozinheiro"],
+	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "nightmare-rifts",
+		slug: "archeologist",
+		title: buildLocalizedText("Archeologist"),
+		pageKind: "article",
+		navigationPath: ["Nightmare Rifts", "Arqueologo"],
+	}), false);
 });
 
 test("resolvePageGroup publishes item filter groups", () => {
@@ -216,4 +241,60 @@ test("resolveSortRank publishes category-specific card order", () => {
 		slug: "golden-dungeons",
 		title: buildLocalizedText("Golden Dungeons"),
 	}), 30);
+});
+
+test("normalizeSections preserves repeated capture-ball media in possible captures", () => {
+	const [section] = normalizeSections([{
+		id: "possiveis-capturas",
+		heading: { [PT_BR]: "PossÃ­veis Capturas" },
+		paragraphs: { [PT_BR]: [], en: [], es: [] },
+		items: { [PT_BR]: [], en: [], es: [] },
+		media: {
+			[PT_BR]: [
+				{ type: "image", url: "https://wiki.pokexgames.com/images/a/a1/Ultra-ball.png", alt: "Ultra-ball.png" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/a/a1/Ultra-ball.png", alt: "Ultra-ball.png" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/b/b1/Sora-ball.png", alt: "Sora-ball.png" },
+			],
+			en: [],
+			es: [],
+		},
+	}]);
+
+	assert.equal(section.media[PT_BR].length, 3);
+});
+
+test("resolveDisplayInList hides boss-fight discovery roots but keeps discovered bosses", () => {
+	assert.equal(resolveDisplayInList({
+		category: "boss-fight",
+		slug: "nightmare-terror",
+		title: buildLocalizedText("Nightmare Terror"),
+		pageKind: "index",
+		navigationPath: ["Boss Fight", "Nightmare Terror"],
+	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "boss-fight",
+		slug: "lavender-s-curse",
+		title: buildLocalizedText("Lavender's Curse"),
+		pageKind: "boss",
+		navigationPath: ["Boss Fight", "Eventos"],
+	}), true);
+});
+
+test("normalizeSections splits embedded tower trap rows into an Armadilhas section", () => {
+	const sections = normalizeSections([{
+		id: "mapa-do-andar",
+		heading: { [PT_BR]: "Mapa do andar" },
+		paragraphs: { [PT_BR]: ["Mapa principal."], en: [], es: [] },
+		items: { [PT_BR]: ["Observação geral.", "Redemoinhos Trap1.gif | 20% da vida máxima"], en: [], es: [] },
+		media: { [PT_BR]: [
+			{ type: "image", url: "https://wiki.pokexgames.com/images/a/a1/Mapa.png", alt: "Mapa.png" },
+			{ type: "image", url: "https://wiki.pokexgames.com/images/b/b1/Trap1.gif", alt: "Trap1.gif" },
+		], en: [], es: [] },
+	}]);
+
+	assert.deepEqual(sections.map((section) => section.id), ["mapa-do-andar", "armadilhas"]);
+	assert.deepEqual(sections[0].items[PT_BR], ["Observação geral."]);
+	assert.deepEqual(sections[1].items[PT_BR], ["Redemoinhos Trap1.gif | 20% da vida máxima"]);
+	assert.equal(sections[1].media[PT_BR][0].alt, "Trap1.gif");
 });

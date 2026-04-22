@@ -170,3 +170,29 @@ test("extractSections uses wrapped wiki links as media navigation slugs", () => 
 
 	assert.equal(sections[0].media["pt-BR"][0].slug, "dz-beartic");
 });
+
+test("extractSections preserves repeated capture-ball media inside possible captures", () => {
+	const sections = extractSections(`
+		<h2>Possíveis Capturas</h2>
+		<table>
+			<tr><td><img alt="225-Sh Delibird.png" src="/images/d/d0/225-Sh_Delibird.png"></td><td><img alt="Ultra-ball(1).png" src="/images/9/9b/Ultra-ball%281%29.png"></td><td><img alt="Sora-ball.png" src="/images/b/b9/Sora-ball.png"></td><td><img alt="Premier-ball(1).png" src="/images/e/e6/Premier-ball%281%29.png"></td></tr>
+			<tr><td><img alt="613-Cubchoo.png" src="/images/b/bc/613-Cubchoo.png"></td><td><img alt="Ultra-ball(1).png" src="/images/9/9b/Ultra-ball%281%29.png"></td><td><img alt="Sora-ball.png" src="/images/b/b9/Sora-ball.png"></td><td><img alt="Premier-ball(1).png" src="/images/e/e6/Premier-ball%281%29.png"></td></tr>
+			<tr><td><img alt="614-Beartic.png" src="/images/3/3e/614-Beartic.png"></td><td><img alt="Ultra-ball(1).png" src="/images/9/9b/Ultra-ball%281%29.png"></td><td><img alt="Sora-ball.png" src="/images/b/b9/Sora-ball.png"></td><td><img alt="Heavy-ball.png" src="/images/c/c5/Heavy-ball.png"></td><td><img alt="Premier-ball(1).png" src="/images/e/e6/Premier-ball%281%29.png"></td></tr>
+		</table>
+	`, "DZ Beartic", "https://wiki.pokexgames.com/index.php/DZ_Beartic");
+
+	assert.equal(sections[0].media["pt-BR"].length, 13);
+	assert.equal(sections[0].media["pt-BR"].filter((item) => item.alt === "Ultra-ball(1).png").length, 3);
+});
+
+test("extractArticleWikiLinks uses linked image alt text and single quoted hrefs", () => {
+	const links = extractArticleWikiLinks(`
+		<h2>Eventos</h2>
+		<a href='/index.php/Lavender%27s_Curse'><img alt="Lavender's Curse" src="/images/a/aa/Lavender.png"></a>
+	`, "https://wiki.pokexgames.com/index.php/Boss_Fight");
+
+	assert.equal(links[0].title, "Lavender's Curse");
+	assert.equal(links[0].label, "Lavender's Curse");
+	assert.equal(links[0].hasImage, true);
+	assert.deepEqual(links[0].headingPath, ["Eventos"]);
+});

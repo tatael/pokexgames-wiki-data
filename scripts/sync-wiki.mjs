@@ -49,6 +49,39 @@ const TERRITORY_GUARDIAN_BANNERS = {
 	"giant-magcargo": "https://wiki.pokexgames.com/images/thumb/9/98/Banner_Bolinha_MD_-_The_Magma_Insurgency.webp/308px-Banner_Bolinha_MD_-_The_Magma_Insurgency.webp.png",
 };
 
+function buildSearchText(page) {
+	const pieces = [
+		page.title?.[PT_BR],
+		page.summary?.[PT_BR],
+		page.pageGroup?.[PT_BR],
+		...(page.navigationPath ?? []),
+	];
+
+	for (const section of page.sections ?? []) {
+		pieces.push(section.heading?.[PT_BR]);
+		pieces.push(...(section.paragraphs?.[PT_BR] ?? []));
+		pieces.push(...(section.items?.[PT_BR] ?? []));
+		for (const reward of section.rewards?.[PT_BR] ?? []) {
+			pieces.push(reward?.name, reward?.difficulty, reward?.rarity, reward?.qty, reward?.place);
+			for (const prize of reward?.prizes ?? []) pieces.push(prize?.name, prize?.qty);
+		}
+		for (const pokemon of section.pokemon?.[PT_BR] ?? []) {
+			pieces.push(pokemon?.name, pokemon?.pve, pokemon?.pvp);
+		}
+		for (const moveGroup of section.moves?.[PT_BR] ?? []) {
+			pieces.push(moveGroup?.label);
+			for (const row of moveGroup?.rows ?? []) pieces.push(row?.name, row?.cooldown, ...(row?.traits ?? []));
+		}
+	}
+
+	const text = pieces
+		.flatMap((value) => Array.isArray(value) ? value : [value])
+		.map((value) => String(value ?? "").trim())
+		.filter(Boolean)
+		.join(" ");
+	return text ? { [PT_BR]: text, en: text, es: text } : null;
+}
+
 async function resolvePageImages({ articleHtml, sourceUrl, slug, pageKind, category }) {
 	if (category === "territory-guardians" && pageKind === "guardian-boss" && TERRITORY_GUARDIAN_BANNERS[slug]) {
 		const url = TERRITORY_GUARDIAN_BANNERS[slug];
@@ -107,7 +140,11 @@ async function syncEntry(entry) {
 	const resolvedCategoryLabel = resolveCategoryLabel(resolvedCategory, entry.categoryLabel);
 	const pageKind = profile ? "pokemon" : (entry.pageKind || "article");
 	const rawSummary = buildSummary(sectionsBase);
-	const displayTitle = resolveTitleOverride({ category: resolvedCategory, slug: entry.slug })
+	const profileTitle = profile
+		? Object.fromEntries(Object.entries(profile).map(([locale, value]) => [locale, value?.name]).filter(([, value]) => value))
+		: null;
+	const displayTitle = profileTitle
+		?? resolveTitleOverride({ category: resolvedCategory, slug: entry.slug })
 		?? resolveDisplayTitle(entry.title, resolvedCategoryLabel);
 	const fallbackSummary = displayTitle?.[PT_BR] || entry.title?.[PT_BR] || resolvedTitle || entry.slug;
 	const summary = buildLocalizedSummary(rawSummary, fallbackSummary);
@@ -126,6 +163,13 @@ async function syncEntry(entry) {
 		slug: entry.slug,
 		title: displayTitle,
 		navigationPath,
+	});
+	const searchText = buildSearchText({
+		title: displayTitle,
+		summary,
+		pageGroup,
+		navigationPath,
+		sections,
 	});
 	const displayInList = resolveDisplayInList({
 		category: resolvedCategory,
@@ -152,6 +196,7 @@ async function syncEntry(entry) {
 		pageKind,
 		title: displayTitle,
 		summary,
+		...(searchText ? { searchText } : {}),
 		...(sortRank !== null ? { sortRank } : {}),
 		...(displayInList === false ? { displayInList } : {}),
 		...(pageGroup ? { pageGroup } : {}),
@@ -178,6 +223,7 @@ async function syncEntry(entry) {
 			pageKind,
 			title: displayTitle,
 			summary,
+			...(searchText ? { searchText } : {}),
 			...(sortRank !== null ? { sortRank } : {}),
 			...(displayInList === false ? { displayInList } : {}),
 			...(pageGroup ? { pageGroup } : {}),

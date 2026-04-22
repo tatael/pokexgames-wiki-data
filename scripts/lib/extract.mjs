@@ -85,9 +85,23 @@ export function buildWikiUrlFromTitle(title) {
 
 export function extractArticleWikiLinks(html, pageUrl) {
 	const baseUrl = new URL(pageUrl);
-	const tokenRegex = /<h([2-4])[^>]*>([\s\S]*?)<\/h\1>|<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+	const tokenRegex = /<h([2-4])[^>]*>([\s\S]*?)<\/h\1>|<a\b[^>]*\bhref\s*=\s*(?:"([^"]+)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
 	const results = [];
 	const headingTrail = [];
+	const readTagAttr = (tag, name) => {
+		const attrMatch = String(tag ?? "").match(new RegExp("\\b" + name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", "i"));
+		return decodeHtmlEntities(attrMatch?.[1] ?? attrMatch?.[2] ?? attrMatch?.[3] ?? "");
+	};
+
+	const extractAnchorLabel = (innerHtml, fallbackTitle, anchorHtml) => {
+		const textLabel = stripHtml(innerHtml ?? "");
+		if (textLabel) return textLabel;
+		const anchorTitle = readTagAttr(anchorHtml, "title");
+		if (anchorTitle) return anchorTitle;
+		const imageTag = String(innerHtml ?? "").match(/<img\b[^>]*>/i)?.[0] ?? "";
+		const imageLabel = readTagAttr(imageTag, "title") || readTagAttr(imageTag, "alt");
+		return fallbackTitle || imageLabel;
+	};
 
 	for (const match of html.matchAll(tokenRegex)) {
 		if (match[1]) {
@@ -105,8 +119,8 @@ export function extractArticleWikiLinks(html, pageUrl) {
 			continue;
 		}
 
-		const href = match[3];
-		const label = stripHtml(match[4] ?? "");
+		const href = match[3] ?? match[4] ?? match[5];
+		const innerHtml = match[6] ?? "";
 		if (!href) {
 			continue;
 		}
@@ -142,8 +156,9 @@ export function extractArticleWikiLinks(html, pageUrl) {
 		results.push({
 			url: resolved.toString(),
 			title,
-			label: label || title,
+			label: extractAnchorLabel(innerHtml, title, match[0]),
 			headingPath: headingTrail.map((item) => item.label),
+			hasImage: /<img\b/i.test(innerHtml),
 		});
 	}
 
@@ -403,14 +418,17 @@ export function isNoiseMediaAsset(url, alt = "") {
 		|| /\/images\/[0-9a-f]\/[0-9a-f]{2}\/(?:bug|dark|dragon|electric|fairy|fighting|fire|flying|ghost|grass|ground|ice|normal|poison|psychic|rock|steel|water)\.(?:png|gif|jpe?g|webp)(?:\?|$)/i.test(url);
 }
 
-function extractMedia(html, pageUrl = "") {
+function extractMedia(html, pageUrl = "", options = {}) {
 	if (!pageUrl) return [];
 	const media = [];
 	const seen = new Set();
+	const allowDuplicates = options.allowDuplicates === true;
+	const linkedImageRanges = [];
 	const readTagAttr = (tag, name) => {
 		const match = String(tag ?? "").match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
 		return match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
 	};
+
 	const readDimension = (tag, name, rawUrl = "") => {
 		const attrValue = readTagAttr(tag, name);
 		const attrNumber = Number.parseInt(String(attrValue).replace(/[^\d]/g, ""), 10);
@@ -420,6 +438,7 @@ function extractMedia(html, pageUrl = "") {
 		const thumbWidth = Number.parseInt(thumbMatch?.[1] ?? "", 10);
 		return Number.isFinite(thumbWidth) && thumbWidth > 0 ? thumbWidth : null;
 	};
+
 	const inferPokemonSlug = (url, alt) => {
 		const filename = decodeURIComponent(String(alt || url).split(/[/?#]/).filter(Boolean).pop() ?? "")
 			.replace(/\.[a-z0-9]+$/i, "")
@@ -428,6 +447,7 @@ function extractMedia(html, pageUrl = "") {
 		if (!filename || /^(banner|task|map|possivel|possible|syncamore|barry|diamond|comvip|semvip|check|checkmark|x|tower|wish)(?:\b|[-_])/i.test(filename)) return null;
 		return buildSlug(filename, "");
 	};
+
 	const inferWikiLinkSlug = (href) => {
 		try {
 			const target = new URL(href, pageUrl);
@@ -439,11 +459,12 @@ function extractMedia(html, pageUrl = "") {
 			return null;
 		}
 	};
+
 	const add = (type, rawUrl, alt = "", metadata = {}) => {
 		const url = absolutizeWikiAssetUrl(pageUrl, rawUrl);
-		if (!url || seen.has(url)) return;
+		if (!url || (!allowDuplicates && seen.has(url))) return;
 		if (isNoiseMediaAsset(url, alt)) return;
-		seen.add(url);
+		if (!allowDuplicates) seen.add(url);
 		const entry = { type, url, alt: stripHtml(alt || "") };
 		if (metadata.width) entry.width = metadata.width;
 		if (metadata.height) entry.height = metadata.height;
@@ -455,6 +476,14 @@ function extractMedia(html, pageUrl = "") {
 	for (const match of String(html ?? "").matchAll(/<a\b[^>]*\bhref=(?:"([^"]+)"|'([^']*)'|([^\s>]+))[^>]*>\s*(<img\b[^>]*>)\s*<\/a>/gi)) {
 		const href = match[1] ?? match[2] ?? match[3] ?? "";
 		const tag = match[4] ?? "";
+		const start = match.index ?? -1;
+		if (start >= 0) {
+			linkedImageRanges.push({
+				start,
+				end: start + String(match[0] ?? "").length,
+			});
+		}
+
 		const rawUrl = readTagAttr(tag, "src") || readTagAttr(tag, "data-src");
 		add("image", rawUrl, readTagAttr(tag, "alt"), {
 			width: readDimension(tag, "width", rawUrl),
@@ -464,6 +493,8 @@ function extractMedia(html, pageUrl = "") {
 	}
 
 	for (const match of String(html ?? "").matchAll(/<img\b[^>]*>/gi)) {
+		const start = match.index ?? -1;
+		if (start >= 0 && linkedImageRanges.some((range) => start >= range.start && start < range.end)) continue;
 		const tag = match[0];
 		const rawUrl = readTagAttr(tag, "src") || readTagAttr(tag, "data-src");
 		add("image", rawUrl, readTagAttr(tag, "alt"), {
@@ -522,6 +553,14 @@ function extractRewardTabberLines(html) {
 	}
 
 	return lines;
+}
+
+function isPossibleCapturesHeading(value) {
+	return String(value ?? "")
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.includes("possiveis capturas");
 }
 
 export function extractSections(html, title, pageUrl = "") {
@@ -595,7 +634,11 @@ export function extractSections(html, title, pageUrl = "") {
 			heading: { [PT_BR]: entry.heading },
 			paragraphs: { [PT_BR]: paragraphs },
 			items: { [PT_BR]: items },
-			media: { [PT_BR]: extractMedia(slice, pageUrl) },
+			media: {
+				[PT_BR]: extractMedia(slice, pageUrl, {
+					allowDuplicates: isPossibleCapturesHeading(entry.heading),
+				}),
+			},
 		};
 	});
 }
@@ -638,4 +681,3 @@ export function buildSummary(sections) {
 
 	return { [PT_BR]: summary };
 }
-

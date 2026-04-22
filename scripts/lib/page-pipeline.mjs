@@ -116,6 +116,23 @@ function normalizeCategoryText(value) {
 		.toLowerCase();
 }
 
+function stripMediaFileTitle(value) {
+	return cleanDisplayText(value)
+		.replace(/(?:\.|\s+)(?:gif|png|jpe?g|webp|svg)$/i, "")
+		.replace(/^\d{1,4}\s*[-_.]\s*/g, "")
+		.replace(/^banner\s+(?:bolinha\s+)?(?:bf|md)?\s*/i, "")
+		.replace(/^bf(?=[A-Z])/i, "")
+		.replace(/^bf\s*/i, "")
+		.replace(/[-_]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function cleanTitleValue(value) {
+	const text = cleanDisplayText(value);
+	return /(?:\.|\s+)(?:gif|png|jpe?g|webp|svg)$/i.test(text) ? stripMediaFileTitle(text) : text;
+}
+
 function looksLikeDailyMission(title, navigationPath = []) {
 	const text = normalizeCategoryText(`${title} ${navigationPath.join(" ")}`);
 	return /\bdaily\s+(kill|catch|dz|gift)\b/.test(text)
@@ -179,6 +196,10 @@ function cleanLocalizedTextMap(value, fallback) {
 export function resolveCategory(category, slug, profile, entry = {}) {
 	if (profile) {
 		return "pokemon";
+	}
+
+	if (PROFESSION_SPECIALIZATION_SLUGS.has(slug)) {
+		return "professions";
 	}
 
 	if (GUARDIAN_DUNGEON_SLUGS.has(slug)) {
@@ -249,6 +270,14 @@ export function resolveCategoryLabel(categoryId, fallbackLabel) {
 		};
 	}
 
+	if (categoryId === "held-items") {
+		return {
+			"pt-BR": "Held Itens",
+			en: "Held Items",
+			es: "Held Items",
+		};
+	}
+
 	if (categoryId === "events") {
 		return {
 			"pt-BR": "Eventos",
@@ -299,7 +328,7 @@ export function resolveDisplayTitle(titleMap, categoryLabelMap) {
 	const title = Object.fromEntries(
 		Object.entries(titleMap ?? {}).map(([locale, value]) => [
 			locale,
-			stripCategoryPrefix(value, categoryLabelMap?.[locale] ?? categoryLabelMap?.[PT_BR] ?? ""),
+			stripCategoryPrefix(cleanTitleValue(value), categoryLabelMap?.[locale] ?? categoryLabelMap?.[PT_BR] ?? ""),
 		])
 	);
 	if (cleanDisplayText(categoryLabel) === "Mystery Dungeons") {
@@ -331,6 +360,11 @@ const PROFESSION_ROOT_SLUGS = new Set([
 	"professor",
 ]);
 
+const PROFESSION_SPECIALIZATION_SLUGS = new Set([
+	"arqueologo",
+	"cozinheiro",
+]);
+
 function professionTitleOverride(slug) {
 	if (slug === "aventureiro") return localizedGroup("Aventureiro", "Adventurer", "Aventurero");
 	if (slug === "engenheiro") return localizedGroup("Engenheiro", "Engineer", "Ingeniero");
@@ -340,6 +374,7 @@ function professionTitleOverride(slug) {
 }
 
 export function resolveTitleOverride({ category, slug }) {
+	if (slug === "experience") return localizedGroup("Experiência", "Experience", "Experiencia");
 	if (category === "professions") return professionTitleOverride(slug);
 	if (category === "tasks" && slug === "tasks") return localizedGroup("Kanto Tasks", "Kanto Tasks", "Kanto Tasks");
 	return null;
@@ -349,6 +384,11 @@ export function resolveDisplayInList({ category, slug, title, pageKind, navigati
 	const titleText = title?.[PT_BR] ?? title?.en ?? slug;
 	const normalizedText = normalizeCategoryText(`${slug} ${titleText} ${navigationPath.join(" ")} ${pageKind ?? ""}`);
 	if (isTranslatedVariantTitle(titleText)) return false;
+	if (category === "boss-fight" && slug === "boss-fight") return false;
+
+	if (category === "boss-fight" && pageKind === "index" && slug !== "boss-fight") {
+		return false;
+	}
 
 	if (category === "professions") {
 		return PROFESSION_ROOT_SLUGS.has(slug);
@@ -380,8 +420,9 @@ export function resolveDisplayInList({ category, slug, title, pageKind, navigati
 	}
 
 	if (category === "nightmare-rifts" && slug !== "nightmare-rifts") {
+		if (/\b(arqueologo|archeologist|cocinero|cozinheiro|cook|cooks?|comidas?|food|profissao|profession|crafts?|workshops?|recursos?|resource|dungeons?)\b/.test(normalizedText)) return false;
 		return /\brift/.test(normalizedText)
-			&& !/\b(profissao|profession|arqueolog|archeolog|cozinheir|cook|food|comida|minigame|item|itens)\b/.test(normalizedText);
+			&& !/\b(profissao|profession|arqueologo|archeologist|cozinheiro|cook|cooks?|food|comida|comidas|minigame|item|itens|workshop|resource|recursos)\b/.test(normalizedText);
 	}
 
 	if (category === "quests" && slug !== "quests") {
@@ -407,12 +448,33 @@ export function resolvePageGroup({ category, slug, title, navigationPath = [] })
 		return localizedGroup("Outros", "Other", "Otros");
 	}
 
+	if (category === "boss-fight") {
+		const text = normalizeCategoryText(`${slug} ${title?.[PT_BR] ?? title?.en ?? ""} ${navigationPath.join(" ")}`);
+		if (/\b(king charizard|bowstoise|bowtoise)\b/.test(text)) {
+			return localizedGroup("Eventos", "Events", "Eventos");
+		}
+
+		if (/\b(lavender|ghost|tentacruel)\b/.test(text)) {
+			return localizedGroup("Outros", "Other", "Otros");
+		}
+		if (/\b(entei|raikou|suicune|bestas lendarias|caes lendarios|legendary beasts)\b/.test(text)) {
+			return localizedGroup("Cães Lendários", "Legendary Dogs", "Perros Legendarios");
+		}
+
+		if (/\bnightmare terror\b/.test(text)) {
+			return localizedGroup("Nightmare Terror", "Nightmare Terror", "Nightmare Terror");
+		}
+
+		if (/\b(evento|eventos|event|events|lavender s curse|lavender curse)\b/.test(text)) {
+			return localizedGroup("Eventos", "Events", "Eventos");
+		}
+
+		return localizedGroup("Outros", "Other", "Otros");
+	}
+
 	if (category !== "nightmare-rifts") return null;
 
 	const text = normalizeCategoryText(`${slug} ${title?.[PT_BR] ?? title?.en ?? ""} ${navigationPath.join(" ")}`);
-	if (/\b3\b|three|tres|trio|players?|jogadores/.test(text)) {
-		return localizedGroup("3 treinadores", "3 trainers", "3 entrenadores");
-	}
 	if (/craft|profissao|profession|arqueolog|archeolog|cozinheir|cook|food|comida/.test(text)) {
 		return localizedGroup("Craft", "Craft", "Craft");
 	}
@@ -480,8 +542,18 @@ export function resolveSortRank({ category, slug, title }) {
 	return null;
 }
 
+function isTrapItemText(value) {
+	return /\btrap[\w\s-]*\.(?:gif|png|webp|jpe?g)\b/i.test(String(value ?? ""));
+}
+
+function isTrapMedia(item) {
+	return isTrapItemText(String(item?.alt ?? "") + " " + String(item?.url ?? "") + " " + String(item?.slug ?? ""));
+}
+
 export function normalizeSections(sectionsBase) {
-	return sectionsBase.map((section) => {
+	return sectionsBase.flatMap((section) => {
+		const sectionId = cleanDisplayText(section.id ?? "");
+		const normalizedSectionId = normalizeCategoryText(sectionId);
 		const paragraphs = section.paragraphs?.[PT_BR] || [];
 		const items = section.items?.[PT_BR] || [];
 		const media = section.media?.[PT_BR] || [];
@@ -501,6 +573,7 @@ export function normalizeSections(sectionsBase) {
 			});
 		};
 		const uniqueMedia = (values) => {
+			if (sectionId === "possiveis-capturas") return values.filter((item) => Boolean(item?.url));
 			const seen = new Set();
 			return values.filter((item) => {
 				const key = item?.url ?? "";
@@ -509,25 +582,48 @@ export function normalizeSections(sectionsBase) {
 				return true;
 			});
 		};
-		return structureSection({
+
+		const normalizedParagraphs = uniqueText(paragraphs);
+		const normalizedItems = uniqueText(items);
+		const normalizedMedia = uniqueMedia(media);
+		const trapItems = normalizedItems.filter(isTrapItemText);
+		const trapMedia = normalizedMedia.filter(isTrapMedia);
+		const shouldSplitTraps = normalizedSectionId !== "armadilhas" && (trapItems.length || trapMedia.length);
+		const baseItems = shouldSplitTraps ? normalizedItems.filter((item) => !isTrapItemText(item)) : normalizedItems;
+		const baseMedia = shouldSplitTraps ? normalizedMedia.filter((item) => !isTrapMedia(item)) : normalizedMedia;
+		const normalizedSection = structureSection({
 			...section,
 			heading: mirrorLocalizedText(section.heading?.[PT_BR] || ""),
 			paragraphs: {
-				[PT_BR]: uniqueText(paragraphs),
-				en: uniqueText(paragraphs),
-				es: uniqueText(paragraphs),
+				[PT_BR]: normalizedParagraphs,
+				en: normalizedParagraphs,
+				es: normalizedParagraphs,
 			},
 			items: {
-				[PT_BR]: uniqueText(items),
-				en: uniqueText(items),
-				es: uniqueText(items),
+				[PT_BR]: baseItems,
+				en: baseItems,
+				es: baseItems,
 			},
 			media: {
-				[PT_BR]: uniqueMedia(media),
-				en: uniqueMedia(media),
-				es: uniqueMedia(media),
+				[PT_BR]: baseMedia,
+				en: baseMedia,
+				es: baseMedia,
 			},
 		});
+		if (!shouldSplitTraps) {
+			return [normalizedSection];
+		}
+
+		return [
+			normalizedSection,
+			structureSection({
+				id: "armadilhas",
+				heading: mirrorLocalizedText("Armadilhas"),
+				paragraphs: { [PT_BR]: [], en: [], es: [] },
+				items: { [PT_BR]: trapItems, en: trapItems, es: trapItems },
+				media: { [PT_BR]: trapMedia, en: trapMedia, es: trapMedia },
+			}),
+		];
 	});
 }
 

@@ -367,6 +367,10 @@ function isLikelyRecursiveBranchNode(entry) {
 
 export function shouldRecurseDiscoveredPage(entry, depth) {
 	const pageKind = entry.pageKind || "";
+	if (pageKind === "boss") {
+		return false;
+	}
+
 	if (["workshop", "craft", "dungeons", "map", "artifact", "system"].includes(pageKind)) {
 		return false;
 	}
@@ -393,6 +397,12 @@ export function shouldSkipDiscoveredLink({
 	const childSlug = buildSlug(link.title, "");
 	const rootCategory = rootEntry.category || "";
 	const titleText = `${link.title} ${link.label}`;
+	const isDimensionalDungeonLink = rootCategory === "dimensional-zone" && /^dz[-_\s]/i.test(link.title);
+	const isLinkedImageCard = link.hasImage === true
+		&& (
+			(rootCategory === "daily-missions" && parentEntry.slug === rootEntry.slug)
+			|| (rootCategory === "boss-fight" && ["boss-fight", "nightmare-terror"].includes(parentEntry.slug))
+		);
 	const embeddedTowerAlias = rootCategory === "embedded-tower"
 		&& (
 			/^embedded-tower-(en|es|pt|br)$/i.test(childSlug)
@@ -408,7 +418,7 @@ export function shouldSkipDiscoveredLink({
 		|| isTranslatedVariantTitle(link.title)
 		|| isTranslatedVariantTitle(link.label)
 		|| embeddedTowerAlias
-		|| (link.headingPath || []).some(isContentListHeading)
+		|| (!isDimensionalDungeonLink && !isLinkedImageCard && (link.headingPath || []).some(isContentListHeading))
 	);
 }
 

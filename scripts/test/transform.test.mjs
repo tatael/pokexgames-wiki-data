@@ -76,6 +76,39 @@ test("parseRewardItemText keeps ranking places and loot difficulties structured"
 			qty: null,
 		},
 	);
+
+	assert.deepEqual(
+		parseRewardItemText("Emeralds Emerald (1 -??)"),
+		{
+			type: "loot",
+			name: "Emerald",
+			difficulty: null,
+			rarity: null,
+			qty: "1 -??",
+		},
+	);
+
+	assert.deepEqual(
+		parseRewardItemText("Yellowpresent Yellow Present (Semi Raro)"),
+		{
+			type: "loot",
+			name: "Yellow Present",
+			difficulty: null,
+			rarity: "Semi Raro",
+			qty: null,
+		},
+	);
+
+	assert.deepEqual(
+		parseRewardItemText("UnpackedToy.png Unpacked Toy (Ultra Raro)"),
+		{
+			type: "loot",
+			name: "Unpacked Toy",
+			difficulty: null,
+			rarity: "Ultra Raro",
+			qty: null,
+		},
+	);
 });
 
 test("parsePokemonItemText preserves multiple roles in the same PvE or PvP field", () => {
@@ -117,4 +150,41 @@ test("structureSection removes raw pokemon sprite reference rows from prose sect
 	}));
 
 	assert.deepEqual(section.items[PT_BR], ["Fale com o NPC Arthur."]);
+});
+
+test("structureSection keeps boss legendary rewards available on normal and hard difficulties", () => {
+	const section = structureSection(localizedSection({
+		id: "recompensas",
+		heading: "Recompensas",
+		items: [
+			"F\u00e1cil",
+			"Entei Legendary sewing thread | Entei Sewing Kit | Lend\u00e1rio",
+			"Entei TV Camera | Lend\u00e1rio",
+			"Entei Backpack | Lend\u00e1rio",
+			"Entei Amulet | Lend\u00e1rio",
+			"Normal",
+			"Flame-Essence.gif | Flame Essence | Raro",
+			"Entei Legendary sewing thread | Entei Sewing Kit | \u00c9pico",
+			"Entei Loot Bag | Comum",
+			"Dif\u00edcil",
+			"Entei Loot Bag | Comum",
+		],
+	}));
+
+	const rewards = section.rewards[PT_BR];
+	for (const difficulty of ["Normal", "Dif\u00edcil"]) {
+		const names = rewards.filter((item) => item.difficulty === difficulty).map((item) => item.name);
+		assert.ok(names.includes("Entei TV Camera"));
+		assert.ok(names.includes("Entei Backpack"));
+		assert.ok(names.includes("Entei Amulet"));
+	}
+	const hardRewards = rewards.filter((item) => item.difficulty === "Dif\u00edcil");
+	assert.deepEqual(
+		hardRewards.find((item) => item.name === "Entei Sewing Kit")?.rarity,
+		"\u00c9pico",
+	);
+	assert.deepEqual(
+		hardRewards.find((item) => item.name === "Flame Essence")?.rarity,
+		"Raro",
+	);
 });

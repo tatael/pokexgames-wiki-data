@@ -41,6 +41,24 @@ test("discovery ignores content-list headings and keeps real boss-fight links", 
 	}), true);
 });
 
+test("discovery keeps dimensional dungeon links even when the wiki places them under index", () => {
+	const link = {
+		url: "https://wiki.pokexgames.com/index.php/DZ_Cradily",
+		title: "DZ Cradily",
+		label: "DZ Cradily",
+		headingPath: ["Ãndice"],
+	};
+
+	assert.equal(shouldSkipDiscoveredLink({
+		link,
+		parentEntry: { slug: "spoiler-das-masmorras", title: buildLocalizedText("Spoiler das Masmorras") },
+		rootEntry: { slug: "dimensional-zone", category: "dimensional-zone" },
+		seenSlugs: new Set(["dimensional-zone", "spoiler-das-masmorras"]),
+		excludeSlugs: new Set(),
+		excludeTitles: new Set(),
+	}), false);
+});
+
 test("discovery helper infers kinds and recursion policy correctly", () => {
 	assert.equal(isContentListHeading("Índice"), true);
 	assert.equal(isContentListHeading("Arena principal"), false);
@@ -92,4 +110,23 @@ test("pokemon discovery helpers identify likely pokemon pages", () => {
 		{ line: "<b>Introdução</b>" },
 		{ line: "<b>Recompensas</b>" },
 	]), false);
+});
+
+test("discovery keeps linked image cards under index headings for boss fights and daily missions", () => {
+	for (const category of ["boss-fight", "daily-missions"]) {
+		assert.equal(shouldSkipDiscoveredLink({
+			link: {
+				url: "https://wiki.pokexgames.com/index.php/Lavender%27s_Curse",
+				title: "Lavender's Curse",
+				label: "Lavender's Curse",
+				headingPath: ["�ndice"],
+				hasImage: true,
+			},
+			parentEntry: { slug: category, title: buildLocalizedText(category) },
+			rootEntry: { slug: category, category },
+			seenSlugs: new Set([category]),
+			excludeSlugs: new Set(),
+			excludeTitles: new Set(),
+		}), false);
+	}
 });

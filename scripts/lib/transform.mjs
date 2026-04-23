@@ -40,6 +40,11 @@ const SECTION_KIND_BY_ID = {
 	"rewards": "rewards"
 };
 
+const TASK_START_RE = /^(?:\d+[ºª°]?\s*)?(derrotar|coletar|entregar|parte\s+\d+)/i;
+const TASK_LEVEL_RE = /\b(?:level|lvl|nw level|level minimo|level mínimo)\b/i;
+const TASK_REWARD_RE = /(?:\d[\d.]*\s+(?:xp|experience|nightmare|cyan|black|gem|ball|token)|\$\s*[\d.]+|^\d[\d.]*\s+\d)/i;
+const FACT_LINE_RE = /^([^:]{2,36}):\s*(.+)$/;
+
 function normalizeForRarity(value) {
 	return String(value ?? "")
 		.normalize("NFD")
@@ -271,6 +276,257 @@ function parsePrizeBlob(text) {
 			return name ? { qty: seg.qty, name } : null;
 		})
 		.filter(Boolean);
+}
+
+function normalizeExperienceRewardName(value) {
+	const token = normalizeIdToken(value);
+
+	if (token === "exp icon nw" || token === "nightmare experience") {
+		return { name: "Nightmare Experience", icon: "nightmare-xp" };
+	}
+
+	if (token === "exp icon" || token === "xp" || token === "experience" || token === "experiencia") {
+		return { name: "Experiência", icon: "xp" };
+	}
+
+	return { name: cleanLootRewardName(value) };
+}
+
+function splitRewardTextParts(value) {
+	return String(value ?? "")
+		.replace(/\s+e\s+(?=\d)/gi, ", ")
+		.split(/\s*,\s*|\s+(?=\d[\d.]*\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/)
+		.map((part) => part.trim())
+		.filter(Boolean);
+}
+
+function parseSimpleRewardText(value) {
+	const text = String(value ?? "").split(/itens possiveis|itens possíveis/i)[0].trim();
+
+	if (!text) return [];
+
+	if (/exp icon/i.test(text)) {
+		const rewards = [];
+		const xp = text.match(/Exp icon\s+([\d.]+)/i);
+		const nw = text.match(/Exp icon nw\s+([\d.]+)/i);
+
+		if (xp) {
+			rewards.push({
+				type: "loot",
+				name: "Experiência",
+				icon: "xp",
+				rarity: null,
+				difficulty: null,
+				qty: xp[1],
+			});
+		}
+
+		if (nw) {
+			rewards.push({
+				type: "loot",
+				name: "Nightmare Experience",
+				icon: "nightmare-xp",
+				rarity: null,
+				difficulty: null,
+				qty: nw[1],
+			});
+		}
+
+		const remainder = text
+			.replace(/Exp icon\s+[\d.]+/gi, " ")
+			.replace(/Exp icon nw\s+[\d.]+/gi, " ")
+			.replace(/\s+/g, " ")
+			.trim();
+
+		for (const match of remainder.matchAll(/\b([A-Z][A-Za-z ]*?(?:Gem|Gems|Ball|Balls|Token|Tokens))\s+(\d[\d.]*)\s+\1\b/gi)) {
+			rewards.push({
+				type: "loot",
+				name: cleanLootRewardName(match[1]),
+				rarity: null,
+				difficulty: null,
+				qty: match[2],
+			});
+		}
+
+		if (rewards.length) return rewards;
+	}
+
+	const numericPrefix = text.match(/^(\d[\d.]*)\s+(\d[\d.]*)(?:\s+([\s\S]+))?$/);
+
+	if (numericPrefix) {
+		const rewards = [
+			{
+				type: "loot",
+				name: "Experiência",
+				icon: "xp",
+				rarity: null,
+				difficulty: null,
+				qty: numericPrefix[1],
+			},
+			{
+				type: "loot",
+				name: "Nightmare Experience",
+				icon: "nightmare-xp",
+				rarity: null,
+				difficulty: null,
+				qty: numericPrefix[2],
+			},
+		];
+
+		if (numericPrefix[3]) rewards.push(...parseSimpleRewardText(numericPrefix[3]));
+
+		return rewards;
+	}
+
+	return splitRewardTextParts(text).flatMap((part) => {
+		const exp = part.match(/^([\d.]+k?)\s+de\s+experi[êe]ncia$/i);
+
+		if (exp) {
+			return [{
+				type: "loot",
+				name: "Experiência",
+				icon: "xp",
+				rarity: null,
+				difficulty: null,
+				qty: exp[1],
+			}];
+		}
+
+		const iconReward = part.match(/^(Exp icon nw|Exp icon)\s+([\d.]+)$/i);
+
+		if (iconReward) {
+			const normalized = normalizeExperienceRewardName(iconReward[1]);
+
+			return [{
+				type: "loot",
+				...normalized,
+				rarity: null,
+				difficulty: null,
+				qty: iconReward[2],
+			}];
+		}
+
+		const match = part.match(/^([\d.]+k?)\s+(?:de\s+)?(.+)$/i);
+
+		if (!match) return [];
+
+		return [{
+			type: "loot",
+			...normalizeExperienceRewardName(match[2]),
+			rarity: null,
+			difficulty: null,
+			qty: match[1],
+		}];
+	});
+}
+
+function looksLikeTaskStartText(value) {
+	return TASK_START_RE.test(String(value ?? "").trim());
+}
+
+function looksLikeTaskRewardText(value) {
+	return TASK_REWARD_RE.test(String(value ?? "").trim());
+}
+
+function cleanTaskObjectiveText(value) {
+	return cleanStructuredText(value)
+		.replace(/\b(\d+x?\s+)?\d{3,4}\s*[-_.]\s*([A-Za-z][A-Za-z' .-]+?)\s+\2\b/gi, "$1$2")
+		.replace(/\b(\d+x?\s+)?[A-Za-z0-9%()' -]+\.(?:png|gif|webp|jpe?g)\s+([A-Za-z][A-Za-z' .-]+)/gi, "$1$2")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function parseTaskRowsFromLines(lines = []) {
+	const tasks = [];
+	let current = null;
+	const pushCurrent = () => {
+		if (current?.objective) tasks.push(current);
+		current = null;
+	};
+
+	for (const rawLine of lines) {
+		const line = cleanStructuredText(rawLine);
+
+		if (!line || /^#|^-{3,}$/.test(line) || normalizeIdToken(line) === "indice") continue;
+
+		if (looksLikeTaskStartText(line)) {
+			pushCurrent();
+			current = { objective: line, requirements: [], rewards: [], notes: [], targets: [] };
+			continue;
+		}
+
+		if (!current) current = { objective: "", requirements: [], rewards: [], notes: [], targets: [] };
+
+		if (TASK_LEVEL_RE.test(line)) current.requirements.push(line);
+		else if (looksLikeTaskRewardText(line)) current.rewards.push(...parseSimpleRewardText(line));
+		else current.notes.push(line);
+	}
+
+	pushCurrent();
+
+	return tasks;
+}
+
+function parseTaskRowsFromPipeItems(items = []) {
+	return items.map((rawItem) => {
+		const rawCells = String(rawItem ?? "")
+			.split(/\s*\|\s*/)
+			.map((cell) => cleanStructuredText(cell))
+			.filter(Boolean);
+
+		const cells = rawCells.map((cell) => cleanStructuredText(stripImageRefFromText(cell)) || cell);
+
+		if (cells.length < 3) return null;
+
+		const title = cells[0].replace(/^\d+\.\s*/, "").trim();
+		const objective = cleanTaskObjectiveText(cells.find(looksLikeTaskStartText) ?? "");
+
+		if (!objective) return null;
+
+		const requirements = rawCells.filter((cell) => TASK_LEVEL_RE.test(cell));
+		const rewardCell = rawCells.find((cell) => /exp icon|nightmare gem|beast ball|nightmare ball|cyan/i.test(cell) && looksLikeTaskRewardText(cell));
+		const notes = cells.filter((cell) => cell !== title && cell !== objective && !requirements.includes(cell) && cell !== rewardCell);
+
+		return {
+			title,
+			objective,
+			requirements,
+			rewards: rewardCell ? parseSimpleRewardText(rewardCell) : [],
+			notes,
+			targets: [objective],
+		};
+	}).filter(Boolean);
+}
+
+function parseTaskRows(paragraphs = [], items = []) {
+	const pipeTasks = parseTaskRowsFromPipeItems(items);
+
+	if (pipeTasks.length) return pipeTasks;
+
+	return parseTaskRowsFromLines([...paragraphs, ...items]);
+}
+
+function parseFactRows(values = []) {
+	const rows = [];
+
+	for (const value of values) {
+		const text = cleanStructuredText(value);
+
+		if (!text || text.length > 180 || text.startsWith("#")) continue;
+
+		const match = text.match(FACT_LINE_RE);
+
+		if (!match) continue;
+
+		const label = cleanStructuredText(match[1]);
+		const content = cleanStructuredText(match[2]);
+
+		if (!label || !content || /https?:\/\//i.test(content)) continue;
+
+		rows.push({ label, value: content });
+	}
+
+	return rows;
 }
 
 export function parsePokemonItemText(item) {
@@ -596,8 +852,17 @@ function classifySectionKind(id, headingText) {
 	if (TIER_SECTION_PATTERN.test(normId) || TIER_SECTION_PATTERN.test(normIdNoSpace)) {
 		return "tier";
 	}
+	if (/^nivel \d+ ao \d+$/.test(normId) || /^level \d+ to \d+$/.test(normId)) {
+		return "tasks";
+	}
+	if (normId === "nightmare tasks") {
+		return "tasks";
+	}
 
 	const normHeading = normalizeIdToken(headingText ?? "");
+	if (/^nivel \d+ ao \d+$/.test(normHeading) || /^level \d+ to \d+$/.test(normHeading)) {
+		return "tasks";
+	}
 	if (normHeading === "recompensa" || normHeading === "recompensas" || normHeading === "rewards" || /premios|premiacoes|premios dos baus/.test(normHeading)) {
 		return "rewards";
 	}
@@ -624,7 +889,7 @@ export function structureSection(section) {
 	const result = { ...section, kind };
 	const normalizedId = normalizeIdToken(id);
 
-	if (!["rewards", "tier", "pokemon-group"].includes(kind)) {
+	if (!["rewards", "tier", "pokemon-group", "tasks"].includes(kind)) {
 		result.items = cleanRawPokemonReferenceItems(section.items);
 	}
 
@@ -667,6 +932,47 @@ export function structureSection(section) {
 
 		result.items = cleanedItems;
 	}
+
+	if (kind === "tasks") {
+		const tasks = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.items ?? {})
+		])) {
+			const paragraphs = section.paragraphs?.[locale] ?? [];
+			const items = section.items?.[locale] ?? [];
+			const parsed = parseTaskRows(paragraphs, items);
+			if (parsed.length) {
+				tasks[locale] = parsed;
+			} else {
+				const rewards = paragraphs.length ? parseSimpleRewardText(paragraphs[0]) : [];
+				const targets = items
+					.flatMap((item) => String(item ?? "").split(/\s*\|\s*/))
+					.map((item) => stripImageRefFromText(item.trim()))
+					.filter(Boolean);
+				tasks[locale] = [{
+					objective: section.heading?.[locale] ?? section.heading?.[PT_BR] ?? "",
+					requirements: [],
+					rewards,
+					notes: paragraphs.slice(rewards.length ? 1 : 0),
+					targets
+				}].filter((task) => task.objective || task.rewards.length || task.notes.length || task.targets.length);
+			}
+		}
+
+		if (Object.keys(tasks).length) result.tasks = tasks;
+	}
+
+	const facts = {};
+	for (const locale of new Set([
+		...Object.keys(section.paragraphs ?? {}),
+		...Object.keys(section.items ?? {})
+	])) {
+		const rows = parseFactRows([...(section.paragraphs?.[locale] ?? []), ...(section.items?.[locale] ?? [])]);
+		if (rows.length >= 2) facts[locale] = rows;
+	}
+
+	if (Object.keys(facts).length) result.facts = facts;
 
 	if (normalizedId === "informacoes gerais") {
 		const profile = {};

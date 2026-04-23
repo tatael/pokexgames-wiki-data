@@ -152,6 +152,40 @@ test("structureSection removes raw pokemon sprite reference rows from prose sect
 	assert.deepEqual(section.items[PT_BR], ["Fale com o NPC Arthur."]);
 });
 
+test("structureSection publishes structured task cards upstream", () => {
+	const dailyTier = structureSection(localizedSection({
+		id: "nivel-25-ao-59",
+		heading: "Nível 25 ao 59",
+		paragraphs: ["25k de experiência e 1 Newbie Gifts Itens Possíveis da Newbie Gift: Superbag."],
+		items: ["029-Nidoranfe Nidoranfe | 056-Mankey Mankey"],
+	}));
+
+	assert.equal(dailyTier.kind, "tasks");
+	assert.equal(dailyTier.tasks[PT_BR][0].objective, "Nível 25 ao 59");
+	assert.deepEqual(dailyTier.tasks[PT_BR][0].rewards.slice(0, 2), [
+		{ type: "loot", name: "Experiência", icon: "xp", rarity: null, difficulty: null, qty: "25k" },
+		{ type: "loot", name: "Newbie Gifts", rarity: null, difficulty: null, qty: "1" },
+	]);
+	assert.deepEqual(dailyTier.tasks[PT_BR][0].targets, ["Nidoranfe", "Mankey"]);
+
+	const nightmare = structureSection(localizedSection({
+		id: "nightmare-tasks",
+		heading: "Visão geral",
+		paragraphs: [],
+		items: ["1. NPC Missy | Derrotar: 300 678-Meowstic Meowstic | Level: 400 NW Level: 50 | Exp icon 2.000.000 Exp icon nw 40.000 Black Nightmare Gem 2 Black Nightmare Gem"],
+	}));
+
+	assert.equal(nightmare.kind, "tasks");
+	assert.equal(nightmare.tasks[PT_BR][0].title, "NPC Missy");
+	assert.equal(nightmare.tasks[PT_BR][0].objective, "Derrotar: 300 Meowstic");
+	assert.deepEqual(nightmare.tasks[PT_BR][0].requirements, ["Level: 400 NW Level: 50"]);
+	assert.deepEqual(nightmare.tasks[PT_BR][0].rewards.map((reward) => [reward.name, reward.qty]), [
+		["Experiência", "2.000.000"],
+		["Nightmare Experience", "40.000"],
+		["Black Nightmare Gem", "2"],
+	]);
+});
+
 test("structureSection keeps boss legendary rewards available on normal and hard difficulties", () => {
 	const section = structureSection(localizedSection({
 		id: "recompensas",

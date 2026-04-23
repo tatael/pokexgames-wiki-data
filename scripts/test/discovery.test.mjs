@@ -46,7 +46,7 @@ test("discovery keeps dimensional dungeon links even when the wiki places them u
 		url: "https://wiki.pokexgames.com/index.php/DZ_Cradily",
 		title: "DZ Cradily",
 		label: "DZ Cradily",
-		headingPath: ["Ãndice"],
+		headingPath: ["\u00cdndice"],
 	};
 
 	assert.equal(shouldSkipDiscoveredLink({
@@ -60,7 +60,7 @@ test("discovery keeps dimensional dungeon links even when the wiki places them u
 });
 
 test("discovery helper infers kinds and recursion policy correctly", () => {
-	assert.equal(isContentListHeading("Índice"), true);
+	assert.equal(isContentListHeading("\u00cdndice"), true);
 	assert.equal(isContentListHeading("Arena principal"), false);
 
 	assert.equal(
@@ -101,13 +101,13 @@ test("pokemon discovery helpers identify likely pokemon pages", () => {
 	assert.equal(looksLikePokemonDiscoveryCandidate("Arcade 2026"), false);
 
 	assert.equal(isPokemonSectionSignature([
-		{ line: "<b>Informações Gerais</b>" },
+		{ line: "<b>Informa\u00e7\u00f5es Gerais</b>" },
 		{ line: "<b>Movimentos</b>" },
 		{ line: "<b>Efetividades</b>" },
 	]), true);
 
 	assert.equal(isPokemonSectionSignature([
-		{ line: "<b>Introdução</b>" },
+		{ line: "<b>Introdu\u00e7\u00e3o</b>" },
 		{ line: "<b>Recompensas</b>" },
 	]), false);
 });
@@ -119,7 +119,7 @@ test("discovery keeps linked image cards under index headings for boss fights an
 				url: "https://wiki.pokexgames.com/index.php/Lavender%27s_Curse",
 				title: "Lavender's Curse",
 				label: "Lavender's Curse",
-				headingPath: ["�ndice"],
+				headingPath: ["Índice"],
 				hasImage: true,
 			},
 			parentEntry: { slug: category, title: buildLocalizedText(category) },

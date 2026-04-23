@@ -48,6 +48,68 @@ Each `pages/<slug>.json` contains:
 - `sections`
 - `metadata`
 
+Section contract (`schemaVersion: 2`):
+- generated sections use `title` and optional `content`, not scraped `heading` / `paragraphs` / `items`
+- `content.<locale>.paragraphs` is normalized prose that still belongs on the page
+- `content.<locale>.bullets` is only for simple list content that has no stronger semantic model yet
+- pipe-style source rows are published as `tables.<locale>[].rows[].cells[]` instead of string rows such as `A | B | C`
+- semantic data is published in dedicated fields such as `facts`, `tasks`, `taskGroups`, `rewards`, `pokemon`, `profile`, `moves`, `effectiveness`, `variants`, `abilities`, `steps`, and `locations`
+- consumers should treat those semantic fields as source of truth and should not re-parse raw wiki table/list text
+
+## Pipeline Architecture
+
+Wiki normalization is split by responsibility under `scripts/lib/transform/`:
+- `text.mjs`: shared text cleanup, slug/dedupe helpers, image-reference stripping
+- `pokemon.mjs`: Pokémon profile, tier, move, effectiveness, variant, and raw Pokémon-reference cleanup
+- `rewards.mjs`: loot, ranking, difficulty, and task reward parsing
+- `tasks.mjs`: task objective, requirement, group, and reward normalization
+- `publish.mjs`: public schema projection from internal scraped fields to schema v2 fields
+
+`scripts/lib/transform.mjs` is the orchestrator. Keep new parsers in the responsibility-specific module instead of growing `transform.mjs`.
+
+Example task section shape:
+
+```json
+{
+  "id": "nightmare-tasks",
+  "kind": "tasks",
+  "title": { "pt-BR": "Nightmare Tasks", "en": "Nightmare Tasks", "es": "Nightmare Tasks" },
+  "content": {
+    "pt-BR": {
+      "paragraphs": ["As Nightmare Balls e Beast Balls NAO sao itens unicos."]
+    }
+  },
+  "taskGroups": {
+    "pt-BR": {
+      "intro": ["As Nightmare Balls e Beast Balls NAO sao itens unicos."],
+      "groups": [
+        {
+          "name": "Nightmare Cerulean",
+          "tasks": [
+            {
+              "index": 1,
+              "title": "NPC Missy",
+              "npc": "Missy",
+              "objective": "Derrotar: 300 Meowstic",
+              "objectiveDetails": {
+                "type": "defeat",
+                "targets": [{ "name": "Meowstic", "slug": "meowstic", "amount": 300 }]
+              },
+              "requirements": { "level": 400, "nightmareLevel": 50 },
+              "rewards": [
+                { "type": "loot", "name": "Experiencia", "icon": "xp", "qty": "2.000.000" },
+                { "type": "loot", "name": "Nightmare Experience", "icon": "nightmare-xp", "qty": "40.000" },
+                { "type": "loot", "name": "Black Nightmare Gem", "qty": "2" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
 `images`, when present, contains the canonical remote wiki assets already resolved during sync:
 - Pokémon pages now publish `hero.url` as the single canonical image field used for both base pages and variants
 - non-Pokémon pages may still publish `sprite.url` and/or `hero.url` depending on the source page assets
@@ -76,6 +138,12 @@ Useful environment overrides:
 - `WIKI_DISCOVERY_CONCURRENCY=48`: control API-based Pokémon discovery parallelism
 - `WIKI_SYNC_CONCURRENCY=24`: control page sync parallelism
 - `WIKI_DISCOVERY_CACHE_HOURS=168`: control how long `.cache/pokemon-pages.generated.json` is reused
+- `WIKI_FETCH_MODE=live|cache|prefer-cache`: choose whether page HTML is fetched live, loaded only from `.cache/html`, or loaded from cache when fresh and fetched live otherwise
+- `WIKI_FETCH_CACHE_HOURS=168`: control how long cached page HTML is considered fresh for `prefer-cache`
+- `WIKI_SYNC_ONLY=entei,king-charizard-dungeon`: sync only specific page slugs or exact source URLs
+- `WIKI_SYNC_CATEGORY=boss-fight,quests`: sync only specific categories
+- `WIKI_REFRESH=entei,king-charizard-dungeon`: force a live refetch and cache refresh for specific page slugs or exact source URLs
+- `WIKI_SKIP_VALIDATE=1`: skip bundle validation during fast local iteration
 
 `npm run serve` starts a local HTTP server at `http://127.0.0.1:8787` that serves the `dist/` folder.
 Set `PORT=<number>` to use a different port.
@@ -89,8 +157,23 @@ npm run sync     # regenerate dist/ after any scraper changes
 npm run serve    # starts http://127.0.0.1:8787, keep running while you test
 ```
 
+Fast local iteration examples:
+
+```bash
+WIKI_FETCH_MODE=prefer-cache npm run sync
+WIKI_FETCH_MODE=prefer-cache WIKI_SYNC_ONLY=entei npm run sync
+WIKI_FETCH_MODE=prefer-cache WIKI_SYNC_CATEGORY=boss-fight npm run sync
+WIKI_FETCH_MODE=live WIKI_REFRESH=entei WIKI_SYNC_ONLY=entei npm run sync
+WIKI_FETCH_MODE=cache WIKI_SYNC_ONLY=entei WIKI_SKIP_VALIDATE=1 npm run sync
+```
+
+Recommended local workflow:
+- first fetch a page live once
+- then iterate with `WIKI_FETCH_MODE=prefer-cache` or `WIKI_FETCH_MODE=cache`
+- use `WIKI_REFRESH=<slug>` when you want to update the cached HTML for a specific page
+
 Then configure your consumer app to read from `http://127.0.0.1:8787` instead of the published URL.
-How to do this depends on the consumer — check its documentation for a wiki base URL override.
+How to do this depends on the consumer; check its documentation for a wiki base URL override.
 
 ## Source Inventory
 

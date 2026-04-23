@@ -1,11 +1,47 @@
+import { createHash } from "node:crypto";
 import http from "node:http";
 import https from "node:https";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import path from "node:path";
 
-import { WIKI_FETCH_RETRY_ATTEMPTS, WIKI_FETCH_TIMEOUT_MS } from "./shared.mjs";
+import {
+	HTML_CACHE_DIR,
+	WIKI_FETCH_CACHE_HOURS,
+	WIKI_FETCH_MODE,
+	WIKI_FETCH_RETRY_ATTEMPTS,
+	WIKI_FETCH_TIMEOUT_MS,
+} from "./shared.mjs";
 
 const USER_AGENT = "pokexgames-wiki-data/0.1 (+https://github.com/tatael/pokexgames-wiki-data)";
 const _fetchCache = new Map();
 const _jsonCache = new Map();
+
+function buildHtmlCachePath(url, cacheKey) {
+	const key = String(cacheKey || createHash("sha1").update(url).digest("hex")).replace(/[^a-zA-Z0-9._-]+/g, "-");
+	return path.join(HTML_CACHE_DIR, `${key}.html`);
+}
+
+async function isFresh(readPath, maxAgeHours) {
+	try {
+		const info = await stat(readPath);
+		return (Date.now() - info.mtimeMs) < (maxAgeHours * 60 * 60 * 1000);
+	} catch {
+		return false;
+	}
+}
+
+async function readCachedHtml(cachePath) {
+	try {
+		return await readFile(cachePath, "utf8");
+	} catch {
+		return null;
+	}
+}
+
+async function writeCachedHtml(cachePath, html) {
+	await mkdir(path.dirname(cachePath), { recursive: true });
+	await writeFile(cachePath, html, "utf8");
+}
 
 function decodeHtmlBytes(bytes, contentType = "") {
 	const headerCharsetMatch = contentType.match(/charset=([^;]+)/i);
@@ -132,13 +168,34 @@ async function _fetchWikiHtml(url) {
 		: new Error(`failed to fetch ${url}`);
 }
 
-export function fetchWikiHtml(url) {
-	if (_fetchCache.has(url)) {
-		return _fetchCache.get(url);
+export function fetchWikiHtml(url, options = {}) {
+	const cacheKey = `${url}::${options.cacheKey || ""}::${options.refresh ? "refresh" : ""}::${WIKI_FETCH_MODE}`;
+	if (_fetchCache.has(cacheKey)) {
+		return _fetchCache.get(cacheKey);
 	}
 
-	const promise = _fetchWikiHtml(url);
-	_fetchCache.set(url, promise);
+	const promise = (async () => {
+		const cachePath = buildHtmlCachePath(url, options.cacheKey);
+		const allowCacheRead = WIKI_FETCH_MODE !== "live";
+		const requireCache = WIKI_FETCH_MODE === "cache";
+		const shouldRefresh = options.refresh === true;
+		const cachedHtml = allowCacheRead && !shouldRefresh
+			? await readCachedHtml(cachePath)
+			: null;
+		const cacheIsFresh = cachedHtml ? await isFresh(cachePath, WIKI_FETCH_CACHE_HOURS) : false;
+
+		if (cachedHtml && (WIKI_FETCH_MODE === "cache" || cacheIsFresh)) return cachedHtml;
+		if (requireCache) {
+			throw new Error(`cached html missing for ${url}`);
+		}
+
+		const html = await _fetchWikiHtml(url);
+		if (html) {
+			await writeCachedHtml(cachePath, html);
+		}
+		return html;
+	})();
+	_fetchCache.set(cacheKey, promise);
 	return promise;
 }
 

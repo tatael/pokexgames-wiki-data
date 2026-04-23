@@ -7,6 +7,7 @@
 	"scripts": {
 		"sync": "node scripts/sync-wiki.mjs",
 		"validate": "node scripts/validate-bundle.mjs",
+		"coverage": "node scripts/report-coverage.mjs",
 		"build": "node scripts/sync-wiki.mjs",
 		"ci": "npm run test",
 		"test": "node --test scripts/test/*.test.mjs",

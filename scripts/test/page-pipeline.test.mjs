@@ -58,7 +58,7 @@ test("resolveCategory routes normalized wiki pages to their source categories", 
 
 test("buildLocalizedSummary replaces the generic local-sync placeholder", () => {
 	assert.deepEqual(
-		buildLocalizedSummary({ [PT_BR]: "Conteúdo local sincronizado da wiki." }, "Daily Kill"),
+		buildLocalizedSummary({ [PT_BR]: "ConteÃºdo local sincronizado da wiki." }, "Daily Kill"),
 		{ [PT_BR]: "Daily Kill", en: "Daily Kill", es: "Daily Kill" },
 	);
 });
@@ -75,7 +75,7 @@ test("resolveDisplayInList hides aliases and non-card pages from category lists"
 	assert.equal(resolveDisplayInList({
 		category: "nightmare-world",
 		slug: "beneficios-vip-esp",
-		title: buildLocalizedText("Benefícios VIP (ESP)"),
+		title: buildLocalizedText("BenefÃ­cios VIP (ESP)"),
 		pageKind: "system",
 	}), false);
 
@@ -117,7 +117,7 @@ test("resolveDisplayInList hides aliases and non-card pages from category lists"
 	assert.equal(resolveDisplayInList({
 		category: "nightmare-world",
 		slug: "beneficios-vip",
-		title: buildLocalizedText("Benefícios VIP"),
+		title: buildLocalizedText("BenefÃ­cios VIP"),
 		pageKind: "nightmare",
 	}), false);
 
@@ -233,7 +233,7 @@ test("resolveSortRank publishes category-specific card order", () => {
 	assert.equal(resolveSortRank({
 		category: "embedded-tower",
 		slug: "camara-do-jirachi",
-		title: buildLocalizedText("Câmara do Jirachi"),
+		title: buildLocalizedText("CÃ¢mara do Jirachi"),
 	}), 40);
 
 	assert.equal(resolveSortRank({
@@ -246,7 +246,7 @@ test("resolveSortRank publishes category-specific card order", () => {
 test("normalizeSections preserves repeated capture-ball media in possible captures", () => {
 	const [section] = normalizeSections([{
 		id: "possiveis-capturas",
-		heading: { [PT_BR]: "Possíveis Capturas" },
+		heading: { [PT_BR]: "PossÃ­veis Capturas" },
 		paragraphs: { [PT_BR]: [], en: [], es: [] },
 		items: { [PT_BR]: [], en: [], es: [] },
 		media: {
@@ -286,7 +286,7 @@ test("normalizeSections splits embedded tower trap rows into an Armadilhas secti
 		id: "mapa-do-andar",
 		heading: { [PT_BR]: "Mapa do andar" },
 		paragraphs: { [PT_BR]: ["Mapa principal."], en: [], es: [] },
-		items: { [PT_BR]: ["Observa��o geral.", "Redemoinhos Trap1.gif | 20% da vida m�xima"], en: [], es: [] },
+		items: { [PT_BR]: ["Observa??o geral.", "Redemoinhos Trap1.gif | 20% da vida m?xima"], en: [], es: [] },
 		media: { [PT_BR]: [
 			{ type: "image", url: "https://wiki.pokexgames.com/images/a/a1/Mapa.png", alt: "Mapa.png" },
 			{ type: "image", url: "https://wiki.pokexgames.com/images/b/b1/Trap1.gif", alt: "Trap1.gif" },
@@ -294,7 +294,10 @@ test("normalizeSections splits embedded tower trap rows into an Armadilhas secti
 	}]);
 
 	assert.deepEqual(sections.map((section) => section.id), ["mapa-do-andar", "armadilhas"]);
-	assert.deepEqual(sections[0].items[PT_BR], ["Observa��o geral."]);
-	assert.deepEqual(sections[1].items[PT_BR], ["Redemoinhos Trap1.gif | 20% da vida m�xima"]);
+	assert.deepEqual(sections[0].content[PT_BR].bullets, ["Observa??o geral."]);
+	assert.deepEqual(sections[1].hazards[PT_BR], {
+		description: [],
+		bullets: ["Redemoinhos Trap1.gif | 20% da vida m?xima"],
+	});
 	assert.equal(sections[1].media[PT_BR][0].alt, "Trap1.gif");
 });

@@ -7,11 +7,17 @@ import {
 	PT_BR,
 	SCHEMA_VERSION,
 	SOURCE_NAME,
+	WIKI_REFRESH,
+	WIKI_SKIP_VALIDATE,
+	WIKI_SYNC_CATEGORY,
 	WIKI_SYNC_CONCURRENCY,
+	WIKI_SYNC_ONLY,
 	buildPagePath,
 	nowRfc3339,
 	writeJson,
 } from "./lib/shared.mjs";
+import { compactLocalizedValueMap } from "./lib/localized.mjs";
+import { buildMediaRegistry } from "./lib/media-registry.mjs";
 import { fetchWikiHtml, runWithConcurrency } from "./lib/transport.mjs";
 import {
 	buildSummary,
@@ -62,9 +68,18 @@ function buildSearchText(page) {
 	];
 
 	for (const section of page.sections ?? []) {
-		pieces.push(section.heading?.[PT_BR]);
-		pieces.push(...(section.paragraphs?.[PT_BR] ?? []));
-		pieces.push(...(section.items?.[PT_BR] ?? []));
+		pieces.push(section.title?.[PT_BR] ?? section.heading?.[PT_BR]);
+		const content = section.content?.[PT_BR] ?? {};
+		pieces.push(...(content.paragraphs ?? section.paragraphs?.[PT_BR] ?? []));
+		pieces.push(...(content.list ?? section.items?.[PT_BR] ?? []));
+		for (const fact of section.facts?.[PT_BR] ?? []) {
+			pieces.push(fact?.label, fact?.value);
+		}
+
+		for (const task of section.tasks?.[PT_BR] ?? []) {
+			pieces.push(task?.title, task?.npc, task?.objective);
+		}
+
 		for (const reward of section.rewards?.[PT_BR] ?? []) {
 			pieces.push(reward?.name, reward?.difficulty, reward?.rarity, reward?.qty, reward?.place);
 			for (const prize of reward?.prizes ?? []) pieces.push(prize?.name, prize?.qty);
@@ -138,8 +153,13 @@ async function syncEntry(entry) {
 	const sourceUrl = new URL(entry.url);
 	const sourceFragment = sourceUrl.hash ? decodeURIComponent(sourceUrl.hash.slice(1)) : "";
 	sourceUrl.hash = "";
+	const shouldRefresh = WIKI_REFRESH.includes(entry.slug) || WIKI_REFRESH.includes(entry.url);
 
-	const html = await fetchWikiHtml(sourceUrl.toString());
+	const html = await fetchWikiHtml(sourceUrl.toString(), {
+		cacheKey: entry.slug,
+		refresh: shouldRefresh,
+	});
+
 	if (!html) {
 		console.warn(`skipping ${entry.slug}: page not found (${entry.url})`);
 		return null;
@@ -149,12 +169,23 @@ async function syncEntry(entry) {
 	const fallbackTitle = entry.title?.[PT_BR] || entry.slug;
 	const resolvedTitle = fallbackTitle || extractTitle(html, entry.slug);
 	const sectionsBase = extractSections(articleHtml, resolvedTitle, sourceUrl.toString());
-	const sections = normalizeSections(sectionsBase);
+	const provisionalSections = normalizeSections(sectionsBase, {
+		category: entry.category,
+		slug: entry.slug,
+		pageKind: entry.pageKind || "article",
+	});
+
 	const fetchedAt = nowRfc3339();
-	const profile = resolvePokemonProfile(sections);
+	const profile = resolvePokemonProfile(provisionalSections);
 	const resolvedCategory = resolveCategory(entry.category, entry.slug, profile, entry);
 	const resolvedCategoryLabel = resolveCategoryLabel(resolvedCategory, entry.categoryLabel);
 	const pageKind = profile ? "pokemon" : (entry.pageKind || "article");
+	const sections = normalizeSections(sectionsBase, {
+		category: resolvedCategory,
+		slug: entry.slug,
+		pageKind,
+	});
+
 	const rawSummary = buildSummary(sectionsBase);
 	const profileTitle = profile
 		? Object.fromEntries(Object.entries(profile).map(([locale, value]) => [locale, value?.name]).filter(([, value]) => value))
@@ -212,13 +243,12 @@ async function syncEntry(entry) {
 		source: SOURCE_NAME,
 		fetchedAt,
 		pageKind,
-		title: displayTitle,
-		summary,
-		...(searchText ? { searchText } : {}),
+		title: compactLocalizedValueMap(displayTitle),
+		summary: compactLocalizedValueMap(summary),
 		...(sortRank !== null ? { sortRank } : {}),
 		...(displayInList === false ? { displayInList } : {}),
-		...(pageGroup ? { pageGroup } : {}),
-		...(profile ? { profile } : {}),
+		...(pageGroup ? { pageGroup: compactLocalizedValueMap(pageGroup) } : {}),
+		...(profile ? { profile: compactLocalizedValueMap(profile) } : {}),
 		...(images ? { images } : {}),
 		sections,
 		metadata: {
@@ -239,13 +269,13 @@ async function syncEntry(entry) {
 			slug: entry.slug,
 			url: entry.url,
 			pageKind,
-			title: displayTitle,
-			summary,
-			...(searchText ? { searchText } : {}),
+			title: compactLocalizedValueMap(displayTitle),
+			summary: compactLocalizedValueMap(summary),
+			...(searchText ? { searchText: compactLocalizedValueMap(searchText) } : {}),
 			...(sortRank !== null ? { sortRank } : {}),
 			...(displayInList === false ? { displayInList } : {}),
-			...(pageGroup ? { pageGroup } : {}),
-			...(profile ? { profile } : {}),
+			...(pageGroup ? { pageGroup: compactLocalizedValueMap(pageGroup) } : {}),
+			...(profile ? { profile: compactLocalizedValueMap(profile) } : {}),
 			...(images ? { images } : {}),
 			...(navigationPath.length ? { navigationPath } : {}),
 			fetchedAt,
@@ -257,15 +287,27 @@ async function syncEntry(entry) {
 async function main() {
 	await prepareBuildDir();
 	const config = await loadConfig();
+	const onlySet = new Set(WIKI_SYNC_ONLY);
+	const categorySet = new Set(WIKI_SYNC_CATEGORY);
+	const filteredConfig = config.filter((entry) => {
+		if (onlySet.size && !onlySet.has(entry.slug) && !onlySet.has(entry.url)) return false;
+		if (categorySet.size && !categorySet.has(entry.category)) return false;
+		return true;
+	});
+
+	if (!filteredConfig.length) {
+		throw new Error("sync filters matched zero pages");
+	}
+
 	const categoriesMap = new Map();
 	const pages = [];
 
-	const results = await runWithConcurrency(config, WIKI_SYNC_CONCURRENCY, syncEntry);
+	const results = await runWithConcurrency(filteredConfig, WIKI_SYNC_CONCURRENCY, syncEntry);
 	for (const result of results) {
 		if (!result) continue;
 		categoriesMap.set(result.categoryId, {
 			id: result.categoryId,
-			label: result.categoryLabel,
+			label: compactLocalizedValueMap(result.categoryLabel),
 		});
 		pages.push(result.pageEntry);
 	}
@@ -282,15 +324,25 @@ async function main() {
 		updatedAt: nowRfc3339(),
 		categories: [...categoriesMap.values()],
 		pages,
+		mediaPath: "media.json",
 	};
 
+	const mediaRegistry = await buildMediaRegistry(
+		pages.map((page) => page.pagePath),
+		PAGES_BUILD_DIR
+	);
+
 	await writeJson(path.join(DIST_BUILD_DIR, "manifest.json"), manifest);
+	await writeJson(path.join(DIST_BUILD_DIR, "media.json"), mediaRegistry);
 	await copyFile(
 		path.join(process.cwd(), "scripts", "templates", "index.html"),
 		path.join(DIST_BUILD_DIR, "index.html")
 	);
 
-	await validateBundle(DIST_BUILD_DIR);
+	if (!WIKI_SKIP_VALIDATE) {
+		await validateBundle(DIST_BUILD_DIR);
+	}
+
 	await publishBuildDir();
 
 	console.log(`Synced ${pages.length} wiki pages into dist/.`);

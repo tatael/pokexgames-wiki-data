@@ -1,5 +1,5 @@
 import { PT_BR, decodeHtmlEntities, normalizeWhitespace } from "./shared.mjs";
-import { structureSection } from "./transform.mjs";
+import { publishSection, structureSection } from "./transform.mjs";
 
 export function cleanDisplayText(value) {
 	let text = String(value ?? "");
@@ -559,10 +559,13 @@ function isTrapMedia(item) {
 	return isTrapItemText(String(item?.alt ?? "") + " " + String(item?.url ?? "") + " " + String(item?.slug ?? ""));
 }
 
-export function normalizeSections(sectionsBase) {
+export function normalizeSections(sectionsBase, pageContext = {}) {
 	return sectionsBase.flatMap((section) => {
 		const sectionId = cleanDisplayText(section.id ?? "");
 		const normalizedSectionId = normalizeCategoryText(sectionId);
+		const normalizedHeading = normalizeCategoryText(section.heading?.[PT_BR] ?? "");
+		if (normalizedSectionId === "indice" || normalizedHeading === "indice") return [];
+
 		const paragraphs = section.paragraphs?.[PT_BR] || [];
 		const items = section.items?.[PT_BR] || [];
 		const media = section.media?.[PT_BR] || [];
@@ -602,8 +605,11 @@ export function normalizeSections(sectionsBase) {
 		const shouldSplitTraps = normalizedSectionId !== "armadilhas" && (trapItems.length || trapMedia.length);
 		const baseItems = shouldSplitTraps ? normalizedItems.filter((item) => !isTrapItemText(item)) : normalizedItems;
 		const baseMedia = shouldSplitTraps ? normalizedMedia.filter((item) => !isTrapMedia(item)) : normalizedMedia;
-		const normalizedSection = structureSection({
+		const normalizedSection = publishSection(structureSection({
 			...section,
+			pageCategory: pageContext.category,
+			pageSlug: pageContext.slug,
+			pageKind: pageContext.pageKind,
 			heading: mirrorLocalizedText(section.heading?.[PT_BR] || ""),
 			paragraphs: {
 				[PT_BR]: normalizedParagraphs,
@@ -620,7 +626,7 @@ export function normalizeSections(sectionsBase) {
 				en: baseMedia,
 				es: baseMedia,
 			},
-		});
+		}));
 
 		if (!shouldSplitTraps) {
 			return [normalizedSection];
@@ -628,13 +634,16 @@ export function normalizeSections(sectionsBase) {
 
 		return [
 			normalizedSection,
-			structureSection({
+			publishSection(structureSection({
 				id: "armadilhas",
+				pageCategory: pageContext.category,
+				pageSlug: pageContext.slug,
+				pageKind: pageContext.pageKind,
 				heading: mirrorLocalizedText("Armadilhas"),
 				paragraphs: { [PT_BR]: [], en: [], es: [] },
 				items: { [PT_BR]: trapItems, en: trapItems, es: trapItems },
 				media: { [PT_BR]: trapMedia, en: trapMedia, es: trapMedia },
-			}),
+			})),
 		];
 	});
 }

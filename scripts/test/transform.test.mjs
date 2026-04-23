@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { structureSection, parsePokemonItemText, parseRewardItemText } from "../lib/transform.mjs";
+import { publishSection, structureSection, parsePokemonItemText, parseRewardItemText } from "../lib/transform.mjs";
 import { PT_BR } from "../lib/shared.mjs";
 
 function localizedSection(section) {
@@ -10,6 +10,7 @@ function localizedSection(section) {
 		heading: { [PT_BR]: section.heading, en: section.heading, es: section.heading },
 		paragraphs: { [PT_BR]: section.paragraphs ?? [], en: section.paragraphs ?? [], es: section.paragraphs ?? [] },
 		items: { [PT_BR]: section.items ?? [], en: section.items ?? [], es: section.items ?? [] },
+		media: { [PT_BR]: section.media ?? [], en: section.media ?? [], es: section.media ?? [] },
 	};
 }
 
@@ -178,12 +179,296 @@ test("structureSection publishes structured task cards upstream", () => {
 	assert.equal(nightmare.kind, "tasks");
 	assert.equal(nightmare.tasks[PT_BR][0].title, "NPC Missy");
 	assert.equal(nightmare.tasks[PT_BR][0].objective, "Derrotar: 300 Meowstic");
-	assert.deepEqual(nightmare.tasks[PT_BR][0].requirements, ["Level: 400 NW Level: 50"]);
+	assert.equal(nightmare.tasks[PT_BR][0].npc, "Missy");
+	assert.equal(nightmare.tasks[PT_BR][0].requirementsText, undefined);
+	assert.deepEqual(nightmare.tasks[PT_BR][0].requirements, { level: 400, nightmareLevel: 50 });
+	assert.deepEqual(nightmare.tasks[PT_BR][0].objectiveDetails.targets, [{ name: "Meowstic", slug: "meowstic", amount: 300 }]);
 	assert.deepEqual(nightmare.tasks[PT_BR][0].rewards.map((reward) => [reward.name, reward.qty]), [
 		["Experiência", "2.000.000"],
 		["Nightmare Experience", "40.000"],
 		["Black Nightmare Gem", "2"],
 	]);
+});
+
+test("publishSection emits v2 structured sections without legacy raw mirrors", () => {
+	const source = structureSection(localizedSection({
+		id: "nightmare-tasks",
+		heading: "Nightmare Tasks",
+		paragraphs: ["As Nightmare Balls e Beast Balls NAO sao itens unicos."],
+		items: [
+			"1 Nightmare Cerulean",
+			"1. NPC Missy | Derrotar: 300 678-Meowstic Meowstic | Level: 400 NW Level: 50 | Exp icon 2.000.000 Exp icon nw 40.000 Black Nightmare Gem 2 Black Nightmare Gem",
+		],
+	}));
+	const section = publishSection(source);
+
+	assert.equal(section.title[PT_BR], "Nightmare Tasks");
+	assert.equal(section.kind, "tasks");
+	assert.equal(section.items, undefined);
+	assert.equal(section.paragraphs, undefined);
+	assert.equal(section.heading, undefined);
+	assert.equal(section.content[PT_BR].paragraphs[0], "As Nightmare Balls e Beast Balls NAO sao itens unicos.");
+	assert.equal(section.content[PT_BR].list, undefined);
+	assert.equal(section.taskGroups[PT_BR].groups[0].name, "Nightmare Cerulean");
+	assert.equal(section.taskGroups[PT_BR].groups[0].tasks[0].npc, "Missy");
+	assert.deepEqual(Object.keys(section.title), [PT_BR]);
+});
+
+test("publishSection compacts identical locale payloads and emits clan task ranks", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "tasks",
+		pageCategory: "clans",
+		pageSlug: "gardestrike-tasks",
+		heading: "Tasks",
+		paragraphs: [
+			"# Rank 1 ao 2",
+			"Para iniciar a primeira tarefa, o jogador deve conversar com o NPC Fist Trainer. Etapa 1 - Coletar Quantidade Item 1.500 Rubber Ball 1.500 Band-aid 5 Iron Bracelet Etapa 2 - Capturar Primeape Etapa 3 - Derrotar (1ª Lista) 50 Onix 50 Tauros 25 Sneasel 25 Stantler Danger Room Team Tauros Farfetch'd Stantler Primeape Loudred Fearow Após concluir duas salas da Danger Room, o jogador receberá 100.000 de experiência e uma Punch Stone.",
+		],
+	})));
+
+	assert.deepEqual(Object.keys(section.clanTasks), [PT_BR]);
+	assert.equal(section.clanTasks[PT_BR].ranks[0].title, "Rank 1 ao 2");
+	assert.equal(section.clanTasks[PT_BR].ranks[0].stages[0].label, "Coletar");
+	assert.equal(section.clanTasks[PT_BR].ranks[0].stages[0].rows[0].item, "Rubber Ball");
+	assert.equal(section.clanTasks[PT_BR].ranks[0].stages[2].targets[0].name, "Onix");
+	assert.match(section.clanTasks[PT_BR].ranks[0].dangerRoomTeamText, /Tauros/);
+});
+
+test("publishSection emits structured tables and bullets instead of raw pipe lists", () => {
+	const source = structureSection(localizedSection({
+		id: "outros",
+		heading: "Outros",
+		paragraphs: ["Fale com o NPC."],
+		items: [
+			"Entrada Gyakkyo | Entrada Gyakkyo",
+			"Observa\u00e7\u00e3o solta.",
+		],
+	}));
+	const section = publishSection(source);
+
+	assert.deepEqual(section.content[PT_BR], {
+		paragraphs: ["Fale com o NPC."],
+		bullets: ["Observa\u00e7\u00e3o solta."],
+	});
+	assert.deepEqual(section.tables[PT_BR][0].rows[0], {
+		cells: [
+			{ text: "Entrada Gyakkyo" },
+			{ text: "Entrada Gyakkyo" },
+		],
+	});
+	assert.equal(section.content[PT_BR].list, undefined);
+});
+
+test("publishSection emits typed abilities, steps and locations", () => {
+	const abilities = publishSection(structureSection(localizedSection({
+		id: "habilidades",
+		heading: "Habilidades",
+		paragraphs: ["# Fire Breath", "Causa dano em area.", "# Stomp", "Empurra inimigos."],
+	})));
+
+	assert.deepEqual(abilities.abilities[PT_BR], [
+		{ name: "Fire Breath", description: ["Causa dano em area"] },
+		{ name: "Stomp", description: ["Empurra inimigos"] },
+	]);
+	assert.equal(abilities.content, undefined);
+
+	const steps = publishSection(structureSection(localizedSection({
+		id: "funcionamento",
+		heading: "Funcionamento",
+		paragraphs: ["# Entrada", "Fale com Wes.", "# Batalha", "Derrote os pokemons."],
+	})));
+
+	assert.deepEqual(steps.steps[PT_BR], [
+		{ index: 1, title: "Entrada", body: ["Fale com Wes"] },
+		{ index: 2, title: "Batalha", body: ["Derrote os pokemons"] },
+	]);
+	assert.equal(steps.content, undefined);
+
+	const location = publishSection(structureSection(localizedSection({
+		id: "localizacao",
+		heading: "Localiza\u00e7\u00e3o",
+		paragraphs: ["Entrada principal."],
+		items: ["Cidade | Coordenada", "Use surf."],
+	})));
+
+	assert.deepEqual(location.locations[PT_BR], [{
+		description: ["Entrada principal"],
+		bullets: ["Use surf"],
+		rows: [{
+			cells: [
+				{ text: "Cidade" },
+				{ text: "Coordenada" },
+			],
+		}],
+	}]);
+	assert.equal(location.content, undefined);
+});
+
+test("structureSection emits boss difficulties, held enhancement, hazards, and quest phases", () => {
+	const bossDifficulties = publishSection(structureSection(localizedSection({
+		id: "dificuldades",
+		pageCategory: "boss-fight",
+		heading: "Dificuldades",
+		paragraphs: [
+			"Os jogadores podem realizar em três dificuldades.",
+			"Fácil: requer no mínimo nível 200 e possui um level cap no nível 350. Os jogadores deverão deixar a vida do Boss em 65% para concluir. Para entrar nesta dificuldade, é necessário que o jogador tenha 1 Entei Charm.",
+			"Normal: requer no mínimo nível 300 e possui um level cap no nível 450.",
+			"Observação: As dificuldades Normal e Difícil possuem Held Enhancement.",
+		],
+	})));
+
+	assert.equal(bossDifficulties.difficulties[PT_BR].entries[0].name, "Fácil");
+	assert.equal(bossDifficulties.difficulties[PT_BR].entries[0].minimumLevel, 200);
+	assert.equal(bossDifficulties.difficulties[PT_BR].entries[0].levelCap, 350);
+	assert.equal(bossDifficulties.difficulties[PT_BR].entries[0].entryRequirement.amount, 1);
+
+	const heldEnhancement = publishSection(structureSection(localizedSection({
+		id: "held-enhancement",
+		heading: "Held Enhancement",
+		paragraphs: [
+			"Esse sistema concede bônus.",
+			"Normal: caso o jogador esteja utilizando Held de Tier 6, causará 35% mais dano e receberá 35% menos dano dos inimigos. Esses valores são aumentados para 37% caso o jogador esteja utilizando Held de Tier 7.",
+		],
+		items: [
+			"Esse sistema somente é válido para o Held equipado diretamente no slot X do Pokémon.",
+		],
+	})));
+
+	assert.equal(heldEnhancement.heldEnhancement[PT_BR].entries[0].difficulty, "Normal");
+	assert.deepEqual(heldEnhancement.heldEnhancement[PT_BR].entries[0].tiers[0], {
+		tier: 6,
+		damageBonus: 35,
+		defenseBonus: 35,
+	});
+	assert.equal(heldEnhancement.heldEnhancement[PT_BR].notes.length, 1);
+
+	const hazards = publishSection(structureSection(localizedSection({
+		id: "armadilhas",
+		heading: "Armadilhas",
+		paragraphs: ["A armadilha causa dano alto."],
+		items: ["Fique longe da área vermelha."],
+	})));
+
+	assert.deepEqual(hazards.hazards[PT_BR], {
+		description: ["A armadilha causa dano alto"],
+		bullets: ["Fique longe da área vermelha"],
+	});
+
+	const questPhase = publishSection(structureSection(localizedSection({
+		id: "1-parte",
+		pageCategory: "quests",
+		heading: "1ª Parte",
+		paragraphs: ["Fale com o NPC Goh.", "Após 2 horas, entregue a carta e receberá 500.000 de experiência."],
+		items: ["Item | Quantidade", "Observação: use Fly."],
+		media: [{ type: "image", url: "https://wiki.pokexgames.com/images/5/50/Localizacao_Goh.png", alt: "Localizacao Goh.png", slug: "localizacao-goh" }],
+	})));
+
+	assert.equal(questPhase.content, undefined);
+	assert.deepEqual(questPhase.questPhases[PT_BR].body, [
+		"Fale com o NPC Goh",
+		"Após 2 horas, entregue a carta e receberá 500.000 de experiência",
+	]);
+	assert.deepEqual(questPhase.questPhases[PT_BR].npcs, ["Goh"]);
+	assert.deepEqual(questPhase.questPhases[PT_BR].waits, ["2 horas"]);
+	assert.deepEqual(questPhase.questPhases[PT_BR].rows[0], {
+		cells: [
+			{ text: "Item" },
+			{ text: "Quantidade" },
+		],
+	});
+	assert.equal(questPhase.questPhases[PT_BR].rewards[0].name, "Experiência");
+});
+
+test("structureSection emits held item categories and x-boost groups without raw prose mirrors", () => {
+	const heldCategories = publishSection(structureSection(localizedSection({
+		id: "categories",
+		pageCategory: "held-items",
+		heading: "Categories",
+		paragraphs: [
+			"# Offensive",
+			"Icon Name Tier 1 Tier 2 Tier 3 Tier 4 Tier 5 Tier 6 Tier 7 Tier 8 Tier 9 Description X-Attack 8% 12% 16% 19% 22% 25% 28% 31% N/A Increases the Pokémon's strength by X%. X-Critical 8% 10% 12% 14% 16% 20% 24% 27% N/A Grants X% chance to deal critical damage.",
+		],
+	})));
+
+	assert.equal(heldCategories.content, undefined);
+	assert.equal(heldCategories.heldCategories[PT_BR].groups[0].name, "Offensive");
+	assert.equal(heldCategories.heldCategories[PT_BR].groups[0].entries[0].name, "X-Attack");
+	assert.deepEqual(heldCategories.heldCategories[PT_BR].groups[0].entries[0].tiers[0], { tier: 1, value: "8%" });
+
+	const heldBoosts = publishSection(structureSection(localizedSection({
+		id: "information-about-x-boost",
+		pageCategory: "held-items",
+		heading: "Information about X-Boost",
+		paragraphs: [
+			"# Tier 1",
+			"Level Range Boost 0 to 99 6 100 to 149 9 150 to 399 12 400 to 625 15",
+			"# Utility X",
+			"Icon Name Tier 1 Tier 2 Tier 3 Tier 4 Tier 5 Tier 6 Tier 7 Tier 8 Tier 9 Description X-Lucky 10% 20% 35% 50% 65% 80% 100% N/A 150% Increases the chance of dropping items by X%.",
+		],
+	})));
+
+	assert.equal(heldBoosts.content, undefined);
+	assert.equal(heldBoosts.heldBoosts[PT_BR].ranges[0].name, "Tier 1");
+	assert.deepEqual(heldBoosts.heldBoosts[PT_BR].ranges[0].rows[0], { levelRange: "0 to 99", boost: "6" });
+	assert.equal(heldBoosts.heldBoosts[PT_BR].utilities[0].entries[0].name, "X-Lucky");
+});
+
+test("structureSection emits typed quest support sections without raw prose mirrors", () => {
+	const questSupport = publishSection(structureSection(localizedSection({
+		id: "boss-mega-dungeons",
+		pageCategory: "quests",
+		heading: "Boss & Mega Dungeons",
+		paragraphs: [
+			"Após o jogador finalizar a Wes Quest, ficará disponível o craft de dois novos itens.",
+		],
+		items: [
+			"Alpha Antidote | Omega Antidote",
+			"Clique na imagem abaixo para ir para a página das Dungeons.",
+		],
+		media: [
+			{ type: "image", url: "https://wiki.pokexgames.com/images/c/c0/Alpha_Antidote.png", alt: "Alpha Antidote.png", slug: "alpha-antidote" },
+			{ type: "image", url: "https://wiki.pokexgames.com/images/5/5c/Omega_Antidote.png", alt: "Omega Antidote.png", slug: "omega-antidote" },
+		],
+	})));
+
+	assert.equal(questSupport.content, undefined);
+	assert.deepEqual(questSupport.questSupport[PT_BR].intro, [
+		"Após o jogador finalizar a Wes Quest, ficará disponível o craft de dois novos itens",
+	]);
+	assert.deepEqual(questSupport.questSupport[PT_BR].bullets, [
+		"Clique na imagem abaixo para ir para a página das Dungeons",
+	]);
+	assert.deepEqual(questSupport.questSupport[PT_BR].cards.slice(0, 2), [
+		{ label: "Alpha Antidote" },
+		{ label: "Omega Antidote" },
+	]);
+});
+
+test("structureSection emits typed quest location sections without raw prose mirrors", () => {
+	const locations = publishSection(structureSection(localizedSection({
+		id: "localizacao-das-cenouras",
+		pageCategory: "quests",
+		heading: "Localização das cenouras",
+		paragraphs: ["Após coletar as 5 cenouras, retorne ao Goh."],
+		items: [
+			"Cenoura A | Easter Island",
+			"Observação: Para coletar essa cenoura será necessário possuir Fly",
+		],
+	})));
+
+	assert.equal(locations.content, undefined);
+	assert.deepEqual(locations.locations[PT_BR][0].description, [
+		"Após coletar as 5 cenouras, retorne ao Goh",
+	]);
+	assert.deepEqual(locations.locations[PT_BR][0].bullets, [
+		"Observação: Para coletar essa cenoura será necessário possuir Fly",
+	]);
+	assert.deepEqual(locations.locations[PT_BR][0].rows[0], {
+		cells: [
+			{ text: "Cenoura A" },
+			{ text: "Easter Island" },
+		],
+	});
 });
 
 test("structureSection keeps boss legendary rewards available on normal and hard difficulties", () => {

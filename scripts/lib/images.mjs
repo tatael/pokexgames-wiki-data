@@ -318,15 +318,19 @@ function showdownPokemonSlug(slug) {
 	if (normalizedTokens[0] === "alolan" && normalizedTokens.length > 1) {
 		return `${normalizedTokens.slice(1).join("-")}-alola`;
 	}
+
 	if (normalizedTokens[0] === "galarian" && normalizedTokens.length > 1) {
 		return `${normalizedTokens.slice(1).join("-")}-galar`;
 	}
+
 	if (normalizedTokens[0] === "hisuian" && normalizedTokens.length > 1) {
 		return `${normalizedTokens.slice(1).join("-")}-hisui`;
 	}
+
 	if (normalizedTokens[0] === "paldean" && normalizedTokens.length > 1) {
 		return `${normalizedTokens.slice(1).join("-")}-paldea`;
 	}
+
 	if (normalizedTokens[0] === "mega" && normalizedTokens.length > 1) {
 		return `${normalizedTokens.slice(1).join("-")}-mega`;
 	}

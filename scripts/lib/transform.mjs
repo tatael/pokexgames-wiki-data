@@ -548,6 +548,7 @@ export function parsePokemonItemText(item) {
 			.join(" / ");
 		return role || "Not";
 	};
+
 	return {
 		name,
 		exclusive,
@@ -612,6 +613,7 @@ function propagateDifficulty(rewards) {
 			currentDifficulty = reward.difficulty;
 			return [];
 		}
+
 		if (reward.type === "loot") {
 			if (reward.difficulty !== null) {
 				currentDifficulty = reward.difficulty;
@@ -619,6 +621,7 @@ function propagateDifficulty(rewards) {
 				return [{ ...reward, difficulty: currentDifficulty }];
 			}
 		}
+
 		return [reward];
 	});
 }
@@ -636,6 +639,7 @@ function cleanLootRewardName(value) {
 		const second = words[1].toLowerCase().replace(/s$/, "");
 		if (first && first === second) name = words.slice(1).join(" ");
 	}
+
 	return name.trim();
 }
 
@@ -698,6 +702,7 @@ function ensureLegendaryBossRewards(rewards) {
 			output.push({ ...item, difficulty });
 			existingNames.add(key);
 		}
+
 		if (normalizeIdToken(difficulty) === "dificil") {
 			for (const item of normalSpecial) {
 				const key = normalizeRewardName(item.name);
@@ -707,6 +712,7 @@ function ensureLegendaryBossRewards(rewards) {
 			}
 		}
 	}
+
 	return output;
 }
 
@@ -830,6 +836,7 @@ function looksLikeRawPokemonReferenceText(value) {
 		const parts = text.split(/\s*\|\s*/).filter(Boolean);
 		return parts.length > 0 && parts.every(looksLikeRawPokemonReferenceText);
 	}
+
 	if (/^\d{3,4}\s*[-_.]\s*(?:sh|shiny|mega|alolan|galarian|hisuian)?\s*[a-z0-9' ._-]+$/i.test(text)) return true;
 	if (/^\d{3,4}\s*[-_.]\s*(?:sh|shiny|mega|alolan|galarian|hisuian)?\s*[a-z0-9' ._-]+\s+[a-z][a-z0-9' ._-]*$/i.test(text)) return true;
 	if (/^\d{3,4}\s*[-_.]\s*\S+\.(?:png|gif|webp|jpe?g)\s+\d{3,4}\s*[-_.]\s*.+$/i.test(text)) return true;
@@ -843,6 +850,7 @@ function cleanRawPokemonReferenceItems(itemsByLocale = {}) {
 		cleaned[locale] = (itemsByLocale[locale] ?? [])
 			.filter((item) => !looksLikeRawPokemonReferenceText(item));
 	}
+
 	return cleaned;
 }
 
@@ -852,9 +860,11 @@ function classifySectionKind(id, headingText) {
 	if (TIER_SECTION_PATTERN.test(normId) || TIER_SECTION_PATTERN.test(normIdNoSpace)) {
 		return "tier";
 	}
+
 	if (/^nivel \d+ ao \d+$/.test(normId) || /^level \d+ to \d+$/.test(normId)) {
 		return "tasks";
 	}
+
 	if (normId === "nightmare tasks") {
 		return "tasks";
 	}
@@ -863,6 +873,7 @@ function classifySectionKind(id, headingText) {
 	if (/^nivel \d+ ao \d+$/.test(normHeading) || /^level \d+ to \d+$/.test(normHeading)) {
 		return "tasks";
 	}
+
 	if (normHeading === "recompensa" || normHeading === "recompensas" || normHeading === "rewards" || /premios|premiacoes|premios dos baus/.test(normHeading)) {
 		return "rewards";
 	}

@@ -43,6 +43,7 @@ function requestUrlRaw(url, redirectsRemaining = 5) {
 						reject(new Error(`redirect without location (HTTP ${status})`));
 						return;
 					}
+
 					if (redirectsRemaining <= 0) {
 						reject(new Error("too many redirects"));
 						return;
@@ -119,6 +120,7 @@ async function _fetchWikiHtml(url) {
 			} catch (fallbackError) {
 				lastError = fallbackError;
 			}
+
 			if (attempt < WIKI_FETCH_RETRY_ATTEMPTS) {
 				await new Promise((resolve) => setTimeout(resolve, 750 * attempt));
 			}
@@ -187,6 +189,7 @@ export function buildWikiApiUrl(params) {
 			url.searchParams.set(key, value);
 		}
 	}
+
 	return url.toString();
 }
 

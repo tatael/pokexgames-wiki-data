@@ -457,6 +457,7 @@ export function resolvePageGroup({ category, slug, title, navigationPath = [] })
 		if (/\b(lavender|ghost|tentacruel)\b/.test(text)) {
 			return localizedGroup("Outros", "Other", "Otros");
 		}
+
 		if (/\b(entei|raikou|suicune|bestas lendarias|caes lendarios|legendary beasts)\b/.test(text)) {
 			return localizedGroup("Cães Lendários", "Legendary Dogs", "Perros Legendarios");
 		}
@@ -478,15 +479,19 @@ export function resolvePageGroup({ category, slug, title, navigationPath = [] })
 	if (/craft|profissao|profession|arqueolog|archeolog|cozinheir|cook|food|comida/.test(text)) {
 		return localizedGroup("Craft", "Craft", "Craft");
 	}
+
 	if (/weekly|semanal/.test(text)) {
 		return localizedGroup("Rifts Semanais", "Weekly Rifts", "Rifts Semanales");
 	}
+
 	if (/drop|dropped|saque/.test(text)) {
 		return localizedGroup("Rifts de Drop", "Dropped Rifts", "Rifts de Drop");
 	}
+
 	if (/mystic|mistico|mistica|mitico|mitica/.test(text)) {
 		return localizedGroup("Mítica", "Mystic", "Mítica");
 	}
+
 	return localizedGroup("Outros Rifts", "Other Rifts", "Otros Rifts");
 }
 
@@ -563,6 +568,7 @@ export function normalizeSections(sectionsBase) {
 			if (!text) return false;
 			return !/document\.addeventlistener|const\s+classicons|const\s+typeicons|function\s+filterhunts|queryselectorall|innerhtml|\.hidden\s*\{|\.image-container|\.tag-button/.test(normalized);
 		};
+
 		const uniqueText = (values) => {
 			const seen = new Set();
 			return values.map(cleanDisplayText).filter((value) => {
@@ -572,6 +578,7 @@ export function normalizeSections(sectionsBase) {
 				return true;
 			});
 		};
+
 		const uniqueMedia = (values) => {
 			if (sectionId === "possiveis-capturas") return values.filter((item) => Boolean(item?.url));
 			const seen = new Set();
@@ -610,6 +617,7 @@ export function normalizeSections(sectionsBase) {
 				es: baseMedia,
 			},
 		});
+
 		if (!shouldSplitTraps) {
 			return [normalizedSection];
 		}

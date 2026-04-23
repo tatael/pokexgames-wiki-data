@@ -48,6 +48,7 @@ export function extractArticleFragmentHtml(html, fragment) {
 		const headingText = stripHtml(heading.html);
 		return buildSlug(headingText, "").replace(/-/g, " ") === normalizedFragment;
 	});
+
 	if (currentHeadingIndex < 0) {
 		return html;
 	}
@@ -176,6 +177,7 @@ export function extractArticleWikiLinks(html, pageUrl) {
 				} catch {
 					continue;
 				}
+
 				if (resolved.hostname !== "wiki.pokexgames.com" || !resolved.pathname.startsWith("/index.php/")) continue;
 				const title = decodeWikiTitleFromUrl(resolved.toString()) ?? name;
 				results.push({
@@ -216,17 +218,20 @@ function extractWindowQuestData(html) {
 			}
 			continue;
 		}
+
 		if (char === '"' || char === "'") {
 			inString = true;
 			quote = char;
 			continue;
 		}
+
 		if (char === "[") depth += 1;
 		if (char === "]") {
 			depth -= 1;
 			if (depth === 0) return source.slice(arrayStart, index + 1);
 		}
 	}
+
 	return "";
 }
 
@@ -548,6 +553,7 @@ function extractRewardTabberLines(html) {
 			lines.push(...rows);
 			continue;
 		}
+
 		const body = stripHtml(stripMediaAndScript(panelHtml)).trim();
 		if (body) lines.push(`* ${body}`);
 	}

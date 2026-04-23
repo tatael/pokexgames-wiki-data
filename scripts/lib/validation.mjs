@@ -160,6 +160,7 @@ export async function validateBundle(distDir = DIST_DIR) {
 		if (page.displayInList !== summary.displayInList) {
 			throw new Error(`page file "${summary.slug}.json" has mismatched displayInList`);
 		}
+
 		if (JSON.stringify(page.pageGroup ?? null) !== JSON.stringify(summary.pageGroup ?? null)) {
 			throw new Error(`page file "${summary.slug}.json" has mismatched pageGroup`);
 		}

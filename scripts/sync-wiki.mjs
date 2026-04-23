@@ -65,9 +65,11 @@ function buildSearchText(page) {
 			pieces.push(reward?.name, reward?.difficulty, reward?.rarity, reward?.qty, reward?.place);
 			for (const prize of reward?.prizes ?? []) pieces.push(prize?.name, prize?.qty);
 		}
+
 		for (const pokemon of section.pokemon?.[PT_BR] ?? []) {
 			pieces.push(pokemon?.name, pokemon?.pve, pokemon?.pvp);
 		}
+
 		for (const moveGroup of section.moves?.[PT_BR] ?? []) {
 			pieces.push(moveGroup?.label);
 			for (const row of moveGroup?.rows ?? []) pieces.push(row?.name, row?.cooldown, ...(row?.traits ?? []));
@@ -101,6 +103,7 @@ async function resolvePageImages({ articleHtml, sourceUrl, slug, pageKind, categ
 				hero: { url: leadSpriteUrl },
 			};
 		}
+
 		if (!leadSpriteUrl) return images;
 		return {
 			...(images ?? {}),
@@ -108,6 +111,7 @@ async function resolvePageImages({ articleHtml, sourceUrl, slug, pageKind, categ
 			hero: { url: leadSpriteUrl },
 		};
 	}
+
 	const leadHeroUrl = extractLeadWikiImageUrl(articleHtml, sourceUrl.toString(), "hero");
 	const discoveredImages = leadHeroUrl || images?.hero || images?.sprite
 		? null
@@ -164,6 +168,7 @@ async function syncEntry(entry) {
 		title: displayTitle,
 		navigationPath,
 	});
+
 	const searchText = buildSearchText({
 		title: displayTitle,
 		summary,
@@ -171,6 +176,7 @@ async function syncEntry(entry) {
 		navigationPath,
 		sections,
 	});
+
 	const displayInList = resolveDisplayInList({
 		category: resolvedCategory,
 		slug: entry.slug,

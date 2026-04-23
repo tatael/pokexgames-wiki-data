@@ -212,6 +212,7 @@ test("structureSection keeps boss legendary rewards available on normal and hard
 		assert.ok(names.includes("Entei Backpack"));
 		assert.ok(names.includes("Entei Amulet"));
 	}
+
 	const hardRewards = rewards.filter((item) => item.difficulty === "Dif\u00edcil");
 	assert.deepEqual(
 		hardRewards.find((item) => item.name === "Entei Sewing Kit")?.rarity,

@@ -590,6 +590,12 @@ export function parseRewardItemText(item) {
 		let name = isQty
 			? (remaining.slice(0, -1).pop() ?? remaining[0] ?? "")
 			: (remaining[remaining.length - 1] ?? remaining[0] ?? "");
+		let qty = isQty ? maybeQty : null;
+		const parsedNameMeta = parseTrailingRewardMeta(name);
+		if (!qty && parsedNameMeta.qty) {
+			name = parsedNameMeta.name;
+			qty = parsedNameMeta.qty;
+		}
 
 		let difficulty = null;
 		const diffMatch = String(name).match(DIFFICULTY_RE);
@@ -598,7 +604,7 @@ export function parseRewardItemText(item) {
 			name = String(name).replace(DIFFICULTY_RE, "").trim();
 		}
 
-		return { type: "loot", name: cleanLootRewardName(name || ""), difficulty, rarity: lastPart, qty: isQty ? maybeQty : null };
+		return { type: "loot", name: cleanLootRewardName(name || ""), difficulty, rarity: lastPart, qty };
 	}
 
 	const rawName = parts[parts.length - 1] || parts[0] || "";
@@ -630,6 +636,10 @@ function normalizeRewardName(value) {
 	return normalizeIdToken(value).replace(/\s+/g, " ");
 }
 
+function normalizeRewardFamilyName(value) {
+	return normalizeRewardName(value).replace(/\bs$/, "");
+}
+
 function cleanLootRewardName(value) {
 	let name = stripPrizeRefFromText(value);
 	name = name.replace(/\bDarknesss\b/gi, "Darkness");
@@ -646,6 +656,15 @@ function cleanLootRewardName(value) {
 function parseTrailingRewardMeta(rawName) {
 	const text = String(rawName ?? "").trim();
 	if (!text) return { name: "", qty: null, rarity: null };
+
+	const leadingQtyMatch = text.match(/^(\d+(?:[.,]\d+)?(?:\s*a\s*\d+(?:[.,]\d+)?)?)\s+(.+)$/i);
+	if (leadingQtyMatch) {
+		return {
+			name: cleanLootRewardName(leadingQtyMatch[2]),
+			qty: leadingQtyMatch[1]?.trim() ?? null,
+			rarity: null,
+		};
+	}
 
 	const qtyMatch = text.match(/^(.*?)\s*\(([^)]*?\d[^)]*)\)\s*$/);
 	if (qtyMatch) {
@@ -714,6 +733,85 @@ function ensureLegendaryBossRewards(rewards) {
 	}
 
 	return output;
+}
+
+function fillSparseDifficultyRewards(rewards) {
+	const difficultyOrder = [];
+	const sourceByDifficulty = new Map();
+	const completedByDifficulty = new Map();
+
+	for (const reward of rewards) {
+		if (reward?.type !== "loot" || !reward.difficulty) {
+			continue;
+		}
+
+		const difficultyKey = normalizeIdToken(reward.difficulty);
+		if (!sourceByDifficulty.has(difficultyKey)) {
+			sourceByDifficulty.set(difficultyKey, []);
+			difficultyOrder.push(difficultyKey);
+		}
+
+		sourceByDifficulty.get(difficultyKey).push(reward);
+	}
+
+	if (difficultyOrder.length < 2) return rewards;
+
+	let baseline = [];
+	for (const difficultyKey of difficultyOrder) {
+		const items = sourceByDifficulty.get(difficultyKey) ?? [];
+		const hasSparseRows = baseline.length >= 4 && items.length < baseline.length;
+		if (!hasSparseRows) {
+			baseline = mergeRewardBaseline(baseline, items);
+			completedByDifficulty.set(difficultyKey, items);
+			continue;
+		}
+
+		const currentByName = new Map(items.map((item) => [normalizeRewardFamilyName(item.name), item]));
+		const targetDifficulty = items[0]?.difficulty ?? baseline[0]?.difficulty ?? null;
+		const completed = [];
+		const seen = new Set();
+		for (const item of baseline) {
+			const key = normalizeRewardFamilyName(item.name);
+			const current = currentByName.get(key);
+			completed.push(current ? { ...current, difficulty: targetDifficulty } : { ...item, difficulty: targetDifficulty });
+			seen.add(key);
+		}
+
+		for (const item of items) {
+			const key = normalizeRewardFamilyName(item.name);
+			if (seen.has(key)) continue;
+			completed.push(item);
+			seen.add(key);
+		}
+
+		completedByDifficulty.set(difficultyKey, completed);
+		baseline = mergeRewardBaseline(baseline, completed);
+	}
+
+	return rewards.flatMap((reward) => {
+		if (reward?.type !== "loot" || !reward.difficulty) return [reward];
+		const difficultyKey = normalizeIdToken(reward.difficulty);
+		const completed = completedByDifficulty.get(difficultyKey);
+		if (!completed?.length) return [reward];
+		const firstSource = sourceByDifficulty.get(difficultyKey)?.[0];
+		return reward === firstSource ? completed : [];
+	});
+}
+
+function mergeRewardBaseline(previous, current) {
+	const merged = [...previous];
+	const indexByName = new Map(previous.map((item, index) => [normalizeRewardFamilyName(item.name), index]));
+	for (const item of current) {
+		const key = normalizeRewardFamilyName(item.name);
+		if (indexByName.has(key)) {
+			merged[indexByName.get(key)] = item;
+		} else {
+			indexByName.set(key, merged.length);
+			merged.push(item);
+		}
+	}
+
+	return merged;
 }
 
 function dedupeRewards(rewards) {
@@ -921,7 +1019,7 @@ export function structureSection(section) {
 			const parsed = (section.items[locale] ?? [])
 				.map(parseRewardItemText)
 				.filter(Boolean);
-			rewards[locale] = dedupeRewards(ensureLegendaryBossRewards(propagateDifficulty(parsed)));
+			rewards[locale] = dedupeRewards(fillSparseDifficultyRewards(ensureLegendaryBossRewards(propagateDifficulty(parsed))));
 		}
 
 		result.rewards = rewards;

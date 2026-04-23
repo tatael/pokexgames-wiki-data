@@ -70,7 +70,6 @@ const EMBEDDED_TOWER_TOP_LEVEL_SLUGS = new Set([
 	"embedded-tower-quinto-andar",
 	"camara-do-jirachi",
 	"embedded-tower-setimo-andar",
-	"wes-quest",
 ]);
 
 const TERRITORY_GUARDIAN_BOSS_SLUGS = new Set([
@@ -196,6 +195,10 @@ function cleanLocalizedTextMap(value, fallback) {
 export function resolveCategory(category, slug, profile, entry = {}) {
 	if (profile) {
 		return "pokemon";
+	}
+
+	if (slug === "wes-quest") {
+		return "quests";
 	}
 
 	if (PROFESSION_SPECIALIZATION_SLUGS.has(slug)) {
@@ -377,6 +380,7 @@ export function resolveTitleOverride({ category, slug }) {
 	if (slug === "experience") return localizedGroup("Experiência", "Experience", "Experiencia");
 	if (category === "professions") return professionTitleOverride(slug);
 	if (category === "tasks" && slug === "tasks") return localizedGroup("Kanto Tasks", "Kanto Tasks", "Kanto Tasks");
+	if (category === "held-items" && slug === "held-itens") return localizedGroup("Tipos de Held Itens", "Held Item Types", "Tipos de Held Items");
 	return null;
 }
 
@@ -426,6 +430,7 @@ export function resolveDisplayInList({ category, slug, title, pageKind, navigati
 	}
 
 	if (category === "quests" && slug !== "quests") {
+		if (slug === "wes-quest") return true;
 		return pageKind === "quest" || looksLikeActualQuestSpoiler(titleText, navigationPath, pageKind);
 	}
 
@@ -503,7 +508,6 @@ export function resolveSortRank({ category, slug, title }) {
 		if (/quinto|fifth/.test(text)) return 30;
 		if (/camara|jirachi/.test(text)) return 40;
 		if (/setimo|seventh|septimo/.test(text)) return 50;
-		if (/wes\s+quest/.test(text)) return 60;
 		return 100;
 	}
 

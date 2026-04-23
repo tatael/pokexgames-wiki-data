@@ -150,6 +150,156 @@
 		}
 	},
 	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "ClÃ£s",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "volcanic-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Volcanic_Tasks",
+		"title": {
+			"pt-BR": "Volcanic Tasks",
+			"en": "Volcanic Tasks",
+			"es": "Volcanic Tasks"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "ClÃ£s",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "raibolt-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Raibolt_Tasks",
+		"title": {
+			"pt-BR": "Raibolt Tasks",
+			"en": "Raibolt Tasks",
+			"es": "Raibolt Tasks"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "ClÃ£s",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "orebound-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Orebound_Tasks",
+		"title": {
+			"pt-BR": "Orebound Tasks",
+			"en": "Orebound Tasks",
+			"es": "Orebound Tasks"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "ClÃ£s",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "naturia-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Naturia_Tasks",
+		"title": {
+			"pt-BR": "Naturia Tasks",
+			"en": "Naturia Tasks",
+			"es": "Naturia Tasks"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "ClÃ£s",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "gardestrike-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Gardestrike_Tasks",
+		"title": {
+			"pt-BR": "Gardestrike Tasks",
+			"en": "Gardestrike Tasks",
+			"es": "Gardestrike Tasks"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "ClÃ£s",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "ironhard-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Ironhard_Tasks",
+		"title": {
+			"pt-BR": "Ironhard Tasks",
+			"en": "Ironhard Tasks",
+			"es": "Ironhard Tasks"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "ClÃ£s",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "wingeon-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Wingeon_Tasks",
+		"title": {
+			"pt-BR": "Wingeon Tasks",
+			"en": "Wingeon Tasks",
+			"es": "Wingeon Tasks"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "ClÃ£s",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "psycraft-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Psycraft_Tasks",
+		"title": {
+			"pt-BR": "Psycraft Tasks",
+			"en": "Psycraft Tasks",
+			"es": "Psycraft Tasks"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "ClÃ£s",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "seavell-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Seavell_Tasks",
+		"title": {
+			"pt-BR": "Seavell Tasks",
+			"en": "Seavell Tasks",
+			"es": "Seavell Tasks"
+		}
+	},
+	{
+		"category": "clans",
+		"categoryLabel": {
+			"pt-BR": "ClÃ£s",
+			"en": "Clans",
+			"es": "Clanes"
+		},
+		"slug": "malefic-tasks",
+		"url": "https://wiki.pokexgames.com/index.php/Malefic_Tasks",
+		"title": {
+			"pt-BR": "Malefic Tasks",
+			"en": "Malefic Tasks",
+			"es": "Malefic Tasks"
+		}
+	},
+	{
 		"category": "tasks",
 		"categoryLabel": {
 			"pt-BR": "Tasks",

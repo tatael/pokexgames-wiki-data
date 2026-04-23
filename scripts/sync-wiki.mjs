@@ -49,6 +49,10 @@ const TERRITORY_GUARDIAN_BANNERS = {
 	"giant-magcargo": "https://wiki.pokexgames.com/images/thumb/9/98/Banner_Bolinha_MD_-_The_Magma_Insurgency.webp/308px-Banner_Bolinha_MD_-_The_Magma_Insurgency.webp.png",
 };
 
+const PAGE_IMAGE_OVERRIDES = {
+	"king-charizard-dungeon": "https://wiki.pokexgames.com/images/thumb/9/90/Banner_Bolinha_King_Charizard.png/250px-Banner_Bolinha_King_Charizard.png",
+};
+
 function buildSearchText(page) {
 	const pieces = [
 		page.title?.[PT_BR],
@@ -85,6 +89,14 @@ function buildSearchText(page) {
 }
 
 async function resolvePageImages({ articleHtml, sourceUrl, slug, pageKind, category }) {
+	if (PAGE_IMAGE_OVERRIDES[slug]) {
+		const url = PAGE_IMAGE_OVERRIDES[slug];
+		return {
+			sprite: { url },
+			hero: { url },
+		};
+	}
+
 	if (category === "territory-guardians" && pageKind === "guardian-boss" && TERRITORY_GUARDIAN_BANNERS[slug]) {
 		const url = TERRITORY_GUARDIAN_BANNERS[slug];
 		return {

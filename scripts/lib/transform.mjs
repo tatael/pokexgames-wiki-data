@@ -2,6 +2,7 @@ import { PT_BR, buildSlug } from "./shared.mjs";
 import { cleanStructuredText, dedupeBySlug, normalizeIdToken, stripImageRefFromText } from "./transform/text.mjs";
 import {
 	cleanRawPokemonReferenceItems,
+	cleanPokemonGroupItems,
 	parseEffectivenessGroupsText,
 	parseFactRows,
 	parseMoveGroupsText,
@@ -25,7 +26,26 @@ import {
 	isHeldCategoriesSection,
 	parseHeldBoostGroups,
 	parseHeldCategoryGroups,
+	parseHeldOperationSteps,
 } from "./transform/held-items.mjs";
+import {
+	isDifficultySection as isBossFightDifficultySection,
+	isHeldEnhancementSection as isBossFightHeldEnhancementSection,
+	parseDifficultyEntries as parseBossFightDifficultyEntries,
+	parseHeldEnhancementEntries as parseBossFightHeldEnhancementEntries,
+} from "./transform/boss-fight.mjs";
+import {
+	isHazardSection as isDungeonHazardSection,
+	parseHazardEntries as parseDungeonHazardEntries,
+} from "./transform/dungeons.mjs";
+import {
+	isEmbeddedTowerLinkedCardsSection,
+	isEmbeddedTowerProgressionSection,
+	isEmbeddedTowerUnlockSection,
+	parseEmbeddedTowerProgression,
+	parseEmbeddedTowerUnlocks,
+	parseLinkedCards,
+} from "./transform/embedded-tower.mjs";
 import {
 	isAbilitySection,
 	isLocationSection,
@@ -41,7 +61,6 @@ export { parsePokemonItemText } from "./transform/pokemon.mjs";
 export { parseRewardItemText } from "./transform/rewards.mjs";
 export { publishSection } from "./transform/publish.mjs";
 
-const TIER_SECTION_PATTERN = /^(?:tier|t)\s*([a-z0-9ivx+-]+)$/i;
 const SECTION_KIND_BY_ID = {
 	"informacoes-importantes": "info",
 	"informacoes-gerais": "info",
@@ -63,10 +82,19 @@ const SECTION_KIND_BY_ID = {
 	"rewards": "rewards"
 };
 
+function isTierSectionToken(value) {
+	const token = normalizeIdToken(value ?? "");
+	if (!token) return false;
+	const compact = token.replace(/\s+/g, "");
+	return /^(?:bronze|silver|gold|platinum|diamond|master)$/.test(token)
+		|| /^tier\d+[a-z]?h?$/.test(compact)
+		|| /^t\d+[a-z]?h?$/.test(compact)
+		|| /^[sabcdr]$/.test(compact);
+}
+
 function classifySectionKind(id, headingText) {
 	const normId = normalizeIdToken(id);
-	const normIdNoSpace = normId.replace(/ /g, "");
-	if (TIER_SECTION_PATTERN.test(normId) || TIER_SECTION_PATTERN.test(normIdNoSpace)) {
+	if (isTierSectionToken(normId)) {
 		return "tier";
 	}
 
@@ -95,7 +123,7 @@ function classifySectionKind(id, headingText) {
 		return "pokemon-group";
 	}
 
-	if (normHeading && (TIER_SECTION_PATTERN.test(normHeading) || TIER_SECTION_PATTERN.test(normHeading.replace(/ /g, "")))) {
+	if (isTierSectionToken(normHeading)) {
 		return "tier";
 	}
 
@@ -141,15 +169,10 @@ export function structureSection(section) {
 	if (kind === "pokemon-group") {
 		const cleanedItems = {};
 		for (const locale of Object.keys(section.items ?? {})) {
-			cleanedItems[locale] = (section.items[locale] ?? [])
-				.map((item) =>
-					String(item ?? "")
-						.split(/\s*\|\s*/)
-						.map((p) => stripImageRefFromText(p.trim()))
-						.filter(Boolean)
-						.join(" | ")
-				)
-				.filter(Boolean);
+			cleanedItems[locale] = cleanPokemonGroupItems(
+				section.items[locale] ?? [],
+				section.media?.[locale] ?? [],
+			);
 		}
 
 		result.items = cleanedItems;
@@ -277,7 +300,28 @@ export function structureSection(section) {
 		if (Object.keys(abilities).length) result.abilities = abilities;
 	}
 
-	if (isStepSection(normalizedId, normalizedHeading)) {
+	if (pageCategory === "held items" && !result.steps) {
+		const heldSteps = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.items ?? {}),
+		])) {
+			const entries = parseHeldOperationSteps(
+				normalizedId,
+				section.paragraphs?.[locale] ?? [],
+				section.items?.[locale] ?? [],
+			);
+			if (entries.length) heldSteps[locale] = entries;
+		}
+
+		if (Object.keys(heldSteps).length) result.steps = heldSteps;
+	}
+
+	const hasStructuredRowItems = Object.values(section.items ?? {}).some((values) =>
+		(values ?? []).some((item) => String(item ?? "").includes("|"))
+	);
+
+	if (!result.steps && isStepSection(normalizedId, normalizedHeading) && !(pageCategory !== "quests" && hasStructuredRowItems)) {
 		const steps = {};
 		for (const locale of new Set([
 			...Object.keys(section.paragraphs ?? {}),
@@ -321,40 +365,97 @@ export function structureSection(section) {
 		if (Object.keys(locations).length) result.locations = locations;
 	}
 
-	if (isDifficultySection(normalizedId, normalizedHeading, pageCategory)) {
+	if (isBossFightDifficultySection(normalizedId, normalizedHeading, pageCategory)) {
 		const difficulties = {};
 		for (const locale of Object.keys(section.paragraphs ?? {})) {
-			const parsed = parseDifficultyEntries(section.paragraphs?.[locale] ?? [], section.items?.[locale] ?? []);
+			const parsed = parseBossFightDifficultyEntries(section.paragraphs?.[locale] ?? [], section.items?.[locale] ?? []);
 			if (parsed.entries.length || parsed.intro.length || parsed.notes.length) difficulties[locale] = parsed;
 		}
 
 		if (Object.keys(difficulties).length) result.difficulties = difficulties;
 	}
 
-	if (isHeldEnhancementSection(normalizedId, normalizedHeading)) {
+	if (isBossFightHeldEnhancementSection(normalizedId, normalizedHeading)) {
 		const heldEnhancement = {};
 		for (const locale of new Set([
 			...Object.keys(section.paragraphs ?? {}),
 			...Object.keys(section.items ?? {}),
 		])) {
-			const parsed = parseHeldEnhancementEntries(section.paragraphs?.[locale] ?? [], section.items?.[locale] ?? []);
+			const parsed = parseBossFightHeldEnhancementEntries(section.paragraphs?.[locale] ?? [], section.items?.[locale] ?? []);
 			if (parsed.entries.length || parsed.intro.length || parsed.notes.length) heldEnhancement[locale] = parsed;
 		}
 
 		if (Object.keys(heldEnhancement).length) result.heldEnhancement = heldEnhancement;
 	}
 
-	if (isHazardSection(normalizedId, normalizedHeading)) {
+	if (isDungeonHazardSection(normalizedId, normalizedHeading)) {
 		const hazards = {};
 		for (const locale of new Set([
 			...Object.keys(section.paragraphs ?? {}),
 			...Object.keys(section.items ?? {}),
 		])) {
-			const parsed = parseHazardEntries(section.paragraphs?.[locale] ?? [], section.items?.[locale] ?? []);
+			const parsed = parseDungeonHazardEntries(section.paragraphs?.[locale] ?? [], section.items?.[locale] ?? []);
 			if (parsed.description.length || parsed.bullets.length) hazards[locale] = parsed;
 		}
 
 		if (Object.keys(hazards).length) result.hazards = hazards;
+	}
+
+	if (isEmbeddedTowerProgressionSection(normalizedId, normalizedHeading, pageCategory)) {
+		const embeddedTowerProgression = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.items ?? {}),
+		])) {
+			const parsed = parseEmbeddedTowerProgression(
+				section.paragraphs?.[locale] ?? [],
+				section.items?.[locale] ?? [],
+			);
+
+			if (parsed.intro.length || parsed.attempts.length || parsed.rewards.length || parsed.resources.length) {
+				embeddedTowerProgression[locale] = parsed;
+			}
+		}
+
+		if (Object.keys(embeddedTowerProgression).length) result.embeddedTowerProgression = embeddedTowerProgression;
+	}
+
+	if (isEmbeddedTowerUnlockSection(normalizedId, normalizedHeading, pageCategory)) {
+		const embeddedTowerUnlocks = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.items ?? {}),
+		])) {
+			const parsed = parseEmbeddedTowerUnlocks(
+				section.paragraphs?.[locale] ?? [],
+				section.items?.[locale] ?? [],
+			);
+
+			if (parsed.intro.length || parsed.bullets.length || parsed.entries.length) {
+				embeddedTowerUnlocks[locale] = parsed;
+			}
+		}
+
+		if (Object.keys(embeddedTowerUnlocks).length) result.embeddedTowerUnlocks = embeddedTowerUnlocks;
+	}
+
+	if (isEmbeddedTowerLinkedCardsSection(normalizedId, normalizedHeading, pageCategory)) {
+		const linkedCards = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.media ?? {}),
+		])) {
+			const parsed = parseLinkedCards(
+				section.paragraphs?.[locale] ?? [],
+				section.media?.[locale] ?? [],
+			);
+
+			if (parsed.intro.length || parsed.cards.length || parsed.notes.length) {
+				linkedCards[locale] = parsed;
+			}
+		}
+
+		if (Object.keys(linkedCards).length) result.linkedCards = linkedCards;
 	}
 
 	if (isHeldCategoriesSection(normalizedId, normalizedHeading, pageCategory)) {
@@ -419,112 +520,3 @@ export function structureSection(section) {
 	return result;
 }
 
-function isDifficultySection(normalizedId, normalizedHeading, pageCategory) {
-	return normalizedId === "dificuldades"
-		|| normalizedId === "dificuldade"
-		|| normalizedHeading === "dificuldades"
-		|| normalizedHeading === "dificuldade"
-		|| (pageCategory === "boss fight" && /dificuld/.test(`${normalizedId} ${normalizedHeading}`));
-}
-
-function parseDifficultyEntries(paragraphs = [], items = []) {
-	const intro = [];
-	const notes = [];
-	const entries = [];
-	for (const raw of [...paragraphs, ...items]) {
-		const text = String(raw ?? "").trim();
-		if (!text) continue;
-		const match = text.match(/^(Fácil|Normal|Difícil|Elite|Ultimate|Easy|Hard|Medium|Platinum)\s*:\s*(.+)$/i);
-		if (!match) {
-			if (/^observa[cç][aã]o/i.test(text)) notes.push(text);
-			else intro.push(text);
-			continue;
-		}
-
-		const name = cleanDisplayDifficultyName(match[1]);
-		const body = match[2].trim();
-		const minimumLevel = body.match(/(?:mínimo\s+(?:nível|level)|level\s*m[ií]nimo|nível\s*m[ií]nimo)\s*(\d+)/i)?.[1]
-			?? body.match(/requer\s+no\s+m[ií]nimo\s+(?:nível|level)\s*(\d+)/i)?.[1]
-			?? null;
-		const recommendedLevel = body.match(/recomendada?\s+para\s+(?:nível|level)\s*(\d+)/i)?.[1] ?? null;
-		const levelCap = body.match(/level cap no\s+(?:nível|level)\s*(\d+)/i)?.[1] ?? null;
-		const objective = body.match(/dever[aã]o?\s+(.+?)\s+para\s+concluir/i)?.[1] ?? null;
-		const requirement = body.match(/necess[aá]rio\s+que\s+o\s+jogador\s+tenha\s+(\d+)\s+(.+?)(?:\.|$)/i);
-		entries.push({
-			name,
-			description: body,
-			...(minimumLevel ? { minimumLevel: Number(minimumLevel) } : {}),
-			...(recommendedLevel ? { recommendedLevel: Number(recommendedLevel) } : {}),
-			...(levelCap ? { levelCap: Number(levelCap) } : {}),
-			...(objective ? { objective: objective.trim() } : {}),
-			...(requirement ? {
-				entryRequirement: {
-					amount: Number(requirement[1]),
-					name: cleanStructuredText(requirement[2]),
-				},
-			} : {}),
-		});
-	}
-
-	return { intro, entries, notes };
-}
-
-function cleanDisplayDifficultyName(value) {
-	const token = normalizeIdToken(value);
-	if (token === "facil") return "Fácil";
-	if (token === "dificil") return "Difícil";
-	return cleanStructuredText(value);
-}
-
-function isHeldEnhancementSection(normalizedId, normalizedHeading) {
-	return normalizedId === "held enhancement"
-		|| normalizedId === "informacoes sobre o x boost"
-		|| normalizedHeading === "held enhancement"
-		|| normalizedHeading === "informacoes sobre o x boost";
-}
-
-function parseHeldEnhancementEntries(paragraphs = [], items = []) {
-	const intro = [];
-	const notes = [];
-	const entries = [];
-	for (const raw of paragraphs) {
-		const text = String(raw ?? "").trim();
-		if (!text) continue;
-		const diff = text.match(/^(Normal|Difícil|Fácil|Elite|Ultimate)\s*:\s*(.+)$/i);
-		if (!diff) {
-			if (/^observa[cç][aã]o/i.test(text)) notes.push(text);
-			else intro.push(text);
-			continue;
-		}
-
-		const tiers = [...diff[2].matchAll(/Tier\s*(\d+)[^.\d]*(\d+)%\s+mais\s+dano\s+e\s+receber[aá]\s+(\d+)%\s+menos\s+dano/gi)]
-			.map((match) => ({
-				tier: Number(match[1]),
-				damageBonus: Number(match[2]),
-				defenseBonus: Number(match[3]),
-			}));
-		entries.push({
-			difficulty: cleanDisplayDifficultyName(diff[1]),
-			description: diff[2].trim(),
-			tiers,
-		});
-	}
-
-	for (const note of items) {
-		const text = String(note ?? "").trim();
-		if (text) notes.push(text);
-	}
-
-	return { intro, entries, notes };
-}
-
-function isHazardSection(normalizedId, normalizedHeading) {
-	return normalizedId === "armadilhas" || normalizedHeading === "armadilhas" || normalizedId === "traps";
-}
-
-function parseHazardEntries(paragraphs = [], items = []) {
-	return {
-		description: paragraphs.map((item) => cleanStructuredText(item)).filter(Boolean),
-		bullets: items.map((item) => cleanStructuredText(item)).filter(Boolean),
-	};
-}

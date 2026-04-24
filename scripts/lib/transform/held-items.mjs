@@ -1,4 +1,4 @@
-import { cleanStructuredText, normalizeIdToken } from "./text.mjs";
+import { cleanStructuredText, normalizeIdToken, stripImageRefFromText } from "./text.mjs";
 
 const HELD_NAME_PATTERN = /\b[XY]-[A-Za-z][A-Za-z-]*(?:\s+[A-Za-z][A-Za-z-]*)?\b/g;
 const HELD_DESCRIPTION_START = /^(?:Increases|Grants|Returns|Reduces|Regenerates|Updates|Pokémon|Pokemon|Your|The|No)$/i;
@@ -89,6 +89,138 @@ export function parseHeldBoostGroups(paragraphs = []) {
 		ranges,
 		utilities,
 	};
+}
+
+const HELD_OPERATION_IDS = new Set([
+	"como equipar em seu pokemon",
+	"como remover um held item de seu pokemon",
+	"como equipar um held item em seu device",
+	"como remover um held item de seu device",
+	"fusao de held item",
+]);
+
+export function parseHeldOperationSteps(normalizedId, paragraphs = [], items = []) {
+	if (!HELD_OPERATION_IDS.has(normalizedId)) return [];
+
+	const cleanParagraphs = paragraphs.map(cleanStructuredText).filter(Boolean);
+	const cleanItems = items.map(cleanStructuredText).filter(Boolean);
+
+	if (normalizedId === "como equipar em seu pokemon") {
+		return compactHeldSteps([{
+			index: 1,
+			title: "Equipar no PokÃ©mon",
+			body: cleanParagraphs.length ? [cleanParagraphs[0]] : [],
+			bullets: [
+				...cleanParagraphs.slice(2),
+				...cleanItems,
+			],
+		}]);
+	}
+
+	if (normalizedId === "como remover um held item de seu pokemon") {
+		return compactHeldSteps([{
+			index: 1,
+			title: "Remover no PokÃ©mon",
+			body: cleanParagraphs,
+			rows: parseHeldPipeRows(cleanItems),
+		}]);
+	}
+
+	if (normalizedId === "como equipar um held item em seu device") {
+		const improvedDeviceText = cleanParagraphs[2]
+			? cleanParagraphs[2].replace(/^Como colocar o Held Item no Improved Device\s*/i, "").trim()
+			: "";
+		return compactHeldSteps([
+			{
+				index: 1,
+				title: "Equipar no Device",
+				body: cleanParagraphs[0] ? [cleanParagraphs[0]] : [],
+				bullets: cleanParagraphs[1] ? [cleanParagraphs[1]] : [],
+			},
+			{
+				index: 2,
+				title: "Improved Device",
+				body: improvedDeviceText ? [improvedDeviceText] : [],
+				rows: parseHeldPipeRows(cleanItems),
+			},
+		]);
+	}
+
+	if (normalizedId === "como remover um held item de seu device") {
+		const modeNotes = cleanItems.filter((item) => !item.includes("|"));
+		const costRows = parseHeldPipeRows(cleanItems);
+		return compactHeldSteps([{
+			index: 1,
+			title: "Remover no Device",
+			body: cleanParagraphs,
+			bullets: modeNotes,
+			rows: costRows,
+		}]);
+	}
+
+	if (normalizedId === "fusao de held item") {
+		const costItems = cleanItems.filter((item) => item.includes("|"));
+		const otherItems = cleanItems.filter((item) => !item.includes("|"));
+		const noteStart = otherItems.findIndex((item) => /^(Os Held|O resultado|Ao fundir|Ã‰ necessÃ¡rio|E necessario)/i.test(item));
+		const processBullets = noteStart >= 0 ? otherItems.slice(0, noteStart) : otherItems.slice(0, 4);
+		const noteBullets = noteStart >= 0 ? otherItems.slice(noteStart) : otherItems.slice(processBullets.length);
+		return compactHeldSteps([
+			{
+				index: 1,
+				title: "VisÃ£o Geral",
+				body: cleanParagraphs.slice(0, 2),
+			},
+			{
+				index: 2,
+				title: "Como realizar a fusÃ£o",
+				bullets: processBullets,
+			},
+			{
+				index: 3,
+				title: "ObservaÃ§Ãµes importantes",
+				bullets: noteBullets,
+				rows: parseHeldPipeRows(costItems),
+			},
+		]);
+	}
+
+	return [];
+}
+
+function compactHeldSteps(steps = []) {
+	return steps
+		.map((step) => ({
+			index: step.index,
+			title: cleanStructuredText(step.title ?? ""),
+			...(step.body?.length ? { body: step.body.map(cleanStructuredText).filter(Boolean) } : {}),
+			...(step.bullets?.length ? { bullets: step.bullets.map(cleanStructuredText).filter(Boolean) } : {}),
+			...(step.rows?.length ? { rows: step.rows } : {}),
+		}))
+		.filter((step) => step.title || step.body?.length || step.bullets?.length || step.rows?.length);
+}
+
+function parseHeldPipeRows(items = []) {
+	return (items ?? [])
+		.filter((item) => String(item ?? "").includes("|"))
+		.map((item) => ({
+			cells: String(item ?? "")
+				.split(/\s*\|\s*/)
+				.map((value) => buildHeldCell(value))
+				.filter((cell) => cell.text || cell.raw),
+		}))
+		.filter((row) => row.cells.length >= 2);
+}
+
+function buildHeldCell(value) {
+	const raw = cleanStructuredText(value);
+	let text = raw;
+	if (/\.(gif|png|jpg|jpeg|webp|svg)\b/i.test(raw)) {
+		text = cleanStructuredText(stripImageRefFromText(raw))
+			|| raw.replace(/\.(gif|png|jpg|jpeg|webp|svg)$/i, "").trim();
+	}
+	return raw && raw !== text
+		? { text, raw }
+		: { text };
 }
 
 function parseHeldBoostRangeRows(text) {

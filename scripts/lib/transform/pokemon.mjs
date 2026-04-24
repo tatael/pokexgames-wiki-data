@@ -254,3 +254,42 @@ export function cleanRawPokemonReferenceItems(itemsByLocale = {}) {
 
 	return cleaned;
 }
+
+function formatPokemonNameFromSlug(slug) {
+	const text = String(slug ?? "")
+		.replace(/\.(gif|png|jpg|jpeg|webp|svg)$/i, "")
+		.replace(/^\d{1,4}[-_. ]*/, "")
+		.replace(/[-_]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	if (!text) return "";
+	return text
+		.split(" ")
+		.map((part) => part ? `${part[0].toUpperCase()}${part.slice(1)}` : part)
+		.join(" ");
+}
+
+export function cleanPokemonGroupItems(items = [], media = []) {
+	const rows = (items ?? [])
+		.map((item) => String(item ?? "")
+			.split(/\s*\|\s*/)
+			.map((part) => String(part ?? "").trim())
+			.filter(Boolean))
+		.filter((parts) => parts.length);
+	if (!rows.length) return [];
+
+	const mediaEntries = (media ?? []).filter((entry) => entry?.type !== "video");
+	const totalParts = rows.reduce((sum, parts) => sum + parts.length, 0);
+	const useMediaOrder = mediaEntries.length >= totalParts;
+	let mediaIndex = 0;
+
+	return rows
+		.map((parts) => parts.map((part) => {
+			const mediaEntry = useMediaOrder ? mediaEntries[mediaIndex++] ?? null : null;
+			const cleanedText = stripImageRefFromText(part);
+			const displayName = formatPokemonNameFromSlug(mediaEntry?.slug) || cleanedText;
+			if (!displayName) return "";
+			return /\*\s*$/.test(part) ? `${displayName} *` : displayName;
+		}).filter(Boolean).join(" | "))
+		.filter(Boolean);
+}

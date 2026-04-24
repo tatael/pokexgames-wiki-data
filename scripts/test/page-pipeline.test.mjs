@@ -12,6 +12,7 @@ import {
 	resolveTitleOverride,
 	resolveSortRank,
 } from "../lib/page-pipeline.mjs";
+import { extractSections } from "../lib/extract.mjs";
 import { PT_BR, buildLocalizedText, decodeHtmlEntities } from "../lib/shared.mjs";
 
 test("resolveCategory routes normalized wiki pages to their source categories", () => {
@@ -300,4 +301,95 @@ test("normalizeSections splits embedded tower trap rows into an Armadilhas secti
 		bullets: ["Redemoinhos Trap1.gif | 20% da vida m?xima"],
 	});
 	assert.equal(sections[1].media[PT_BR][0].alt, "Trap1.gif");
+});
+
+test("normalizeSections keeps embedded tower access sections as prose tables with media", () => {
+	const sections = normalizeSections(extractSections(`
+		<h2>Como conseguir acesso à Embedded Tower</h2>
+		<p>Fale com o NPC responsável para iniciar o acesso.</p>
+		<table border="1" style="text-align: center; border-collapse: collapse">
+			<tr><td width="100%"><a href="/index.php/Embedded_Tower" title="Embedded Tower"><img alt="Syncamore12.jpg" src="/images/4/44/Syncamore12.jpg" width="475" height="493" /></a></td></tr>
+		</table>
+		<table class="wikitable" width="50%">
+			<tr><th>Andar</th><th>Pontos</th></tr>
+			<tr><td>1º Andar</td><td>40 Tower Points</td></tr>
+		</table>
+	`, "Como Funciona", "https://wiki.pokexgames.com/index.php/Funcionamento_da_Embedded_Tower"), {
+		category: "embedded-tower",
+		slug: "funcionamento-da-embedded-tower",
+		pageKind: "tower",
+	});
+
+	assert.equal(sections[0].id, "como-conseguir-acesso-a-embedded-tower");
+	assert.equal(sections[0].steps, undefined);
+	assert.deepEqual(sections[0].content[PT_BR].paragraphs, [
+		"Fale com o NPC responsável para iniciar o acesso.",
+	]);
+	assert.deepEqual(sections[0].tables[PT_BR][0].rows[0], {
+		cells: [
+			{ text: "1º Andar" },
+			{ text: "Tower Points", raw: "40 Tower Points" },
+		],
+	});
+	assert.equal(sections[0].media[PT_BR][0].slug, "embedded-tower");
+});
+
+test("normalizeSections keeps mystery dungeon abilities typed and preserves ability videos", () => {
+	const sections = normalizeSections(extractSections(`
+		<h2>Habilidades</h2>
+		<div class="tabber">
+			<article class="tabber__panel" data-title="Bullet Seed">
+				<p>Dispara sementes em linha reta.</p>
+				<video src="https://wiki.pokexgames.com/images/b/b1/BulletSeedDorabelle.mp4" width="425" height="355"></video>
+			</article>
+			<article class="tabber__panel" data-title="Giga Drain">
+				<p>Rouba vida dos inimigos.</p>
+				<video src="https://wiki.pokexgames.com/images/4/43/DorabelleGigaDrain.mp4" width="425" height="355"></video>
+			</article>
+		</div>
+	`, "Mystery Dungeon - Dorabelle's Wrath", "https://wiki.pokexgames.com/index.php/Mystery_Dungeon_-_Dorabelle%27s_Wrath"), {
+		category: "mystery-dungeons",
+		slug: "mystery-dungeon-dorabelle-s-wrath",
+		pageKind: "article",
+	});
+
+	assert.equal(sections[0].id, "habilidades");
+	assert.equal(sections[0].content, undefined);
+	assert.deepEqual(sections[0].abilities[PT_BR], [
+		{ name: "Bullet Seed", description: ["Dispara sementes em linha reta"] },
+		{ name: "Giga Drain", description: ["Rouba vida dos inimigos"] },
+	]);
+	assert.equal(sections[0].media[PT_BR].length, 2);
+	assert.equal(sections[0].media[PT_BR][0].type, "video");
+});
+
+test("normalizeSections keeps daily mission location galleries as media-rich table sections", () => {
+	const sections = normalizeSections(extractSections(`
+		<h2>Localização da NPC Officer Jenny</h2>
+		<table class="wikitable bg-none border-0" width="70%" style="text-align:center;">
+			<tr>
+				<td><img alt="Cerulean NW Jenny.png" src="/images/3/3e/Cerulean_NW_Jenny.png" width="352" height="300" /></td>
+				<td><img alt="Pewter NW Jenny.png" src="/images/4/47/Pewter_NW_Jenny.png" width="350" height="300" /></td>
+			</tr>
+			<tr>
+				<td>Cerulean</td>
+				<td>Pewter</td>
+			</tr>
+		</table>
+	`, "Nightmare Officer Jenny", "https://wiki.pokexgames.com/index.php/Nightmare_Officer_Jenny"), {
+		category: "daily-missions",
+		slug: "nightmare-officer-jenny",
+		pageKind: "daily-mission",
+	});
+
+	assert.equal(sections[0].id, "localizacao-da-npc-officer-jenny");
+	assert.equal(sections[0].content, undefined);
+	assert.deepEqual(sections[0].tables[PT_BR][0].rows[0], {
+		cells: [
+			{ text: "Cerulean NW Jenny" },
+			{ text: "Pewter NW Jenny" },
+		],
+	});
+	assert.equal(sections[0].media[PT_BR].length, 2);
+	assert.equal(sections[0].media[PT_BR][0].alt, "Cerulean NW Jenny.png");
 });

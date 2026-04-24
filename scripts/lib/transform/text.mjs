@@ -49,7 +49,8 @@ export function stripImageRefFromText(text) {
 	if (!s) return "";
 	if (/^[^\s]+\.(gif|png|jpg|jpeg|webp|svg)$/i.test(s)) return "";
 	s = s.replace(/^\S+\.(gif|png|jpg|jpeg|webp|svg)\s+/i, "");
-	s = s.replace(/^\d+-\w+ /, "");
+	s = s.replace(/^\d{1,4}[-_.][^\s]+\s+/i, "");
+	s = s.replace(/^\d+\s+/, "");
 	s = s.replace(/\s*\*+$/, "").trim();
 
 	let words = s.split(" ");

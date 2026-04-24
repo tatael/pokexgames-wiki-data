@@ -12,7 +12,7 @@ export function publishSection(section) {
 	if (Object.keys(content).length) output.content = content;
 	if (Object.keys(tables).length) output.tables = tables;
 	if (section.media) output.media = compactLocalizedValueMap(section.media);
-	for (const key of ["facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness", "variants", "abilities", "steps", "locations", "difficulties", "heldEnhancement", "hazards", "heldCategories", "heldBoosts", "questSupport", "questPhases", "clanTasks"]) {
+	for (const key of ["facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness", "variants", "abilities", "steps", "locations", "difficulties", "heldEnhancement", "hazards", "heldCategories", "heldBoosts", "questSupport", "questPhases", "clanTasks", "embeddedTowerProgression", "embeddedTowerUnlocks", "linkedCards"]) {
 		if (section[key]) output[key] = compactLocalizedValueMap(section[key]);
 	}
 
@@ -33,9 +33,11 @@ function buildPublicSectionContent(section) {
 				: (section.paragraphs?.[locale] ?? []);
 		}
 
-		const bullets = shouldPublishListContent(section)
-			? (section.items?.[locale] ?? []).filter((item) => !String(item ?? "").includes("|"))
-			: [];
+		const bullets = section.kind === "pokemon-group"
+			? (section.items?.[locale] ?? [])
+			: (shouldPublishListContent(section)
+				? (section.items?.[locale] ?? []).filter((item) => !String(item ?? "").includes("|"))
+				: []);
 		const value = {};
 		if (paragraphs.length) value.paragraphs = paragraphs;
 		if (bullets.length) value.bullets = bullets;
@@ -52,6 +54,7 @@ function shouldPublishParagraphContent(section) {
 	if (section.questSupport) return false;
 	if (section.questPhases) return false;
 	if (section.clanTasks) return false;
+	if (section.embeddedTowerProgression || section.embeddedTowerUnlocks || section.linkedCards) return false;
 	return true;
 }
 
@@ -63,6 +66,7 @@ function shouldPublishListContent(section) {
 	if (section.questSupport) return false;
 	if (section.questPhases) return false;
 	if (section.clanTasks) return false;
+	if (section.embeddedTowerProgression || section.embeddedTowerUnlocks || section.linkedCards) return false;
 	return true;
 }
 

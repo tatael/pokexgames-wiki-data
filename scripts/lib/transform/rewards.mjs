@@ -237,7 +237,14 @@ export function parseRewardItemText(item) {
 
 	const parts = raw
 		.split(/\s*\|\s*/)
-		.map((p) => stripImageRefFromText(p.trim()))
+		.map((part) => {
+			const trimmed = part.trim();
+			if (/^\d+(?:[.,]\d+)?(?:\s*a\s*\d+(?:[.,]\d+)?)?$/i.test(trimmed)) {
+				return trimmed;
+			}
+
+			return stripImageRefFromText(trimmed);
+		})
 		.filter(Boolean);
 	if (!parts.length) return null;
 

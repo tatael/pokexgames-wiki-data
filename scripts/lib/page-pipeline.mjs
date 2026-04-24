@@ -381,6 +381,7 @@ export function resolveTitleOverride({ category, slug }) {
 	if (category === "professions") return professionTitleOverride(slug);
 	if (category === "tasks" && slug === "tasks") return localizedGroup("Kanto Tasks", "Kanto Tasks", "Kanto Tasks");
 	if (category === "held-items" && slug === "held-itens") return localizedGroup("Tipos de Held Itens", "Held Item Types", "Tipos de Held Items");
+	if (category === "embedded-tower" && slug === "funcionamento-da-embedded-tower") return localizedGroup("Como Funciona", "How It Works", "Cómo Funciona");
 	return null;
 }
 

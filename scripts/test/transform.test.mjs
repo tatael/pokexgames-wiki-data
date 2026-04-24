@@ -413,6 +413,111 @@ test("structureSection emits held item categories and x-boost groups without raw
 	assert.equal(heldBoosts.heldBoosts[PT_BR].utilities[0].entries[0].name, "X-Lucky");
 });
 
+test("structureSection emits typed held-item operation steps for equip/remove/device/fusion flows", () => {
+	const equipPokemon = publishSection(structureSection(localizedSection({
+		id: "como-equipar-em-seu-pokemon",
+		pageCategory: "held-items",
+		heading: "Como Equipar em seu PokÃ©mon",
+		paragraphs: [
+			"O PokÃ©mon deve estar em sua mochila para equipar um Held Item.",
+			"AtenÃ§Ã£o:",
+			"Usar um Held Item em um PokÃ©mon que jÃ¡ possui um Held Item do mesmo tipo farÃ¡ com que o Held anterior seja perdido.",
+		],
+		items: [
+			"Ao colocar um Held Item, sÃ³ poderÃ¡ remover mediante pagamento no NPC Apolo.",
+			"Ã‰ possÃ­vel adicionar um Held Item inativo X e Y no seu PokÃ©mon.",
+		],
+	})));
+
+	assert.equal(equipPokemon.content, undefined);
+	assert.equal(equipPokemon.steps[PT_BR][0].title, "Equipar no PokÃ©mon");
+	assert.deepEqual(equipPokemon.steps[PT_BR][0].body, [
+		"O PokÃ©mon deve estar em sua mochila para equipar um Held Item",
+	]);
+	assert.deepEqual(equipPokemon.steps[PT_BR][0].bullets, [
+		"Usar um Held Item em um PokÃ©mon que jÃ¡ possui um Held Item do mesmo tipo farÃ¡ com que o Held anterior seja perdido",
+		"Ao colocar um Held Item, sÃ³ poderÃ¡ remover mediante pagamento no NPC Apolo",
+		"Ã‰ possÃ­vel adicionar um Held Item inativo X e Y no seu PokÃ©mon",
+	]);
+
+	const equipDevice = publishSection(structureSection(localizedSection({
+		id: "como-equipar-um-held-item-em-seu-device",
+		pageCategory: "held-items",
+		heading: "Como equipar um Held Item em seu Device",
+		paragraphs: [
+			"Da mesma forma que Ã© colocado um Held Item no PokÃ©mon, Ã© colocado no Device.",
+			"AtenÃ§Ã£o: Usar um Held Item em um Device que jÃ¡ esteja equipado farÃ¡ com que o antigo seja perdido.",
+			"Como colocar o Held Item no Improved Device No Improved Device Ã© necessÃ¡rio escolher o modo do Held.",
+		],
+		items: [
+			"PadrÃ£o | Improved-Device-padrÃ£o.gif",
+			"Defensivo | Improved-Device-defensivo.gif",
+		],
+	})));
+
+	assert.equal(equipDevice.steps[PT_BR][0].title, "Equipar no Device");
+	assert.equal(equipDevice.steps[PT_BR][1].title, "Improved Device");
+	assert.deepEqual(equipDevice.steps[PT_BR][1].rows[0], {
+		cells: [
+			{ text: "PadrÃ£o" },
+			{ text: "Improved-Device-padrÃ£o", raw: "Improved-Device-padrÃ£o.gif" },
+		],
+	});
+
+	const removeDevice = publishSection(structureSection(localizedSection({
+		id: "como-remover-um-held-item-de-seu-device",
+		pageCategory: "held-items",
+		heading: "Como remover um Held Item de seu Device",
+		paragraphs: [
+			"A remoÃ§Ã£o Ã© feita com a NPC Atena no Trade Center.",
+			"Caso o jogador possua o Improved Device, a NPC Atena removerÃ¡ apenas o Held Item do modo em uso.",
+		],
+		items: [
+			"Para remover o Held Item padrÃ£o, o Device deve estar no Modo PadrÃ£o.",
+			"Para remover o Held Item defensivo, o Device deve estar no Modo Defensivo.",
+			"Tier 1 | 10K",
+			"Tier 2 | 25K",
+		],
+	})));
+
+	assert.deepEqual(removeDevice.steps[PT_BR][0].bullets, [
+		"Para remover o Held Item padrÃ£o, o Device deve estar no Modo PadrÃ£o",
+		"Para remover o Held Item defensivo, o Device deve estar no Modo Defensivo",
+	]);
+	assert.equal(removeDevice.steps[PT_BR][0].rows[1].cells[1].text, "25K");
+
+	const fusion = publishSection(structureSection(localizedSection({
+		id: "fusao-de-held-item",
+		pageCategory: "held-items",
+		heading: "FusÃ£o de Held Item",
+		paragraphs: [
+			"Na New Island existe uma mÃ¡quina para realizar a fusÃ£o de Held Itens.",
+			"Ã‰ possÃ­vel fundir 3 Held Itens do mesmo Tier para receber um de Tier superior.",
+			"Como realizar a fusÃ£o:",
+			"ObservaÃ§Ãµes importantes sobre a fusÃ£o:",
+		],
+		items: [
+			"VÃ¡ atÃ© a New Island e encontre a mÃ¡quina.",
+			"Coloque 3 Held Itens de um mesmo Tier dentro da mÃ¡quina.",
+			"Clique na mÃ¡quina.",
+			"Os Held Item X-Block e X-Upgrade nÃ£o podem ser utilizados para fusÃµes.",
+			"Tier 1 para Tier 2 | 60.000 dÃ³lares",
+			"Tier 2 para Tier 3 | 150.000 dÃ³lares",
+		],
+	})));
+
+	assert.equal(fusion.content, undefined);
+	assert.equal(fusion.steps[PT_BR][0].title, "VisÃ£o Geral");
+	assert.equal(fusion.steps[PT_BR][1].title, "Como realizar a fusÃ£o");
+	assert.equal(fusion.steps[PT_BR][2].title, "ObservaÃ§Ãµes importantes");
+	assert.deepEqual(fusion.steps[PT_BR][2].rows[0], {
+		cells: [
+			{ text: "Tier 1 para Tier 2" },
+			{ text: "60.000 dÃ³lares" },
+		],
+	});
+});
+
 test("structureSection emits typed quest support sections without raw prose mirrors", () => {
 	const questSupport = publishSection(structureSection(localizedSection({
 		id: "boss-mega-dungeons",
@@ -471,6 +576,68 @@ test("structureSection emits typed quest location sections without raw prose mir
 	});
 });
 
+test("structureSection emits embedded tower progression, unlocks, and linked cards", () => {
+	const progression = publishSection(structureSection(localizedSection({
+		id: "funcionamento-geral-da-embedded-tower",
+		pageCategory: "embedded-tower",
+		heading: "Funcionamento geral da Embedded Tower",
+		paragraphs: [
+			"A Tower possui regras gerais.",
+		],
+		items: [
+			"1º ao 5º Andar | 2 Tower Attempts | 1 Tower Attempts",
+			"1º Andar | 150 ao 424 425 ao 449 450 ao 600 | 150.000 de XP 37.500 de XP 18.750 de XP | Tower Points 40 Tower Points",
+			"1º Andar | 80 | 12 | Comvip | Semvip | Semvip",
+		],
+	})));
+
+	assert.equal(progression.content, undefined);
+	assert.equal(progression.embeddedTowerProgression[PT_BR].attempts[0].requiredAttempts, 2);
+	assert.deepEqual(progression.embeddedTowerProgression[PT_BR].rewards[0].levelRanges, ["150 ao 424", "425 ao 449", "450 ao 600"]);
+	assert.deepEqual(progression.embeddedTowerProgression[PT_BR].rewards[0].pointValues, [40]);
+	assert.equal(progression.embeddedTowerProgression[PT_BR].resources[0].medicine, "Comvip");
+
+	const unlocks = publishSection(structureSection(localizedSection({
+		id: "como-liberar-os-andares",
+		pageCategory: "embedded-tower",
+		heading: "Como liberar os andares",
+		paragraphs: ["Tower Points são usados para desbloquear."],
+		items: [
+			"Finalize os tablets do andar anterior.",
+			"Shiny Magmortar 2º Andar | 50 Tower Points",
+		],
+	})));
+
+	assert.equal(unlocks.content, undefined);
+	assert.deepEqual(unlocks.embeddedTowerUnlocks[PT_BR].bullets, ["Finalize os tablets do andar anterior"]);
+	assert.equal(unlocks.embeddedTowerUnlocks[PT_BR].entries[0].bossLabel, "Shiny Magmortar");
+	assert.equal(unlocks.embeddedTowerUnlocks[PT_BR].entries[0].floorLabel, "2º Andar");
+	assert.equal(unlocks.embeddedTowerUnlocks[PT_BR].entries[0].requiredPoints, 50);
+
+	const linkedCards = publishSection(structureSection(localizedSection({
+		id: "bosses",
+		pageCategory: "embedded-tower",
+		heading: "Bosses",
+		paragraphs: [
+			"Cada um possui uma mecânica diferenciada. Para saber mais, acesse a página desejada:",
+			"Depois disso, o jogador poderá enfrentar o Rayquaza.",
+		],
+		media: [
+			{ type: "image", url: "https://wiki.pokexgames.com/images/1/11/Regirock.png", alt: "Regirock.png", slug: "regirock" },
+			{ type: "image", url: "https://wiki.pokexgames.com/images/2/22/Rayquaza.png", alt: "Rayquaza.png", slug: "rayquaza" },
+		],
+	})));
+
+	assert.equal(linkedCards.content, undefined);
+	assert.deepEqual(linkedCards.linkedCards[PT_BR].cards, [
+		{ label: "Regirock", slug: "regirock" },
+		{ label: "Rayquaza", slug: "rayquaza" },
+	]);
+	assert.deepEqual(linkedCards.linkedCards[PT_BR].notes, [
+		"Depois disso, o jogador poderá enfrentar o Rayquaza",
+	]);
+});
+
 test("structureSection keeps boss legendary rewards available on normal and hard difficulties", () => {
 	const section = structureSection(localizedSection({
 		id: "recompensas",
@@ -507,4 +674,31 @@ test("structureSection keeps boss legendary rewards available on normal and hard
 		hardRewards.find((item) => item.name === "Flame Essence")?.rarity,
 		"Raro",
 	);
+});
+
+test("publishSection keeps boss recommendation rows normalized instead of raw sprite-prefixed names", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "pokemon-recomendados",
+		pageCategory: "boss-fight",
+		heading: "Pokémon recomendados",
+		paragraphs: [
+			"# Tanque",
+			"# Causador de Dano",
+		],
+		items: [
+			"0009-Blastoise Blastoise | 095-Onix Big Onix",
+			"130-RedGyarados Redgyarados | 208-Steelix Golden Steelix",
+		],
+		media: [
+			{ type: "image", url: "https://wiki.pokexgames.com/images/0/09/Blastoise.png", slug: "blastoise" },
+			{ type: "image", url: "https://wiki.pokexgames.com/images/0/95/Big_Onix.png", slug: "big-onix" },
+			{ type: "image", url: "https://wiki.pokexgames.com/images/1/30/Red_Gyarados.png", slug: "red-gyarados" },
+			{ type: "image", url: "https://wiki.pokexgames.com/images/2/08/Golden_Steelix.png", slug: "golden-steelix" },
+		],
+	})));
+
+	assert.deepEqual(section.content[PT_BR].bullets, [
+		"Blastoise | Big Onix",
+		"Red Gyarados | Golden Steelix",
+	]);
 });

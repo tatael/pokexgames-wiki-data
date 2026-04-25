@@ -304,6 +304,25 @@ test("publishSection emits typed abilities, steps and locations", () => {
 	assert.equal(location.content, undefined);
 });
 
+test("publishSection keeps prose-only special ability sections generic", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "habilidades-especiais",
+		heading: "Habilidades Especiais",
+		paragraphs: [
+			"ATENÇÃO: algumas habilidades especiais são exclusivas para jogadores VIP.",
+			"Veja quais habilidades um jogador VIP pode utilizar.",
+		],
+		items: ["Surfarvip.gif | Flyyy.gif | SURF2VIP.gif"],
+	})));
+
+	assert.equal(section.abilities, undefined);
+	assert.deepEqual(section.content[PT_BR].paragraphs, [
+		"ATENÇÃO: algumas habilidades especiais são exclusivas para jogadores VIP.",
+		"Veja quais habilidades um jogador VIP pode utilizar.",
+	]);
+	assert.ok(section.tables[PT_BR][0].rows[0].cells.length >= 2);
+});
+
 test("structureSection emits boss difficulties, held enhancement, hazards, and quest phases", () => {
 	const bossDifficulties = publishSection(structureSection(localizedSection({
 		id: "dificuldades",
@@ -321,6 +340,62 @@ test("structureSection emits boss difficulties, held enhancement, hazards, and q
 	assert.equal(bossDifficulties.difficulties[PT_BR].entries[0].minimumLevel, 200);
 	assert.equal(bossDifficulties.difficulties[PT_BR].entries[0].levelCap, 350);
 	assert.equal(bossDifficulties.difficulties[PT_BR].entries[0].entryRequirement.amount, 1);
+
+	const bossSupport = publishSection(structureSection(localizedSection({
+		id: "informacoes-importantes",
+		pageCategory: "boss-fight",
+		heading: "Informações importantes",
+		paragraphs: ["Berries recomendadas para o Gama: Rindo Berry."],
+		items: [
+			"A batalha é feita em grupo de 4 jogadores.",
+			"Entrada | Nightmare Token",
+		],
+	})));
+
+	assert.equal(bossSupport.content, undefined);
+	assert.equal(bossSupport.tables, undefined);
+	assert.deepEqual(bossSupport.bossSupport[PT_BR], {
+		type: "important-info",
+		intro: ["Berries recomendadas para o Gama: Rindo Berry"],
+		bullets: ["A batalha é feita em grupo de 4 jogadores"],
+		rows: [{
+			cells: [
+				{ text: "Entrada" },
+				{ text: "Nightmare Token" },
+			],
+		}],
+	});
+
+	const bossRecommendations = publishSection(structureSection(localizedSection({
+		id: "pokemon-recomendados",
+		pageCategory: "boss-fight",
+		heading: "PokÃ©mon recomendados",
+		paragraphs: [
+			"Use PokÃ©mon resistentes ao elemento do boss.",
+			"# Tanques",
+			"Preferir opÃ§Ãµes com cura ou bloqueio.",
+			"# Dano",
+		],
+		items: [
+			"Blastoise | Big Onix",
+			"Shiny Golduck | Alolan Golem",
+		],
+	})));
+
+	assert.equal(bossRecommendations.content, undefined);
+	assert.equal(bossRecommendations.tables, undefined);
+	assert.deepEqual(bossRecommendations.bossRecommendations[PT_BR], {
+		intro: ["Use PokÃ©mon resistentes ao elemento do boss"],
+		groups: [{
+			label: "Tanques",
+			notes: ["Preferir opÃ§Ãµes com cura ou bloqueio"],
+			pokemon: ["Blastoise", "Big Onix"],
+		}, {
+			label: "Dano",
+			notes: [],
+			pokemon: ["Shiny Golduck", "Alolan Golem"],
+		}],
+	});
 
 	const heldEnhancement = publishSection(structureSection(localizedSection({
 		id: "held-enhancement",
@@ -411,6 +486,26 @@ test("structureSection emits held item categories and x-boost groups without raw
 	assert.equal(heldBoosts.heldBoosts[PT_BR].ranges[0].name, "Tier 1");
 	assert.deepEqual(heldBoosts.heldBoosts[PT_BR].ranges[0].rows[0], { levelRange: "0 to 99", boost: "6" });
 	assert.equal(heldBoosts.heldBoosts[PT_BR].utilities[0].entries[0].name, "X-Lucky");
+
+	const heldDetails = publishSection(structureSection(localizedSection({
+		id: "detalhes-especificos",
+		pageCategory: "held-items",
+		heading: "Detalhes Específicos",
+		paragraphs: [
+			"Algumas regras especiais ainda se aplicam.",
+			"X-Haste: Não aumenta a velocidade do Fly ou Ride.",
+			"Y-Regeneration: A regeneração de vida é limitada em 100/s.",
+		],
+	})));
+
+	assert.equal(heldDetails.content, undefined);
+	assert.deepEqual(heldDetails.heldDetails[PT_BR], {
+		intro: ["Algumas regras especiais ainda se aplicam"],
+		entries: [
+			{ name: "X-Haste", value: "Não aumenta a velocidade do Fly ou Ride" },
+			{ name: "Y-Regeneration", value: "A regeneração de vida é limitada em 100/s" },
+		],
+	});
 });
 
 test("structureSection emits typed held-item operation steps for equip/remove/device/fusion flows", () => {
@@ -576,6 +671,55 @@ test("structureSection emits typed quest location sections without raw prose mir
 	});
 });
 
+test("structureSection emits typed commerce and dungeon support sections without raw prose mirrors", () => {
+	const commerce = publishSection(structureSection(localizedSection({
+		id: "crafts",
+		pageKind: "craft",
+		heading: "Crafts",
+		paragraphs: ["Use a bancada para criar os itens."],
+		items: [
+			"Item | Custo | Resultado",
+			"Tech Ball | 10 Iron | 1 Tech Ball",
+			"Requer nível de profissão.",
+		],
+	})));
+
+	assert.equal(commerce.content, undefined);
+	assert.equal(commerce.tables, undefined);
+	assert.equal(commerce.commerceEntries[PT_BR].type, "craft");
+	assert.deepEqual(commerce.commerceEntries[PT_BR].bullets, ["Requer nível de profissão"]);
+	assert.deepEqual(commerce.commerceEntries[PT_BR].rows[0], {
+		cells: [
+			{ text: "Item" },
+			{ text: "Custo" },
+			{ text: "Resultado" },
+		],
+	});
+
+	const dungeon = publishSection(structureSection(localizedSection({
+		id: "rotacao-dimensional-zone",
+		pageCategory: "dimensional-zone",
+		heading: "Rotação Dimensional Zone",
+		paragraphs: ["A rotação muda semanalmente."],
+		items: [
+			"Semana | Dungeon",
+			"1 | DZ Mega Altaria",
+			"Confira os bosses antes de entrar.",
+		],
+	})));
+
+	assert.equal(dungeon.content, undefined);
+	assert.equal(dungeon.tables, undefined);
+	assert.equal(dungeon.dungeonSupport[PT_BR].type, "rotation");
+	assert.deepEqual(dungeon.dungeonSupport[PT_BR].bullets, ["Confira os bosses antes de entrar"]);
+	assert.deepEqual(dungeon.dungeonSupport[PT_BR].rows[1], {
+		cells: [
+			{ text: "1" },
+			{ text: "DZ Mega Altaria" },
+		],
+	});
+});
+
 test("structureSection emits embedded tower progression, unlocks, and linked cards", () => {
 	const progression = publishSection(structureSection(localizedSection({
 		id: "funcionamento-geral-da-embedded-tower",
@@ -613,6 +757,40 @@ test("structureSection emits embedded tower progression, unlocks, and linked car
 	assert.equal(unlocks.embeddedTowerUnlocks[PT_BR].entries[0].bossLabel, "Shiny Magmortar");
 	assert.equal(unlocks.embeddedTowerUnlocks[PT_BR].entries[0].floorLabel, "2º Andar");
 	assert.equal(unlocks.embeddedTowerUnlocks[PT_BR].entries[0].requiredPoints, 50);
+
+	const floorStructure = publishSection(structureSection(localizedSection({
+		id: "primeiro-ao-quarto-andar",
+		pageCategory: "embedded-tower",
+		heading: "Primeiro ao Quarto Andar",
+		paragraphs: ["Os quatro primeiros andares possuem estrutura compartilhada."],
+		items: [
+			"Andar | Boss | Recompensa",
+			"1º Andar | Regirock | Tower Points",
+		],
+	})));
+
+	assert.equal(floorStructure.content, undefined);
+	assert.equal(floorStructure.tables, undefined);
+	assert.equal(floorStructure.embeddedTowerSupport[PT_BR].type, "floor-structure");
+	assert.deepEqual(floorStructure.embeddedTowerSupport[PT_BR].rows[0], {
+		cells: [
+			{ text: "Andar" },
+			{ text: "Boss" },
+			{ text: "Recompensa" },
+		],
+	});
+
+	const mechanics = publishSection(structureSection(localizedSection({
+		id: "mecanicas-do-boss",
+		pageCategory: "embedded-tower",
+		heading: "Mecânicas do Boss",
+		paragraphs: ["O boss alterna entre fases."],
+		items: ["Desvie das áreas marcadas."],
+	})));
+
+	assert.equal(mechanics.content, undefined);
+	assert.equal(mechanics.embeddedTowerSupport[PT_BR].type, "mechanics");
+	assert.deepEqual(mechanics.embeddedTowerSupport[PT_BR].bullets, ["Desvie das áreas marcadas"]);
 
 	const linkedCards = publishSection(structureSection(localizedSection({
 		id: "bosses",
@@ -697,8 +875,14 @@ test("publishSection keeps boss recommendation rows normalized instead of raw sp
 		],
 	})));
 
-	assert.deepEqual(section.content[PT_BR].bullets, [
-		"Blastoise | Big Onix",
-		"Red Gyarados | Golden Steelix",
-	]);
+	assert.equal(section.content, undefined);
+	assert.deepEqual(section.bossRecommendations[PT_BR].groups, [{
+		label: "Tanque",
+		notes: [],
+		pokemon: ["Blastoise", "Big Onix"],
+	}, {
+		label: "Causador de Dano",
+		notes: [],
+		pokemon: ["Red Gyarados", "Golden Steelix"],
+	}]);
 });

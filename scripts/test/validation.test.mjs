@@ -106,6 +106,17 @@ test("validateBundle rejects mojibake in localized fields", async () => {
 	});
 });
 
+test("validateBundle accepts uppercase Portuguese accents", async () => {
+	await withTempDir(async (tempDir) => {
+		const { manifest, page } = buildBundle({ title: "ATENÇÃO Absol" });
+		page.sections[0].content["pt-BR"].paragraphs = ["ATENÇÃO: use proteção."];
+		await writeJson(path.join(tempDir, "manifest.json"), manifest);
+		await writeJson(path.join(tempDir, "media.json"), { entries: [] });
+		await writeJson(path.join(tempDir, "pages", "pokemon", "absol.json"), page);
+		await assert.doesNotReject(() => validateBundle(tempDir));
+	});
+});
+
 test("validateBundle rejects non-https image urls", async () => {
 	await withTempDir(async (tempDir) => {
 		const { manifest, page } = buildBundle();
@@ -179,6 +190,20 @@ test("validateBundle accepts nested typed step and held payloads", async () => {
 						},
 					}],
 					notes: ["Observação"],
+				},
+			},
+		}, {
+			id: "pokemon-recomendados",
+			kind: "pokemon-group",
+			title: { "pt-BR": "Pokémon recomendados" },
+			bossRecommendations: {
+				"pt-BR": {
+					intro: ["Use pokémon resistentes."],
+					groups: [{
+						label: "Tanques",
+						notes: ["Preferir defesa alta."],
+						pokemon: ["Blastoise", "Big Onix"],
+					}],
 				},
 			},
 		}, {
@@ -395,6 +420,18 @@ test("validateBundle accepts embedded tower structured payloads", async () => {
 				},
 			},
 		}, {
+			id: "primeiro-ao-quarto-andar",
+			kind: "prose",
+			title: { "pt-BR": "Primeiro ao Quarto Andar" },
+			embeddedTowerSupport: {
+				"pt-BR": {
+					type: "floor-structure",
+					intro: ["Estrutura"],
+					bullets: ["Regra geral"],
+					rows: [{ cells: [{ text: "Andar" }, { text: "Boss" }] }],
+				},
+			},
+		}, {
 			id: "bosses",
 			kind: "prose",
 			title: { "pt-BR": "Bosses" },
@@ -425,6 +462,56 @@ test("validateBundle accepts embedded tower structured payloads", async () => {
 	});
 });
 
+test("validateBundle accepts commerce and dungeon support payloads", async () => {
+	await withTempDir(async (tempDir) => {
+		const { manifest, page } = buildBundle({ pageKind: "craft", includeProfile: false });
+		page.category = "dimensional-zone";
+		page.slug = "golden-dungeons";
+		page.url = "https://wiki.pokexgames.com/index.php/Golden_Dungeons";
+		page.sections = [{
+			id: "crafts",
+			kind: "prose",
+			title: { "pt-BR": "Crafts" },
+			commerceEntries: {
+				"pt-BR": {
+					type: "craft",
+					intro: ["Introdução"],
+					bullets: ["Observação"],
+					rows: [{ cells: [{ text: "Item" }, { text: "Custo" }] }],
+				},
+			},
+		}, {
+			id: "rotacao-dimensional-zone",
+			kind: "prose",
+			title: { "pt-BR": "Rotação Dimensional Zone" },
+			dungeonSupport: {
+				"pt-BR": {
+					type: "rotation",
+					intro: ["Introdução"],
+					bullets: ["Observação"],
+					rows: [{ cells: [{ text: "Semana" }, { text: "Dungeon" }] }],
+				},
+			},
+		}];
+		manifest.categories = [{ id: "dimensional-zone", label: { "pt-BR": "Dimensional Zone" } }];
+		manifest.pages[0] = {
+			category: "dimensional-zone",
+			slug: "golden-dungeons",
+			url: page.url,
+			pageKind: "craft",
+			title: { "pt-BR": "Golden Dungeons" },
+			summary: { "pt-BR": "Resumo" },
+			images: manifest.pages[0].images,
+			fetchedAt: "2026-04-15T00:00:00.000Z",
+			pagePath: "dimensional-zone/golden-dungeons.json",
+		};
+		await writeJson(path.join(tempDir, "manifest.json"), manifest);
+		await writeJson(path.join(tempDir, "media.json"), { entries: [] });
+		await writeJson(path.join(tempDir, "pages", "dimensional-zone", "golden-dungeons.json"), page);
+		await assert.doesNotReject(() => validateBundle(tempDir));
+	});
+});
+
 test("validateBundle accepts section media refs backed by media registry", async () => {
 	await withTempDir(async (tempDir) => {
 		const { manifest, page } = buildBundle({ pageKind: "article", includeProfile: false });
@@ -435,7 +522,7 @@ test("validateBundle accepts section media refs backed by media registry", async
 			id: "introducao",
 			kind: "prose",
 			title: { "pt-BR": "Introdução" },
-			content: { "pt-BR": { paragraphs: ["Texto"] } },
+			bossSupport: { "pt-BR": { type: "important-info", intro: ["Texto"], bullets: [], rows: [] } },
 			mediaRefs: { "pt-BR": ["m-1"] },
 		}];
 		manifest.categories = [{ id: "boss-fight", label: { "pt-BR": "Boss Fight" } }];
@@ -455,6 +542,26 @@ test("validateBundle accepts section media refs backed by media registry", async
 			entries: [{ id: "m-1", type: "image", url: "https://wiki.pokexgames.com/images/e/eb/244-Entei.png", alt: "Entei" }],
 		});
 		await writeJson(path.join(tempDir, "pages", "boss-fight", "entei.json"), page);
+		await assert.doesNotReject(() => validateBundle(tempDir));
+	});
+});
+
+test("validateBundle accepts canonical registry paths", async () => {
+	await withTempDir(async (tempDir) => {
+		const { manifest, page } = buildBundle();
+		manifest.registries = {
+			items: "registries/items.json",
+			pokemon: "registries/pokemon.json",
+			npcs: "registries/npcs.json",
+			definitions: "registries/definitions.json",
+			linkedCards: "registries/linked-cards.json",
+		};
+		await writeJson(path.join(tempDir, "manifest.json"), manifest);
+		await writeJson(path.join(tempDir, "media.json"), { entries: [] });
+		for (const registryPath of Object.values(manifest.registries)) {
+			await writeJson(path.join(tempDir, ...registryPath.split("/")), { entries: [] });
+		}
+		await writeJson(path.join(tempDir, "pages", "pokemon", "absol.json"), page);
 		await assert.doesNotReject(() => validateBundle(tempDir));
 	});
 });
@@ -521,6 +628,37 @@ test("validateBundle rejects clan task pages without clanTasks payloads", async 
 	});
 });
 
+test("validateBundle rejects categories that exceed generic-only budgets", async () => {
+	await withTempDir(async (tempDir) => {
+		const { manifest, page } = buildBundle({ pageKind: "article", includeProfile: false });
+		page.category = "mystery-dungeons";
+		page.slug = "generic-dungeon";
+		page.url = "https://wiki.pokexgames.com/index.php/Generic_Dungeon";
+		page.sections = [{
+			id: "visao-geral",
+			kind: "prose",
+			title: { "pt-BR": "Visão Geral" },
+			content: { "pt-BR": { paragraphs: ["Texto solto"] } },
+		}];
+		manifest.categories = [{ id: "mystery-dungeons", label: { "pt-BR": "Mystery Dungeons" } }];
+		manifest.pages[0] = {
+			category: "mystery-dungeons",
+			slug: "generic-dungeon",
+			url: page.url,
+			pageKind: "article",
+			title: { "pt-BR": "Generic Dungeon" },
+			summary: { "pt-BR": "Resumo" },
+			images: manifest.pages[0].images,
+			fetchedAt: "2026-04-15T00:00:00.000Z",
+			pagePath: "mystery-dungeons/generic-dungeon.json",
+		};
+		await writeJson(path.join(tempDir, "manifest.json"), manifest);
+		await writeJson(path.join(tempDir, "media.json"), { entries: [] });
+		await writeJson(path.join(tempDir, "pages", "mystery-dungeons", "generic-dungeon.json"), page);
+		await assert.rejects(() => validateBundle(tempDir), /exceeds generic-only budget/);
+	});
+});
+
 test("validateBundle rejects duplicate media registry ids", async () => {
 	await withTempDir(async (tempDir) => {
 		const { manifest, page } = buildBundle({ pageKind: "article", includeProfile: false });
@@ -531,7 +669,7 @@ test("validateBundle rejects duplicate media registry ids", async () => {
 			id: "introducao",
 			kind: "prose",
 			title: { "pt-BR": "Introdução" },
-			content: { "pt-BR": { paragraphs: ["Texto"] } },
+			bossSupport: { "pt-BR": { type: "important-info", intro: ["Texto"], bullets: [], rows: [] } },
 			mediaRefs: { "pt-BR": ["m-1"] },
 		}];
 		manifest.categories = [{ id: "boss-fight", label: { "pt-BR": "Boss Fight" } }];

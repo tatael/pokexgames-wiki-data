@@ -1,5 +1,6 @@
 import { PT_BR, buildSlug } from "./shared.mjs";
-import { cleanStructuredText, dedupeBySlug, normalizeIdToken, stripImageRefFromText } from "./transform/text.mjs";
+import { cleanStructuredText, dedupeBySlug, normalizeIdToken } from "./transform/text.mjs";
+import { classifySectionKind } from "./transform/classification.mjs";
 import {
 	cleanRawPokemonReferenceItems,
 	cleanPokemonGroupItems,
@@ -15,34 +16,44 @@ import {
 	ensureLegendaryBossRewards,
 	fillSparseDifficultyRewards,
 	parseRewardItemText,
-	parseSimpleRewardText,
 	propagateDifficulty,
 } from "./transform/rewards.mjs";
-import { parseTaskGroups, parseTaskObjectiveDetails, parseTaskRows } from "./transform/tasks.mjs";
+import { parseTaskSectionPayloads } from "./transform/tasks.mjs";
 import { isQuestLocationSection, isQuestStepSection, isQuestSupportSection, parseQuestPhase, parseQuestSupport } from "./transform/quests.mjs";
 import { parseClanTaskRanks } from "./transform/clan-tasks.mjs";
+import { isCommerceSection, parseCommerceEntries } from "./transform/commerce.mjs";
 import {
 	isHeldBoostSection,
 	isHeldCategoriesSection,
+	isHeldDetailsSection,
+	parseHeldDetails,
 	parseHeldBoostGroups,
 	parseHeldCategoryGroups,
 	parseHeldOperationSteps,
 } from "./transform/held-items.mjs";
 import {
+	isBossSupportSection,
+	isBossRecommendationsSection,
 	isDifficultySection as isBossFightDifficultySection,
 	isHeldEnhancementSection as isBossFightHeldEnhancementSection,
+	parseBossRecommendations,
+	parseBossSupport,
 	parseDifficultyEntries as parseBossFightDifficultyEntries,
 	parseHeldEnhancementEntries as parseBossFightHeldEnhancementEntries,
 } from "./transform/boss-fight.mjs";
 import {
 	isHazardSection as isDungeonHazardSection,
+	isDungeonSupportSection,
+	parseDungeonSupport,
 	parseHazardEntries as parseDungeonHazardEntries,
 } from "./transform/dungeons.mjs";
 import {
 	isEmbeddedTowerLinkedCardsSection,
 	isEmbeddedTowerProgressionSection,
+	isEmbeddedTowerSupportSection,
 	isEmbeddedTowerUnlockSection,
 	parseEmbeddedTowerProgression,
+	parseEmbeddedTowerSupport,
 	parseEmbeddedTowerUnlocks,
 	parseLinkedCards,
 } from "./transform/embedded-tower.mjs";
@@ -53,82 +64,14 @@ import {
 	parseHeadingGroupedEntries,
 	parseLocationEntries,
 	parseStepEntries,
-	publishSection,
-} from "./transform/publish.mjs";
+} from "./transform/generic-sections.mjs";
+import { publishSection } from "./transform/publish.mjs";
 
 export { stripImageRefFromText } from "./transform/text.mjs";
 export { parsePokemonItemText } from "./transform/pokemon.mjs";
 export { parseRewardItemText } from "./transform/rewards.mjs";
 export { publishSection } from "./transform/publish.mjs";
-
-const SECTION_KIND_BY_ID = {
-	"informacoes-importantes": "info",
-	"informacoes-gerais": "info",
-	"informacoes": "info",
-	"observacoes": "info",
-	"held-enhancement": "info",
-	"habilidades": "info",
-	"localizacao": "prose",
-	"localizacoes": "prose",
-	"efetividade": "prose",
-	"dificuldades": "prose",
-	"historia": "prose",
-	"lore": "prose",
-	"pokemon-recomendados": "pokemon-group",
-	"pokemon": "pokemon-group",
-	"pokemons": "pokemon-group",
-	"recompensa": "rewards",
-	"recompensas": "rewards",
-	"rewards": "rewards"
-};
-
-function isTierSectionToken(value) {
-	const token = normalizeIdToken(value ?? "");
-	if (!token) return false;
-	const compact = token.replace(/\s+/g, "");
-	return /^(?:bronze|silver|gold|platinum|diamond|master)$/.test(token)
-		|| /^tier\d+[a-z]?h?$/.test(compact)
-		|| /^t\d+[a-z]?h?$/.test(compact)
-		|| /^[sabcdr]$/.test(compact);
-}
-
-function classifySectionKind(id, headingText) {
-	const normId = normalizeIdToken(id);
-	if (isTierSectionToken(normId)) {
-		return "tier";
-	}
-
-	if (/^nivel \d+ ao \d+$/.test(normId) || /^level \d+ to \d+$/.test(normId)) {
-		return "tasks";
-	}
-
-	if (normId === "nightmare tasks") {
-		return "tasks";
-	}
-
-	const normHeading = normalizeIdToken(headingText ?? "");
-	if (/^nivel \d+ ao \d+$/.test(normHeading) || /^level \d+ to \d+$/.test(normHeading)) {
-		return "tasks";
-	}
-
-	if (normHeading === "recompensa" || normHeading === "recompensas" || normHeading === "rewards" || /premios|premiacoes|premios dos baus/.test(normHeading)) {
-		return "rewards";
-	}
-
-	if (/^habilidades?(\s+|$)/.test(normHeading)) {
-		return "info";
-	}
-
-	if (normHeading === "pokemon" || normHeading === "pokemons" || normHeading === "pokemon recomendados") {
-		return "pokemon-group";
-	}
-
-	if (isTierSectionToken(normHeading)) {
-		return "tier";
-	}
-
-	return SECTION_KIND_BY_ID[id] ?? "prose";
-}
+export { classifySectionKind, isTierSectionToken, SECTION_KIND_BY_ID } from "./transform/classification.mjs";
 
 export function structureSection(section) {
 	const id = section.id ?? "";
@@ -178,42 +121,24 @@ export function structureSection(section) {
 		result.items = cleanedItems;
 	}
 
-	if (kind === "tasks") {
-		const tasks = {};
-		const taskGroups = {};
+	if (isBossRecommendationsSection(normalizedId, normalizedHeading, pageCategory)) {
+		const bossRecommendations = {};
 		for (const locale of new Set([
 			...Object.keys(section.paragraphs ?? {}),
-			...Object.keys(section.items ?? {})
+			...Object.keys(section.items ?? {}),
 		])) {
-			const paragraphs = section.paragraphs?.[locale] ?? [];
-			const items = section.items?.[locale] ?? [];
-			const parsed = parseTaskRows(paragraphs, items);
-			const grouped = parseTaskGroups(paragraphs, items, section.heading?.[locale] ?? section.heading?.[PT_BR] ?? "");
-			if (parsed.length) {
-				tasks[locale] = parsed;
-			} else {
-				const rewards = paragraphs.length ? parseSimpleRewardText(paragraphs[0]) : [];
-				const targets = items
-					.flatMap((item) => String(item ?? "").split(/\s*\|\s*/))
-					.map((item) => stripImageRefFromText(item.trim()))
-					.filter(Boolean);
-				tasks[locale] = [{
-					objective: section.heading?.[locale] ?? section.heading?.[PT_BR] ?? "",
-					objectiveDetails: parseTaskObjectiveDetails(section.heading?.[locale] ?? section.heading?.[PT_BR] ?? ""),
-					requirements: {},
-					rewards,
-					notes: paragraphs.slice(rewards.length ? 1 : 0),
-					targets
-				}].filter((task) => task.objective || task.rewards.length || task.notes.length || task.targets.length);
-			}
-
-			if (grouped.groups.length || grouped.intro.length) {
-				taskGroups[locale] = grouped;
-			}
+			const parsed = parseBossRecommendations(
+				section.paragraphs?.[locale] ?? [],
+				result.items?.[locale] ?? section.items?.[locale] ?? [],
+			);
+			if (parsed.intro.length || parsed.groups.length) bossRecommendations[locale] = parsed;
 		}
 
-		if (Object.keys(tasks).length) result.tasks = tasks;
-		if (Object.keys(taskGroups).length) result.taskGroups = taskGroups;
+		if (Object.keys(bossRecommendations).length) result.bossRecommendations = bossRecommendations;
+	}
+
+	if (kind === "tasks") {
+		Object.assign(result, parseTaskSectionPayloads(section));
 	}
 
 	if (pageCategory === "clans" && /-tasks$/.test(section.pageSlug ?? "")) {
@@ -293,11 +218,28 @@ export function structureSection(section) {
 	if (isAbilitySection(normalizedId, normalizedHeading)) {
 		const abilities = {};
 		for (const locale of Object.keys(section.paragraphs ?? {})) {
-			const entries = parseHeadingGroupedEntries(section.paragraphs?.[locale] ?? [], "description");
+			const entries = parseHeadingGroupedEntries(section.paragraphs?.[locale] ?? [], "description")
+				.filter((entry) => entry.name && entry.description?.length);
 			if (entries.length) abilities[locale] = entries;
 		}
 
 		if (Object.keys(abilities).length) result.abilities = abilities;
+	}
+
+	// Detect tabber-style abilities in prose sections not named "Habilidades"
+	// Triggers when paragraphs contain 2+ heading-grouped entries with descriptions
+	if (!result.abilities && !result.steps && !result.locations && !result.difficulties
+		&& !result.hazards && !result.heldCategories && !result.heldBoosts
+		&& !result.questSupport && !result.questPhases && !result.clanTasks
+		&& !["rewards", "tasks", "pokemon-group", "tier"].includes(kind)) {
+		const inferredAbilities = {};
+		for (const locale of Object.keys(section.paragraphs ?? {})) {
+			const entries = parseHeadingGroupedEntries(section.paragraphs?.[locale] ?? [], "description");
+			const withContent = entries.filter((e) => e.name && e.description?.length);
+			if (entries.length >= 2 && withContent.length >= 2) inferredAbilities[locale] = withContent;
+		}
+
+		if (Object.keys(inferredAbilities).length) result.abilities = inferredAbilities;
 	}
 
 	if (pageCategory === "held items" && !result.steps) {
@@ -375,6 +317,25 @@ export function structureSection(section) {
 		if (Object.keys(difficulties).length) result.difficulties = difficulties;
 	}
 
+	if (isBossSupportSection(normalizedId, normalizedHeading, pageCategory)) {
+		const bossSupport = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.items ?? {}),
+		])) {
+			const parsed = parseBossSupport(
+				normalizedId,
+				normalizedHeading,
+				section.paragraphs?.[locale] ?? [],
+				section.items?.[locale] ?? [],
+			);
+
+			if (parsed.intro.length || parsed.bullets.length || parsed.rows.length) bossSupport[locale] = parsed;
+		}
+
+		if (Object.keys(bossSupport).length) result.bossSupport = bossSupport;
+	}
+
 	if (isBossFightHeldEnhancementSection(normalizedId, normalizedHeading)) {
 		const heldEnhancement = {};
 		for (const locale of new Set([
@@ -399,6 +360,25 @@ export function structureSection(section) {
 		}
 
 		if (Object.keys(hazards).length) result.hazards = hazards;
+	}
+
+	if (isDungeonSupportSection(normalizedId, normalizedHeading, pageCategory)) {
+		const dungeonSupport = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.items ?? {}),
+		])) {
+			const parsed = parseDungeonSupport(
+				normalizedId,
+				normalizedHeading,
+				section.paragraphs?.[locale] ?? [],
+				section.items?.[locale] ?? [],
+			);
+
+			if (parsed.intro.length || parsed.bullets.length || parsed.rows.length) dungeonSupport[locale] = parsed;
+		}
+
+		if (Object.keys(dungeonSupport).length) result.dungeonSupport = dungeonSupport;
 	}
 
 	if (isEmbeddedTowerProgressionSection(normalizedId, normalizedHeading, pageCategory)) {
@@ -458,6 +438,27 @@ export function structureSection(section) {
 		if (Object.keys(linkedCards).length) result.linkedCards = linkedCards;
 	}
 
+	if (isEmbeddedTowerSupportSection(normalizedId, normalizedHeading, pageCategory)) {
+		const embeddedTowerSupport = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.items ?? {}),
+		])) {
+			const parsed = parseEmbeddedTowerSupport(
+				normalizedId,
+				normalizedHeading,
+				section.paragraphs?.[locale] ?? [],
+				section.items?.[locale] ?? [],
+			);
+
+			if (parsed.intro.length || parsed.bullets.length || parsed.rows.length) {
+				embeddedTowerSupport[locale] = parsed;
+			}
+		}
+
+		if (Object.keys(embeddedTowerSupport).length) result.embeddedTowerSupport = embeddedTowerSupport;
+	}
+
 	if (isHeldCategoriesSection(normalizedId, normalizedHeading, pageCategory)) {
 		const heldCategories = {};
 		for (const locale of Object.keys(section.paragraphs ?? {})) {
@@ -476,6 +477,23 @@ export function structureSection(section) {
 		}
 
 		if (Object.keys(heldBoosts).length) result.heldBoosts = heldBoosts;
+	}
+
+	if (isHeldDetailsSection(normalizedId, normalizedHeading, pageCategory)) {
+		const heldDetails = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.items ?? {}),
+		])) {
+			const parsed = parseHeldDetails(
+				section.paragraphs?.[locale] ?? [],
+				section.items?.[locale] ?? [],
+			);
+
+			if (parsed.intro.length || parsed.entries.length) heldDetails[locale] = parsed;
+		}
+
+		if (Object.keys(heldDetails).length) result.heldDetails = heldDetails;
 	}
 
 	if (!result.steps && pageCategory === "quests" && !["rewards", "tasks", "pokemon-group", "tier"].includes(kind) && isQuestStepSection(normalizedId, normalizedHeading)) {
@@ -517,6 +535,24 @@ export function structureSection(section) {
 		if (Object.keys(questSupport).length) result.questSupport = questSupport;
 	}
 
+	if (!result.rewards && isCommerceSection(normalizedId, normalizedHeading, section.pageKind ?? "")) {
+		const commerceEntries = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.items ?? {}),
+		])) {
+			const parsed = parseCommerceEntries(
+				normalizedId,
+				normalizedHeading,
+				section.pageKind ?? "",
+				section.paragraphs?.[locale] ?? [],
+				section.items?.[locale] ?? [],
+			);
+			if (parsed.intro.length || parsed.bullets.length || parsed.rows.length) commerceEntries[locale] = parsed;
+		}
+
+		if (Object.keys(commerceEntries).length) result.commerceEntries = commerceEntries;
+	}
+
 	return result;
 }
-

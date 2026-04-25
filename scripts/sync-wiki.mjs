@@ -18,6 +18,7 @@ import {
 } from "./lib/shared.mjs";
 import { compactLocalizedValueMap } from "./lib/localized.mjs";
 import { buildMediaRegistry } from "./lib/media-registry.mjs";
+import { buildCanonicalRegistries } from "./lib/canonical-registries.mjs";
 import { fetchWikiHtml, runWithConcurrency } from "./lib/transport.mjs";
 import {
 	buildSummary,
@@ -234,6 +235,7 @@ async function syncEntry(entry) {
 		title: entry.title,
 		slug: entry.slug,
 		pageKind,
+		pageGroup,
 	});
 
 	const page = {
@@ -325,11 +327,23 @@ async function main() {
 		categories: [...categoriesMap.values()],
 		pages,
 		mediaPath: "media.json",
+		registries: {
+			items: "registries/items.json",
+			pokemon: "registries/pokemon.json",
+			npcs: "registries/npcs.json",
+			definitions: "registries/definitions.json",
+			linkedCards: "registries/linked-cards.json",
+		},
 	};
 
 	const mediaRegistry = await buildMediaRegistry(
 		pages.map((page) => page.pagePath),
 		PAGES_BUILD_DIR
+	);
+	await buildCanonicalRegistries(
+		pages.map((page) => page.pagePath),
+		PAGES_BUILD_DIR,
+		DIST_BUILD_DIR
 	);
 
 	await writeJson(path.join(DIST_BUILD_DIR, "manifest.json"), manifest);

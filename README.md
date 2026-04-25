@@ -53,7 +53,8 @@ Section contract (`schemaVersion: 2`):
 - `content.<locale>.paragraphs` is normalized prose that still belongs on the page
 - `content.<locale>.bullets` is only for simple list content that has no stronger semantic model yet
 - pipe-style source rows are published as `tables.<locale>[].rows[].cells[]` instead of string rows such as `A | B | C`
-- semantic data is published in dedicated fields such as `facts`, `tasks`, `taskGroups`, `rewards`, `pokemon`, `profile`, `moves`, `effectiveness`, `variants`, `abilities`, `steps`, and `locations`
+- semantic data is published in dedicated fields such as `facts`, `tasks`, `taskGroups`, `rewards`, `pokemon`, `profile`, `moves`, `effectiveness`, `variants`, `abilities`, `steps`, `locations`, `bossSupport`, `bossRecommendations`, `embeddedTowerSupport`, `heldDetails`, `dungeonSupport`, and `commerceEntries`
+- repeated canonical labels are also emitted as audit registries under `registries/` for `items`, `pokemon`, `npcs`, `definitions`, and `linked-cards`
 - consumers should treat those semantic fields as source of truth and should not re-parse raw wiki table/list text
 
 ## Pipeline Architecture
@@ -63,6 +64,9 @@ Wiki normalization is split by responsibility under `scripts/lib/transform/`:
 - `pokemon.mjs`: Pokémon profile, tier, move, effectiveness, variant, and raw Pokémon-reference cleanup
 - `rewards.mjs`: loot, ranking, difficulty, and task reward parsing
 - `tasks.mjs`: task objective, requirement, group, and reward normalization
+- `commerce.mjs`: exchange, shop, craft, and cost row normalization
+- `generic-sections.mjs`: generic ability, location, step, and table-cell normalization
+- `canonical-registries.mjs`: bundle-level audit registries for repeated canonical labels
 - `publish.mjs`: public schema projection from internal scraped fields to schema v2 fields
 
 `scripts/lib/transform.mjs` is the orchestrator. Keep new parsers in the responsibility-specific module instead of growing `transform.mjs`.

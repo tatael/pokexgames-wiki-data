@@ -48,7 +48,38 @@ export function isHeldBoostSection(normalizedId, normalizedHeading, pageCategory
 			|| normalizedId === "informacoes sobre o x boost"
 			|| normalizedHeading === "information about x boost"
 			|| normalizedHeading === "informacoes sobre o x boost"
+	);
+}
+
+export function isHeldDetailsSection(normalizedId, normalizedHeading, pageCategory) {
+	return pageCategory === "held items"
+		&& (
+			normalizedId === "specific details"
+			|| normalizedId === "detalhes especificos"
+			|| normalizedHeading === "specific details"
+			|| normalizedHeading === "detalhes especificos"
 		);
+}
+
+export function parseHeldDetails(paragraphs = [], items = []) {
+	const intro = [];
+	const entries = [];
+	for (const raw of [...paragraphs, ...items]) {
+		const text = cleanStructuredText(raw);
+		if (!text) continue;
+		const match = text.match(/^([XY]-[A-Za-z][A-Za-z-\s]*?):\s*(.+)$/);
+		if (!match) {
+			intro.push(text);
+			continue;
+		}
+
+		entries.push({
+			name: cleanStructuredText(match[1]),
+			value: cleanStructuredText(match[2]),
+		});
+	}
+
+	return { intro, entries };
 }
 
 export function parseHeldBoostGroups(paragraphs = []) {

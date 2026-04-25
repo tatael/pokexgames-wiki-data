@@ -191,6 +191,48 @@ export function parseTaskGroups(paragraphs = [], items = [], fallbackTitle = "")
 	};
 }
 
+export function parseTaskSectionPayloads(section) {
+	const tasks = {};
+	const taskGroups = {};
+	for (const locale of new Set([
+		...Object.keys(section.paragraphs ?? {}),
+		...Object.keys(section.items ?? {})
+	])) {
+		const paragraphs = section.paragraphs?.[locale] ?? [];
+		const items = section.items?.[locale] ?? [];
+		const parsed = parseTaskRows(paragraphs, items);
+		const fallbackTitle = section.heading?.[locale] ?? section.heading?.["pt-BR"] ?? "";
+		const grouped = parseTaskGroups(paragraphs, items, fallbackTitle);
+
+		if (parsed.length) {
+			tasks[locale] = parsed;
+		} else {
+			const rewards = paragraphs.length ? parseSimpleRewardText(paragraphs[0]) : [];
+			const targets = items
+				.flatMap((item) => String(item ?? "").split(/\s*\|\s*/))
+				.map((item) => stripImageRefFromText(item.trim()))
+				.filter(Boolean);
+			tasks[locale] = [{
+				objective: fallbackTitle,
+				objectiveDetails: parseTaskObjectiveDetails(fallbackTitle),
+				requirements: {},
+				rewards,
+				notes: paragraphs.slice(rewards.length ? 1 : 0),
+				targets
+			}].filter((task) => task.objective || task.rewards.length || task.notes.length || task.targets.length);
+		}
+
+		if (grouped.groups.length || grouped.intro.length) {
+			taskGroups[locale] = grouped;
+		}
+	}
+
+	return {
+		...(Object.keys(tasks).length ? { tasks } : {}),
+		...(Object.keys(taskGroups).length ? { taskGroups } : {}),
+	};
+}
+
 function isTaskIntroText(value) {
 	const text = cleanStructuredText(value);
 	if (!text || text.startsWith("#")) return false;

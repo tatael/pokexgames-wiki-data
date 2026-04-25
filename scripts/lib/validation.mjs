@@ -12,7 +12,7 @@ import {
 
 function assertNoMojibake(value, fieldName) {
 	if (typeof value !== "string") return;
-	if (/[\u00C3\u00C2]/.test(value) || value.includes("\u00E2\u20AC\u201D") || value.includes("\u00E2\u20AC\u201C")) {
+	if (/(?:\u00C3[\u0080-\u00BF]|\u00C2[\u0080-\u00BF]|\u00E2(?:\u20AC[\u0080-\u00BF]|[\u0080-\u009F]{1,2}))/.test(value)) {
 		throw new Error(`${fieldName} contains broken text encoding`);
 	}
 }
@@ -26,16 +26,22 @@ const TYPED_SECTION_KEYS = [
 	"steps",
 	"locations",
 	"difficulties",
+	"bossSupport",
+	"bossRecommendations",
 	"heldEnhancement",
 	"hazards",
+	"dungeonSupport",
 	"heldCategories",
 	"heldBoosts",
+	"heldDetails",
 	"questSupport",
 	"questPhases",
 	"clanTasks",
 	"embeddedTowerProgression",
 	"embeddedTowerUnlocks",
+	"embeddedTowerSupport",
 	"linkedCards",
+	"commerceEntries",
 	"facts",
 	"tasks",
 	"taskGroups",
@@ -50,6 +56,11 @@ const TYPED_SECTION_KEYS = [
 const CATEGORY_GENERIC_ONLY_BUDGETS = {
 	clans: 0.1,
 	quests: 0.05,
+	"boss-fight": 0.55,
+	"dimensional-zone": 0.7,
+	"embedded-tower": 0.7,
+	"held-items": 0.7,
+	"mystery-dungeons": 0.55,
 };
 
 function validateLocalizedMap(value, fieldName) {
@@ -93,6 +104,34 @@ function validateImageSet(value, fieldName) {
 		if (typeof value[kind].url !== "string" || !value[kind].url.startsWith("https://")) {
 			throw new Error(`${fieldName}.${kind}.url must be an https url`);
 		}
+	}
+}
+
+function validateRegistryPathMap(value, fieldName) {
+	if (value === undefined) return;
+	if (!isPlainObject(value)) throw new Error(`${fieldName} must be an object when present`);
+	for (const key of ["items", "pokemon", "npcs", "definitions", "linkedCards"]) {
+		validateString(value[key], `${fieldName}.${key}`);
+		if (!String(value[key]).endsWith(".json")) throw new Error(`${fieldName}.${key} must be a json path`);
+	}
+}
+
+function validateCanonicalRegistry(value, fieldName) {
+	if (!isPlainObject(value) || !Array.isArray(value.entries)) {
+		throw new Error(`${fieldName} must contain an entries array`);
+	}
+
+	const seen = new Set();
+	for (const [index, entry] of value.entries.entries()) {
+		if (!isPlainObject(entry)) throw new Error(`${fieldName}.entries.${index} must be an object`);
+		validateString(entry.id, `${fieldName}.entries.${index}.id`);
+		validateString(entry.label, `${fieldName}.entries.${index}.label`);
+		if (seen.has(entry.id)) throw new Error(`${fieldName}.entries.${index} reuses duplicate id "${entry.id}"`);
+		seen.add(entry.id);
+		if (entry.slug !== undefined) validateString(entry.slug, `${fieldName}.entries.${index}.slug`);
+		if (entry.kind !== undefined) validateString(entry.kind, `${fieldName}.entries.${index}.kind`);
+		if (!Array.isArray(entry.pages)) throw new Error(`${fieldName}.entries.${index}.pages must be an array`);
+		validateStringArray(entry.pages, `${fieldName}.entries.${index}.pages`);
 	}
 }
 
@@ -197,6 +236,29 @@ function validateDifficultyPayload(entry, fieldName) {
 	}
 }
 
+function validateBossSupportPayload(entry, fieldName) {
+	validateString(entry.type, `${fieldName}.type`);
+	if (!["important-info", "mechanics", "failure", "access", "recommendations", "leaderboard"].includes(entry.type)) {
+		throw new Error(`${fieldName}.type is not supported`);
+	}
+
+	if (entry.intro !== undefined) validateStringArray(entry.intro, `${fieldName}.intro`);
+	if (entry.bullets !== undefined) validateStringArray(entry.bullets, `${fieldName}.bullets`);
+	if (entry.rows !== undefined) validateTableRows(entry.rows, `${fieldName}.rows`);
+}
+
+function validateBossRecommendationsPayload(entry, fieldName) {
+	if (entry.intro !== undefined) validateStringArray(entry.intro, `${fieldName}.intro`);
+	if (!Array.isArray(entry.groups)) throw new Error(`${fieldName}.groups must be an array`);
+	for (const [groupIndex, group] of entry.groups.entries()) {
+		if (!isPlainObject(group)) throw new Error(`${fieldName}.groups.${groupIndex} must be an object`);
+		if (group.label !== undefined) validateString(group.label, `${fieldName}.groups.${groupIndex}.label`, { allowEmpty: true });
+		if (group.notes !== undefined) validateStringArray(group.notes, `${fieldName}.groups.${groupIndex}.notes`);
+		if (!Array.isArray(group.pokemon)) throw new Error(`${fieldName}.groups.${groupIndex}.pokemon must be an array`);
+		validateStringArray(group.pokemon, `${fieldName}.groups.${groupIndex}.pokemon`);
+	}
+}
+
 function validateHeldEnhancementPayload(entry, fieldName) {
 	if (entry.intro !== undefined) validateStringArray(entry.intro, `${fieldName}.intro`);
 	if (entry.notes !== undefined) validateStringArray(entry.notes, `${fieldName}.notes`);
@@ -229,6 +291,17 @@ function validateHeldEnhancementPayload(entry, fieldName) {
 function validateHazardsPayload(entry, fieldName) {
 	if (entry.description !== undefined) validateStringArray(entry.description, `${fieldName}.description`);
 	if (entry.bullets !== undefined) validateStringArray(entry.bullets, `${fieldName}.bullets`);
+}
+
+function validateTypedRowsSupportPayload(entry, fieldName, supportedTypes) {
+	validateString(entry.type, `${fieldName}.type`);
+	if (!supportedTypes.includes(entry.type)) {
+		throw new Error(`${fieldName}.type is not supported`);
+	}
+
+	if (entry.intro !== undefined) validateStringArray(entry.intro, `${fieldName}.intro`);
+	if (entry.bullets !== undefined) validateStringArray(entry.bullets, `${fieldName}.bullets`);
+	if (entry.rows !== undefined) validateTableRows(entry.rows, `${fieldName}.rows`);
 }
 
 function validateHeldCategoriesPayload(entry, fieldName) {
@@ -286,6 +359,16 @@ function validateHeldBoostsPayload(entry, fieldName) {
 				validateString(tier.value, `${fieldName}.utilities.${groupIndex}.entries.${entryIndex}.tiers.${tierIndex}.value`);
 			}
 		}
+	}
+}
+
+function validateHeldDetailsPayload(entry, fieldName) {
+	if (entry.intro !== undefined) validateStringArray(entry.intro, `${fieldName}.intro`);
+	if (!Array.isArray(entry.entries)) throw new Error(`${fieldName}.entries must be an array`);
+	for (const [index, detail] of entry.entries.entries()) {
+		if (!isPlainObject(detail)) throw new Error(`${fieldName}.entries.${index} must be an object`);
+		validateString(detail.name, `${fieldName}.entries.${index}.name`);
+		validateString(detail.value, `${fieldName}.entries.${index}.value`);
 	}
 }
 
@@ -430,6 +513,17 @@ function validateEmbeddedTowerUnlocksPayload(entry, fieldName) {
 	}
 }
 
+function validateEmbeddedTowerSupportPayload(entry, fieldName) {
+	validateString(entry.type, `${fieldName}.type`);
+	if (!["floor-structure", "mechanics"].includes(entry.type)) {
+		throw new Error(`${fieldName}.type is not supported`);
+	}
+
+	if (entry.intro !== undefined) validateStringArray(entry.intro, `${fieldName}.intro`);
+	if (entry.bullets !== undefined) validateStringArray(entry.bullets, `${fieldName}.bullets`);
+	if (entry.rows !== undefined) validateTableRows(entry.rows, `${fieldName}.rows`);
+}
+
 function getTypedSectionKeys(section = {}) {
 	return TYPED_SECTION_KEYS.filter((key) => section[key] !== undefined);
 }
@@ -472,6 +566,40 @@ function validatePageShapeExpectations(page, fieldName) {
 		const hasHeldFlow = (page.sections ?? []).some((section) => section.steps || section.heldCategories || section.heldBoosts);
 		if (!hasHeldFlow) {
 			throw new Error(`${fieldName} must publish typed held item flows or typed held item groups`);
+		}
+	}
+
+	if (page.category === "boss-fight" && page.pageKind !== "index") {
+		const substantialSections = (page.sections ?? []).filter((section) => {
+			const content = section.content?.[PT_BR] ?? section.content?.en ?? {};
+			const hasContent = (content.paragraphs?.length ?? 0) + (content.bullets?.length ?? 0) > 0;
+			const hasTyped = TYPED_SECTION_KEYS.some((key) => section[key] !== undefined);
+			return hasContent || hasTyped;
+		});
+
+		if (substantialSections.length >= 3) {
+			const hasDifficulties = (page.sections ?? []).some((section) => section.difficulties);
+			const hasRewards = (page.sections ?? []).some((section) => section.rewards);
+			if (!hasDifficulties && !hasRewards) {
+				throw new Error(`${fieldName} boss-fight page with substantial content must publish typed difficulties or rewards`);
+			}
+		}
+	}
+
+	if (page.category === "mystery-dungeons" && page.pageKind !== "index" && page.displayInList !== false) {
+		const substantialSections = (page.sections ?? []).filter((section) => {
+			const content = section.content?.[PT_BR] ?? section.content?.en ?? {};
+			const hasContent = (content.paragraphs?.length ?? 0) + (content.bullets?.length ?? 0) > 0;
+			const hasTyped = TYPED_SECTION_KEYS.some((key) => section[key] !== undefined);
+			return hasContent || hasTyped;
+		});
+
+		if (substantialSections.length >= 3) {
+			const hasAbilities = (page.sections ?? []).some((section) => section.abilities);
+			const hasRewards = (page.sections ?? []).some((section) => section.rewards);
+			if (!hasAbilities && !hasRewards) {
+				throw new Error(`${fieldName} mystery-dungeon page with substantial content must publish typed abilities or rewards`);
+			}
 		}
 	}
 }
@@ -524,15 +652,25 @@ function validateSection(section, fieldName) {
 	validateStructuredEntryMap(section.locations, `${fieldName}.locations`, ["description", "bullets", "rows"], validateLocationEntry);
 	validateStructuredObjectMap(section.questPhases, `${fieldName}.questPhases`, ["body", "requirements", "objectives", "rewards", "npcs", "waits", "hints", "locations", "bullets", "rows", "maps"], validateQuestPhasePayload);
 	validateStructuredObjectMap(section.difficulties, `${fieldName}.difficulties`, ["intro", "entries", "notes"], validateDifficultyPayload);
+	validateStructuredObjectMap(section.bossSupport, `${fieldName}.bossSupport`, ["type", "intro", "bullets", "rows"], validateBossSupportPayload);
+	validateStructuredObjectMap(section.bossRecommendations, `${fieldName}.bossRecommendations`, ["intro", "groups"], validateBossRecommendationsPayload);
 	validateStructuredObjectMap(section.heldEnhancement, `${fieldName}.heldEnhancement`, ["intro", "entries", "notes"], validateHeldEnhancementPayload);
 	validateStructuredObjectMap(section.hazards, `${fieldName}.hazards`, ["description", "bullets"], validateHazardsPayload);
+	validateStructuredObjectMap(section.dungeonSupport, `${fieldName}.dungeonSupport`, ["type", "intro", "bullets", "rows"], (entry, entryFieldName) =>
+		validateTypedRowsSupportPayload(entry, entryFieldName, ["overview", "access", "progression", "rotation", "mechanics"])
+	);
 	validateStructuredObjectMap(section.heldCategories, `${fieldName}.heldCategories`, ["groups"], validateHeldCategoriesPayload);
 	validateStructuredObjectMap(section.heldBoosts, `${fieldName}.heldBoosts`, ["ranges", "utilities"], validateHeldBoostsPayload);
+	validateStructuredObjectMap(section.heldDetails, `${fieldName}.heldDetails`, ["intro", "entries"], validateHeldDetailsPayload);
 	validateStructuredObjectMap(section.questSupport, `${fieldName}.questSupport`, ["intro", "bullets", "cards"], validateQuestSupportPayload);
 	validateStructuredObjectMap(section.clanTasks, `${fieldName}.clanTasks`, ["ranks"], validateClanTasksPayload);
 	validateStructuredObjectMap(section.embeddedTowerProgression, `${fieldName}.embeddedTowerProgression`, ["intro", "attempts", "rewards", "resources"], validateEmbeddedTowerProgressionPayload);
 	validateStructuredObjectMap(section.embeddedTowerUnlocks, `${fieldName}.embeddedTowerUnlocks`, ["intro", "bullets", "entries"], validateEmbeddedTowerUnlocksPayload);
+	validateStructuredObjectMap(section.embeddedTowerSupport, `${fieldName}.embeddedTowerSupport`, ["type", "intro", "bullets", "rows"], validateEmbeddedTowerSupportPayload);
 	validateStructuredObjectMap(section.linkedCards, `${fieldName}.linkedCards`, ["intro", "cards", "notes"], validateLinkedCardsPayload);
+	validateStructuredObjectMap(section.commerceEntries, `${fieldName}.commerceEntries`, ["type", "intro", "bullets", "rows"], (entry, entryFieldName) =>
+		validateTypedRowsSupportPayload(entry, entryFieldName, ["exchange", "shop", "craft", "cost", "generic"])
+	);
 
 	if (section.mediaRefs !== undefined) {
 		for (const [locale, refs] of Object.entries(section.mediaRefs)) {
@@ -610,6 +748,8 @@ export async function validateBundle(distDir = DIST_DIR) {
 	if (!Array.isArray(manifest.pages) || manifest.pages.length === 0) {
 		throw new Error("manifest.pages must contain at least one page");
 	}
+
+	validateRegistryPathMap(manifest.registries, "manifest.registries");
 
 	const categoryIds = new Set();
 	const categoryStats = new Map();
@@ -769,6 +909,13 @@ export async function validateBundle(distDir = DIST_DIR) {
 			seenMediaIds.add(entry.id);
 			if (typeof entry?.url !== "string" || !entry.url.startsWith("https://")) throw new Error(`media registry entry ${index} must have an https url`);
 			if (typeof entry?.type !== "string" || !entry.type.trim()) throw new Error(`media registry entry ${index} must have a type`);
+		}
+	}
+
+	if (manifest.registries) {
+		for (const [registryName, registryPath] of Object.entries(manifest.registries)) {
+			const registry = await readJson(path.join(distDir, ...String(registryPath).split("/")));
+			validateCanonicalRegistry(registry, `registries.${registryName}`);
 		}
 	}
 }

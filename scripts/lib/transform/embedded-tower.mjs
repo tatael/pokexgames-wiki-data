@@ -73,6 +73,39 @@ function deriveCardLabel(entry) {
 		.join(" ");
 }
 
+function parseSupportRows(items = []) {
+	return parsePipeRows(items).map((cells) => ({
+		cells: cells.map((text) => ({ text })),
+	}));
+}
+
+function getEmbeddedTowerSupportType(normalizedId, normalizedHeading) {
+	const token = `${normalizedId} ${normalizedHeading}`;
+	if (/\b(andar|andares|floor|floors|piso|pisos|estrutura)\b/.test(token)) return "floor-structure";
+	if (/\b(mecanica|mecanicas|mechanic|mechanics|camara|boss)\b/.test(token)) return "mechanics";
+	return "";
+}
+
+export function isEmbeddedTowerSupportSection(normalizedId, normalizedHeading, pageCategory) {
+	if (pageCategory !== "embedded tower") return false;
+	if (isEmbeddedTowerProgressionSection(normalizedId, normalizedHeading, pageCategory)) return false;
+	if (isEmbeddedTowerUnlockSection(normalizedId, normalizedHeading, pageCategory)) return false;
+	if (isEmbeddedTowerLinkedCardsSection(normalizedId, normalizedHeading, pageCategory)) return false;
+	return Boolean(getEmbeddedTowerSupportType(normalizedId, normalizedHeading));
+}
+
+export function parseEmbeddedTowerSupport(normalizedId, normalizedHeading, paragraphs = [], items = []) {
+	return {
+		type: getEmbeddedTowerSupportType(normalizedId, normalizedHeading),
+		intro: (paragraphs ?? []).map(cleanStructuredText).filter(Boolean),
+		bullets: (items ?? [])
+			.filter((item) => !String(item ?? "").includes("|"))
+			.map(cleanStructuredText)
+			.filter(Boolean),
+		rows: parseSupportRows(items),
+	};
+}
+
 export function isEmbeddedTowerProgressionSection(normalizedId, normalizedHeading, pageCategory) {
 	return pageCategory === "embedded tower"
 		&& (

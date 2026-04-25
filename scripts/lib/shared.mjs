@@ -308,14 +308,24 @@ function inferLeafFileSlug(entry) {
 	return inferredSlug === entry.slug ? inferredSlug : entry.slug;
 }
 
+function resolvePageGroupSubdir(pageGroup) {
+	const text = pageGroup?.en ?? pageGroup?.["pt-BR"] ?? "";
+	return buildSlug(text, "");
+}
+
 export function buildPagePath(entry) {
 	const navigationPath = Array.isArray(entry.navigationPath) ? entry.navigationPath : [];
 	const directories = [entry.category];
 
-	for (const part of navigationPath.slice(1, -1)) {
-		const slug = buildSlug(part, "");
-		if (slug) {
-			directories.push(slug);
+	if (entry.category === "boss-fight" && entry.pageGroup) {
+		const sub = resolvePageGroupSubdir(entry.pageGroup);
+		if (sub && sub !== "other" && sub !== "outros") directories.push(sub);
+	} else {
+		for (const part of navigationPath.slice(1, -1)) {
+			const slug = buildSlug(part, "");
+			if (slug) {
+				directories.push(slug);
+			}
 		}
 	}
 

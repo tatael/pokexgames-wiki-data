@@ -1,5 +1,98 @@
 import { cleanStructuredText, normalizeIdToken } from "./text.mjs";
 
+function parsePipeRows(items = []) {
+	return (items ?? [])
+		.filter((item) => String(item ?? "").includes("|"))
+		.map((item) => String(item ?? "")
+			.split(/\s*\|\s*/)
+			.map((part) => cleanStructuredText(part))
+			.filter(Boolean))
+		.filter((cells) => cells.length >= 2)
+		.map((cells) => ({ cells: cells.map((text) => ({ text })) }));
+}
+
+function getSupportType(normalizedId, normalizedHeading) {
+	const token = `${normalizedId} ${normalizedHeading}`;
+	if (/informacoes? importantes?|observacoes?|regras?/.test(token)) return "important-info";
+	if (/mecanicas?|estrategia/.test(token)) return "mechanics";
+	if (/falha|derrota|eliminacao|condicoes?/.test(token)) return "failure";
+	if (/acesso|requisitos?|entrada|localizacao|como chegar/.test(token)) return "access";
+	if (/recomendacoes?/.test(token)) return "recommendations";
+	if (/leaderboard|ranking|corrida|race/.test(token)) return "leaderboard";
+	return "";
+}
+
+export function isBossSupportSection(normalizedId, normalizedHeading, pageCategory) {
+	return pageCategory === "boss fight" && Boolean(getSupportType(normalizedId, normalizedHeading));
+}
+
+export function parseBossSupport(normalizedId, normalizedHeading, paragraphs = [], items = []) {
+	const rows = parsePipeRows(items);
+	const bullets = (items ?? [])
+		.filter((item) => !String(item ?? "").includes("|"))
+		.map(cleanStructuredText)
+		.filter(Boolean);
+
+	return {
+		type: getSupportType(normalizedId, normalizedHeading),
+		intro: (paragraphs ?? []).map(cleanStructuredText).filter(Boolean),
+		bullets,
+		rows,
+	};
+}
+
+export function isBossRecommendationsSection(normalizedId, normalizedHeading, pageCategory) {
+	return pageCategory === "boss fight"
+		&& (
+			normalizedId === "pokemon recomendados"
+			|| normalizedHeading === "pokemon recomendados"
+			|| normalizedId === "recomendacoes"
+			|| normalizedHeading === "recomendacoes"
+		);
+}
+
+export function parseBossRecommendations(paragraphs = [], items = []) {
+	const intro = [];
+	const groups = [];
+	let currentGroup = null;
+	for (const raw of paragraphs ?? []) {
+		const text = cleanStructuredText(raw);
+		if (!text) continue;
+		const heading = text.match(/^#\s+(.+)/);
+		if (heading) {
+			currentGroup = {
+				label: cleanStructuredText(heading[1]),
+				notes: [],
+				pokemon: [],
+			};
+
+			groups.push(currentGroup);
+			continue;
+		}
+
+		if (!currentGroup) intro.push(text);
+		else currentGroup.notes.push(text);
+	}
+
+	const targetGroups = groups.length ? groups : [{ label: "", notes: [], pokemon: [] }];
+	if (!groups.length) groups.push(targetGroups[0]);
+
+	for (const [index, raw] of (items ?? []).entries()) {
+		const names = String(raw ?? "")
+			.split("|")
+			.map((part) => cleanStructuredText(part))
+			.filter(Boolean);
+		if (!names.length) continue;
+		const group = targetGroups[Math.min(Math.floor((index * targetGroups.length) / Math.max(items.length, 1)), targetGroups.length - 1)];
+		group.pokemon.push(...names);
+	}
+
+	return {
+		intro,
+		groups: groups.filter((group) => group.label || group.notes.length || group.pokemon.length),
+	};
+}
+
 export function isDifficultySection(normalizedId, normalizedHeading, pageCategory) {
 	return normalizedId === "dificuldades"
 		|| normalizedId === "dificuldade"

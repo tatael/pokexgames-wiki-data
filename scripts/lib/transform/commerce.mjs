@@ -12,7 +12,7 @@ function parsePipeRows(items = []) {
 
 export function isCommerceSection(normalizedId, normalizedHeading, pageKind = "") {
 	const token = `${normalizedId} ${normalizedHeading} ${pageKind}`;
-	return /\b(exchange|troca|shop|loja|craft|crafts|custo|custos|cost|costs|preco|precos|price|prices|recompensa|recompensas)\b/.test(token);
+	return /\b(exchange|troca|trocando|shop|loja|mercado|craft|crafts|custo|custos|cost|costs|preco|precos|price|prices|recompensa|recompensas|profit|lucro|ganancia|ganho|pontuacao|pontos|points|ticket|tokens?|jewels?|joia|joias|slot)\b/.test(token);
 }
 
 export function parseCommerceEntries(normalizedId, normalizedHeading, pageKind = "", paragraphs = [], items = []) {
@@ -23,7 +23,7 @@ export function parseCommerceEntries(normalizedId, normalizedHeading, pageKind =
 			? "shop"
 			: /\b(craft|crafts)\b/.test(token)
 				? "craft"
-				: /\b(custo|custos|cost|costs|preco|precos|price|prices)\b/.test(token)
+				: /\b(custo|custos|cost|costs|preco|precos|price|prices|profit|lucro|ganancia|ganho|pontuacao|pontos|points)\b/.test(token)
 					? "cost"
 					: "generic";
 

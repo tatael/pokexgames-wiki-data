@@ -23,8 +23,17 @@ const STRUCTURED_KEYS = [
 	"hazards",
 	"heldCategories",
 	"heldBoosts",
+	"heldDetails",
 	"questSupport",
 	"questPhases",
+	"bossSupport",
+	"bossRecommendations",
+	"dungeonSupport",
+	"embeddedTowerProgression",
+	"embeddedTowerUnlocks",
+	"embeddedTowerSupport",
+	"linkedCards",
+	"commerceEntries",
 ];
 
 async function main() {

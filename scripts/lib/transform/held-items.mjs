@@ -95,7 +95,7 @@ export function parseHeldBoostGroups(paragraphs = []) {
 			continue;
 		}
 
-		if (/^level range boost\b/i.test(normalizeIdToken(text))) {
+		if (/^(level range|faixa de nivel)\s+boost\b/i.test(normalizeIdToken(text))) {
 			const rows = parseHeldBoostRangeRows(text);
 			if (rows.length) {
 				ranges.push({
@@ -256,7 +256,7 @@ function buildHeldCell(value) {
 
 function parseHeldBoostRangeRows(text) {
 	const tokens = String(text ?? "")
-		.replace(/^level range boost\s+/i, "")
+		.replace(/^(?:level range|faixa de n[íi]vel)\s+boost\s+/i, "")
 		.split(/\s+/)
 		.filter(Boolean);
 	const rows = [];

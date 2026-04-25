@@ -134,23 +134,44 @@ export function parseDifficultyEntries(paragraphs = [], items = []) {
 		const objective = body.match(/dever[aÃ£]o?\s+(.+?)\s+para\s+concluir/i)?.[1] ?? null;
 		const requirement = body.match(/necess[aÃ¡]rio\s+que\s+o\s+jogador\s+tenha\s+(\d+)\s+(.+?)(?:\.|$)/i)
 			?? normalizedBody.match(/necessario que o jogador tenha\s+(\d+)\s+(.+?)(?:\s*$)/i);
+		const cleanedObjective = objective ? sentenceCase(cleanStructuredText(objective)) : "";
+		const cleanedRequirementName = requirement ? titleCaseItemName(cleanStructuredText(requirement[2])) : "";
 		entries.push({
 			name,
 			description: body,
 			...(minimumLevel ? { minimumLevel: Number(minimumLevel) } : {}),
 			...(recommendedLevel ? { recommendedLevel: Number(recommendedLevel) } : {}),
 			...(levelCap ? { levelCap: Number(levelCap) } : {}),
-			...(objective ? { objective: objective.trim() } : {}),
+			...(cleanedObjective ? { objective: cleanedObjective } : {}),
 			...(requirement ? {
 				entryRequirement: {
 					amount: Number(requirement[1]),
-					name: cleanStructuredText(requirement[2]),
+					name: cleanedRequirementName,
 				},
 			} : {}),
 		});
 	}
 
 	return { intro, entries, notes };
+}
+
+function sentenceCase(value) {
+	const text = String(value ?? "").trim();
+	if (!text) return "";
+	return `${text[0].toLocaleUpperCase("pt-BR")}${text.slice(1)}`;
+}
+
+function titleCaseItemName(value) {
+	const smallWords = new Set(["de", "da", "do", "das", "dos", "e"]);
+	return String(value ?? "")
+		.trim()
+		.split(/\s+/)
+		.map((word, index) => {
+			const lower = word.toLocaleLowerCase("pt-BR");
+			if (index > 0 && smallWords.has(lower)) return lower;
+			return `${lower[0]?.toLocaleUpperCase("pt-BR") ?? ""}${lower.slice(1)}`;
+		})
+		.join(" ");
 }
 
 export function isHeldEnhancementSection(normalizedId, normalizedHeading) {
@@ -177,12 +198,41 @@ export function parseHeldEnhancementEntries(paragraphs = [], items = []) {
 
 		const body = text.slice(separatorIndex + 1).trim();
 		const normalizedBody = normalizeIdToken(body);
-		const tiers = [...normalizedBody.matchAll(/tier\s*(\d+)[^0-9]*(\d+)\s+mais\s+dano[^0-9]+(\d+)\s+menos\s+dano/gi)]
+		const explicitTiers = [...normalizedBody.matchAll(/tier\s*(\d+)[^0-9]*(\d+)\s+mais\s+dano[^0-9]+(\d+)\s+menos\s+dano/gi)]
 			.map((match) => ({
 				tier: Number(match[1]),
 				damageBonus: Number(match[2]),
 				defenseBonus: Number(match[3]),
 			}));
+
+		const proseTiers = [...body.matchAll(/tier\s*(\d+)[^%.]{0,120}?(\d+)\s*%/gi)]
+			.map((match) => ({
+				tier: Number(match[1]),
+				damageBonus: Number(match[2]),
+				defenseBonus: Number(match[2]),
+			}));
+
+		const tierMentions = [...body.matchAll(/tier\s*(\d+)/gi)]
+			.map((match) => Number(match[1]))
+			.filter((value) => Number.isFinite(value));
+		const percentMentions = [...body.matchAll(/(\d+)\s*%/g)]
+			.map((match) => Number(match[1]))
+			.filter((value, index, values) => Number.isFinite(value) && values.indexOf(value) === index);
+		const orderedProseTiers = tierMentions.length && percentMentions.length >= tierMentions.length
+			? tierMentions.map((tier, index) => ({
+				tier,
+				damageBonus: percentMentions[index],
+				defenseBonus: percentMentions[index],
+			}))
+			: [];
+
+		const tiersByTier = new Map();
+		for (const tier of [...explicitTiers, ...proseTiers, ...orderedProseTiers]) {
+			if (!Number.isFinite(tier.tier) || !Number.isFinite(tier.damageBonus)) continue;
+			tiersByTier.set(tier.tier, tier);
+		}
+
+		const tiers = [...tiersByTier.values()].sort((a, b) => a.tier - b.tier);
 		entries.push({
 			difficulty: difficultyLabel,
 			description: body,
@@ -208,7 +258,7 @@ function cleanDisplayDifficultyName(value) {
 }
 
 function isSupportedDifficultyLabel(value) {
-	return ["Fácil", "Normal", "Difícil", "Elite", "Ultimate", "Easy", "Hard", "Medium", "Platinum"].includes(value);
+	return ["Fácil", "Normal", "Difícil", "Elite", "Ultimate", "Easy", "Hard", "Medium", "Platinum", "Ultra", "Hyper", "Master", "Grand Master"].includes(value);
 }
 
 function isObservationLine(value) {

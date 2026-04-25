@@ -353,6 +353,15 @@ export function resolveDisplayTitle(titleMap, categoryLabelMap) {
 		);
 	}
 
+	if (cleanDisplayText(categoryLabel) === "Boss Fight") {
+		return Object.fromEntries(
+			Object.entries(title).map(([locale, value]) => [
+				locale,
+				cleanDisplayText(value).replace(/^Nightmare Terror\s*[-â€“:]\s*/i, ""),
+			])
+		);
+	}
+
 	return title;
 }
 
@@ -445,11 +454,13 @@ export function resolveDisplayInList({ category, slug, title, pageKind, navigati
 export function resolvePageGroup({ category, slug, title, navigationPath = [] }) {
 	if (category === "items") {
 		const text = normalizeCategoryText(`${slug} ${title?.[PT_BR] ?? title?.en ?? ""} ${navigationPath.join(" ")}`);
+		if (/\b(capsule|capsula|pokeball|poke ball|ball|balls)\b/.test(text)) return localizedGroup("Cápsulas e balls", "Capsules and balls", "Cápsulas y balls");
+		if (/\b(camera|cameras|cam|tv camera|figure|figures)\b/.test(text)) return localizedGroup("Câmeras e decorações", "Cameras and decorations", "Cámaras y decoraciones");
+		if (/\b(elixir|elixirs?)\b/.test(text)) return localizedGroup("Elixirs", "Elixirs", "Elixirs");
+		if (/\b(stone|pedra|evolution|evolucao)\b/.test(text)) return localizedGroup("Pedras", "Stones", "Piedras");
+		if (/\b(profissao|profession|craft|alquimista|adventurer|aventureiro|engineer|engenheiro|stylist|estilista|ore|ingot|wool|fur|feather|wood|seed|fragment|fragmento|shard|essence|thread|fabric|cloth|leather|recipe|receita)\b/.test(text)) return localizedGroup("Itens de profissão", "Profession items", "Items de profesión");
 		if (/\b(backpack|bag|mochila|mochilas)\b/.test(text)) return localizedGroup("Mochilas", "Backpacks", "Mochilas");
 		if (/\b(coin|coins?|token|ticket|currency|moeda|gem|gems?)\b/.test(text)) return localizedGroup("Moedas e tokens", "Coins and tokens", "Monedas y tokens");
-		if (/\b(capsule|capsula|pokeball|poke ball|ball|balls)\b/.test(text)) return localizedGroup("Cápsulas e balls", "Capsules and balls", "Cápsulas y balls");
-		if (/\b(profissao|profession|craft|ore|ingot|wool|fur|feather|wood|seed)\b/.test(text)) return localizedGroup("Profissões", "Professions", "Profesiones");
-		if (/\b(stone|pedra|evolution|evolucao)\b/.test(text)) return localizedGroup("Pedras", "Stones", "Piedras");
 		if (/\b(outfit|addon|clothes|roupa)\b/.test(text)) return localizedGroup("Outfits", "Outfits", "Outfits");
 		return localizedGroup("Outros", "Other", "Otros");
 	}

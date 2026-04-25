@@ -111,14 +111,26 @@ export function structureSection(section) {
 
 	if (kind === "pokemon-group") {
 		const cleanedItems = {};
+		const pokemon = {};
 		for (const locale of Object.keys(section.items ?? {})) {
 			cleanedItems[locale] = cleanPokemonGroupItems(
 				section.items[locale] ?? [],
 				section.media?.[locale] ?? [],
 			);
+			const seen = new Set();
+			pokemon[locale] = cleanedItems[locale]
+				.flatMap((item) => String(item ?? "").split(/\s*\|\s*/))
+				.map(cleanStructuredText)
+				.filter((name) => {
+					if (!name || seen.has(name)) return false;
+					seen.add(name);
+					return true;
+				})
+				.map((name) => ({ name, exclusive: false, pve: "Not", pvp: "Not" }));
 		}
 
 		result.items = cleanedItems;
+		if (Object.values(pokemon).some((entries) => entries.length)) result.pokemon = pokemon;
 	}
 
 	if (isBossRecommendationsSection(normalizedId, normalizedHeading, pageCategory)) {
@@ -354,9 +366,10 @@ export function structureSection(section) {
 		for (const locale of new Set([
 			...Object.keys(section.paragraphs ?? {}),
 			...Object.keys(section.items ?? {}),
+			...Object.keys(section.media ?? {}),
 		])) {
 			const parsed = parseDungeonHazardEntries(section.paragraphs?.[locale] ?? [], section.items?.[locale] ?? []);
-			if (parsed.description.length || parsed.bullets.length) hazards[locale] = parsed;
+			if (parsed.description.length || parsed.bullets.length || (section.media?.[locale] ?? []).length) hazards[locale] = parsed;
 		}
 
 		if (Object.keys(hazards).length) result.hazards = hazards;
@@ -443,6 +456,7 @@ export function structureSection(section) {
 		for (const locale of new Set([
 			...Object.keys(section.paragraphs ?? {}),
 			...Object.keys(section.items ?? {}),
+			...Object.keys(section.media ?? {}),
 		])) {
 			const parsed = parseEmbeddedTowerSupport(
 				normalizedId,
@@ -451,7 +465,7 @@ export function structureSection(section) {
 				section.items?.[locale] ?? [],
 			);
 
-			if (parsed.intro.length || parsed.bullets.length || parsed.rows.length) {
+			if (parsed.intro.length || parsed.bullets.length || parsed.rows.length || (section.media?.[locale] ?? []).length) {
 				embeddedTowerSupport[locale] = parsed;
 			}
 		}

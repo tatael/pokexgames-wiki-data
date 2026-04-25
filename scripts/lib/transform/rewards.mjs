@@ -249,6 +249,23 @@ export function parseRewardItemText(item) {
 	if (!parts.length) return null;
 
 	const lastPart = parts[parts.length - 1];
+	const chanceText = String(lastPart ?? "").trim();
+	const maybeQty = parts.length >= 3 ? parts[parts.length - 2] : "";
+	if (
+		parts.length >= 3
+		&& /^(?:\d+(?:[.,]\d+)?%|raro(?:\s*\([^)]*\))?|menor que\s+\d+(?:[.,]\d+)?%)$/i.test(chanceText)
+		&& /^\d+(?:[.,]\d+)?(?:\s*[-a]\s*\??\d*(?:[.,]\d+)?)?$/i.test(maybeQty)
+	) {
+		const name = parts[parts.length - 3] ?? parts[0] ?? "";
+		return {
+			type: "loot",
+			name: cleanLootRewardName(name),
+			difficulty: null,
+			rarity: displayStructuredText(chanceText),
+			qty: maybeQty,
+		};
+	}
+
 	if (isRarityText(lastPart)) {
 		const remaining = parts.slice(0, -1);
 		const maybeQty = remaining.length >= 2 ? remaining[remaining.length - 1] : null;

@@ -22,9 +22,21 @@ export function parseHazardEntries(paragraphs = [], items = []) {
 }
 
 export function isDungeonSupportSection(normalizedId, normalizedHeading, pageCategory) {
-	if (!["dimensional zone", "mystery dungeons", "nightmare world"].includes(pageCategory)) return false;
+	if (![
+		"dimensional zone",
+		"events",
+		"held items",
+		"items",
+		"mystery dungeons",
+		"nightmare world",
+		"professions",
+		"secret lab",
+		"systems",
+		"territory guardians",
+		"ultra lab",
+	].includes(pageCategory)) return false;
 	const token = `${normalizedId} ${normalizedHeading}`;
-	return /\b(dungeon|dungeons|masmorra|masmorras|rift|rifts|progress|progresso|progressao|rotacao|rotation|mecanica|mecanicas|acesso|requisitos?)\b/.test(token);
+	return /\b(dungeon|dungeons|masmorra|masmorras|rift|rifts|progress|progresso|progressao|rotacao|rotation|mecanica|mecanicas|acesso|requisitos?|informacoes?|observacoes?|dicas?|funcionamento|como funciona|mapa|location|localizacao|introducao|introduction|overview|sobre|guia|guide|tutorial|becoming|tornando|convertirse|first steps|primeiros passos|primeros pasos|coleta|collecting resources|colecta|recursos|profit|lucro|ganancia|ganho|exclusividade|exclusivity|lockpick|item finder|turrets?|banners?|pontuacao|pontos|points|perfil|profile|customiz|participando|trocando|adquirindo|colocando)\b/.test(token);
 }
 
 export function parseDungeonSupport(normalizedId, normalizedHeading, paragraphs = [], items = []) {

@@ -46,6 +46,24 @@ test("extractArticleFragmentHtml supports top-level h1 wiki fragments", () => {
 	assert.doesNotMatch(fragmentHtml, /Silver block/);
 });
 
+test("extractArticleFragmentHtml trims footer headings from final h1 fragments", () => {
+	const html = `
+		<h1><span class="mw-headline" id="Master_Dungeons">Master Dungeons</span></h1>
+		<p>Master block</p>
+		<center><a href="/index.php/DZ_Frozen_Master" title="DZ Frozen Master"><img alt="Lorelei.png" src="/images/d/d0/Lorelei.png" width="320" height="90" /></a></center>
+		<div class="printfooter">Footer</div>
+		<h2>Menu de navegação</h2>
+		<p>Navigation block</p>
+	`;
+	const fragmentHtml = extractArticleFragmentHtml(html, "Master_Dungeons");
+	const sections = extractSections(fragmentHtml, "Master Dungeons", "https://wiki.pokexgames.com/index.php/Spoiler_das_Masmorras#Master_Dungeons");
+
+	assert.match(fragmentHtml, /Master block/);
+	assert.doesNotMatch(fragmentHtml, /Menu de navegação/);
+	assert.equal(sections[0].media["pt-BR"].length, 1);
+	assert.equal(sections[0].media["pt-BR"][0].slug, "dz-frozen-master");
+});
+
 test("extractArticleFragmentHtml can target tabber articles by title fragments", () => {
 	const html = `
 		<article class="tabber__panel" data-title="Dorabelle"><p>Dorabelle block</p></article>

@@ -63,6 +63,11 @@ export function extractArticleFragmentHtml(html, fragment) {
 		}
 	}
 
+	const footerIndex = html.slice(currentHeading.end).search(/<div\b[^>]*\b(?:class|id)=["'][^"']*(?:printfooter|catlinks|mw-navigation|mw-panel)/i);
+	if (footerIndex >= 0) {
+		end = Math.min(end, currentHeading.end + footerIndex);
+	}
+
 	return html.slice(currentHeading.start, end);
 }
 

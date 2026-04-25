@@ -9,12 +9,34 @@ export function normalizeForRarity(value) {
 }
 
 export function cleanStructuredText(value) {
-	return String(value ?? "")
+	const text = repairMojibake(String(value ?? ""));
+
+	return text
 		.replace(/\s+/g, " ")
 		.replace(/\s+\./g, ".")
 		.trim()
 		.replace(/[.,;:]$/, "")
 		.trim();
+}
+
+function repairMojibake(value) {
+	let text = value;
+	text = text.replace(/[\u00C2\u00C3][\u0080-\u00BF]/g, (match) =>
+		Buffer.from([...match].map((char) => char.charCodeAt(0))).toString("utf8")
+	);
+
+	for (let index = 0; index < 3 && /[ÃÂâ]/.test(text); index += 1) {
+		const repaired = Buffer.from(text, "latin1").toString("utf8");
+		if (repaired.includes("�") || repaired === text) break;
+		text = repaired;
+	}
+
+	return text
+		.replaceAll("Ã‰", "É")
+		.replaceAll("Ã€", "À")
+		.replaceAll("Ã‡", "Ç")
+		.replaceAll("â€“", "–")
+		.replaceAll("â€”", "—");
 }
 
 export function displayStructuredText(value) {

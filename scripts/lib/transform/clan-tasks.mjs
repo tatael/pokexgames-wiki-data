@@ -35,6 +35,7 @@ function parseDefeatTargets(text) {
 	if (!/^Derrotar\b/i.test(normalizeLine(text))) return [];
 	const body = normalizeLine(text)
 		.replace(/^Derrotar\s*(?:\(([^)]+)\))?/i, "")
+		.replace(/\bDepois dessas etapas[\s\S]*$/i, "")
 		.trim();
 	const targets = [...body.matchAll(/(\d[\d.]*)\s+([A-ZÀ-Ý][A-Za-zÀ-ÿ0-9'(). -]+?)(?=\s+\d[\d.]*\s+[A-ZÀ-Ý]|$)/g)]
 		.map((match) => ({
@@ -49,9 +50,15 @@ function parseStage(number, rawText) {
 	const text = normalizeLine(rawText);
 	const captureMatch = text.match(/^Capturar\s+(.+)$/i);
 	if (captureMatch) {
+		const targetText = normalizeLine(captureMatch[1])
+			.replace(/\bEm\s+\d{1,2}\/\d{1,2}\/\d{4}[\s\S]*$/i, "")
+			.replace(/\bJogadores que[\s\S]*$/i, "")
+			.trim();
+		const targetName = cleanStructuredText(stripImageRefFromText(targetText)).replace(/[.;:,]$/, "").trim();
 		return {
 			number: Number(number),
 			label: "Capturar",
+			...(targetName ? { targets: [{ amount: "1", name: targetName }] } : {}),
 			details: splitSentences(captureMatch[1]),
 		};
 	}

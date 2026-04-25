@@ -81,6 +81,7 @@ function parseSupportRows(items = []) {
 
 function getEmbeddedTowerSupportType(normalizedId, normalizedHeading) {
 	const token = `${normalizedId} ${normalizedHeading}`;
+	if (/\b(fragmentos?|fragments?|esferas?|spheres?|orbs?)\b/.test(token)) return 'fragments';
 	if (/\b(andar|andares|floor|floors|piso|pisos|estrutura)\b/.test(token)) return "floor-structure";
 	if (/\b(mecanica|mecanicas|mechanic|mechanics|camara|boss)\b/.test(token)) return "mechanics";
 	return "";

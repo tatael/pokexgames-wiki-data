@@ -28,12 +28,10 @@ function buildPublicSectionContent(section) {
 	for (const locale of locales) {
 		let paragraphs = [];
 		if (shouldPublishParagraphContent(section)) {
-			paragraphs = section.kind === "tasks"
-				? (section.taskGroups?.[locale]?.intro ?? [])
-				: (section.paragraphs?.[locale] ?? []);
+			paragraphs = section.kind === "tasks" ? [] : (section.paragraphs?.[locale] ?? []);
 		}
 
-		const bullets = section.kind === "pokemon-group" && !section.bossRecommendations
+		const bullets = section.kind === "pokemon-group" && !section.bossRecommendations && !section.pokemon
 			? (section.items?.[locale] ?? [])
 			: (shouldPublishListContent(section)
 				? (section.items?.[locale] ?? []).filter((item) => !String(item ?? "").includes("|"))

@@ -112,6 +112,23 @@ test("parseRewardItemText keeps ranking places and loot difficulties structured"
 	);
 });
 
+test("parseRewardItemText keeps Ultra Lab item names instead of chance columns", () => {
+	assert.deepEqual(parseRewardItemText("Access Card.png | Access Card | 1 | 1.5%"), {
+		type: "loot",
+		name: "Access Card",
+		difficulty: null,
+		rarity: "1.5%",
+		qty: "1",
+	});
+	assert.deepEqual(parseRewardItemText("Mecha Costume.png | Mecha Costume | 1 | Raro (Menor que 1%)"), {
+		type: "loot",
+		name: "Mecha Costume",
+		difficulty: null,
+		rarity: "Raro (Menor que 1%)",
+		qty: "1",
+	});
+});
+
 test("parsePokemonItemText preserves multiple roles in the same PvE or PvP field", () => {
 	assert.deepEqual(
 		parsePokemonItemText("Shiny Pupitar (PvE: OTDD PvE / BDD PvE / PvP: Tank PvP)"),
@@ -190,6 +207,19 @@ test("structureSection publishes structured task cards upstream", () => {
 	]);
 });
 
+test("publishSection does not keep raw daily kill sprite rows as task prose", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "nivel-25-ao-59",
+		heading: "Nível 25 ao 59",
+		pageCategory: "daily-missions",
+		paragraphs: ["669.Flabébé.png Flabébé"],
+		items: ["074-Geodude Geodude | 669.Flabébé.png Flabébé"],
+	})));
+
+	assert.equal(section.content, undefined);
+	assert.deepEqual(section.tasks[PT_BR][0].targets, ["Geodude", "Flabébé"]);
+});
+
 test("publishSection emits v2 structured sections without legacy raw mirrors", () => {
 	const source = structureSection(localizedSection({
 		id: "nightmare-tasks",
@@ -207,8 +237,7 @@ test("publishSection emits v2 structured sections without legacy raw mirrors", (
 	assert.equal(section.items, undefined);
 	assert.equal(section.paragraphs, undefined);
 	assert.equal(section.heading, undefined);
-	assert.equal(section.content[PT_BR].paragraphs[0], "As Nightmare Balls e Beast Balls NAO sao itens unicos.");
-	assert.equal(section.content[PT_BR].list, undefined);
+	assert.equal(section.content, undefined);
 	assert.equal(section.taskGroups[PT_BR].groups[0].name, "Nightmare Cerulean");
 	assert.equal(section.taskGroups[PT_BR].groups[0].tasks[0].npc, "Missy");
 	assert.deepEqual(Object.keys(section.title), [PT_BR]);
@@ -232,6 +261,22 @@ test("publishSection compacts identical locale payloads and emits clan task rank
 	assert.equal(section.clanTasks[PT_BR].ranks[0].stages[0].rows[0].item, "Rubber Ball");
 	assert.equal(section.clanTasks[PT_BR].ranks[0].stages[2].targets[0].name, "Onix");
 	assert.match(section.clanTasks[PT_BR].ranks[0].dangerRoomTeamText, /Tauros/);
+});
+
+test("clan task capture targets ignore update notes and defeat targets stop before prose", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "tasks",
+		pageCategory: "clans",
+		pageSlug: "gardestrike-tasks",
+		heading: "Tasks",
+		paragraphs: [
+			"# Rank 2 ao 3",
+			"Etapa 1 - Capturar Miltank Em 15/12/2021, a lista de Pokemon exigidos foi atualizada. Jogadores que ja estavam nessa fase antes da alteracao deverao entregar um Wigglytuff em vez de um Miltank. Etapa 2 - Derrotar (2 Lista) 40 Golduck 40 Victreebel 30 Politoed 40 Sandslash Depois dessas etapas, va ate a Danger Room. Danger Room Team Machamp Poliwrath Blaziken",
+		],
+	})));
+
+	assert.deepEqual(section.clanTasks[PT_BR].ranks[0].stages[0].targets, [{ amount: "1", name: "Miltank" }]);
+	assert.deepEqual(section.clanTasks[PT_BR].ranks[0].stages[1].targets.map((target) => target.name), ["Golduck", "Victreebel", "Politoed", "Sandslash"]);
 });
 
 test("publishSection emits structured tables and bullets instead of raw pipe lists", () => {
@@ -385,10 +430,10 @@ test("structureSection emits boss difficulties, held enhancement, hazards, and q
 	assert.equal(bossRecommendations.content, undefined);
 	assert.equal(bossRecommendations.tables, undefined);
 	assert.deepEqual(bossRecommendations.bossRecommendations[PT_BR], {
-		intro: ["Use PokÃ©mon resistentes ao elemento do boss"],
+		intro: ["Use Pokémon resistentes ao elemento do boss"],
 		groups: [{
 			label: "Tanques",
-			notes: ["Preferir opÃ§Ãµes com cura ou bloqueio"],
+			notes: ["Preferir opções com cura ou bloqueio"],
 			pokemon: ["Blastoise", "Big Onix"],
 		}, {
 			label: "Dano",
@@ -402,7 +447,7 @@ test("structureSection emits boss difficulties, held enhancement, hazards, and q
 		heading: "Held Enhancement",
 		paragraphs: [
 			"Esse sistema concede bônus.",
-			"Normal: caso o jogador esteja utilizando Held de Tier 6, causará 35% mais dano e receberá 35% menos dano dos inimigos. Esses valores são aumentados para 37% caso o jogador esteja utilizando Held de Tier 7.",
+			"Normal: caso o jogador esteja utilizando Held de Tier 6, causará 35% mais dano e receberá 35% menos dano dos inimigos. Esses valores são aumentados para 37% caso o jogador esteja utilizando Held de Tier 7 e para 39% caso o jogador esteja usando Held de Tier 8.",
 		],
 		items: [
 			"Esse sistema somente é válido para o Held equipado diretamente no slot X do Pokémon.",
@@ -415,7 +460,34 @@ test("structureSection emits boss difficulties, held enhancement, hazards, and q
 		damageBonus: 35,
 		defenseBonus: 35,
 	});
+	assert.deepEqual(heldEnhancement.heldEnhancement[PT_BR].entries[0].tiers.map((tier) => tier.tier), [6, 7, 8]);
+	assert.equal(heldEnhancement.heldEnhancement[PT_BR].entries[0].tiers[2].damageBonus, 39);
 	assert.equal(heldEnhancement.heldEnhancement[PT_BR].notes.length, 1);
+
+	const difficultyFacts = publishSection(structureSection(localizedSection({
+		id: "dificuldades",
+		heading: "Dificuldades",
+		pageCategory: "boss-fight",
+		items: [
+			"Normal: requer no mínimo nível 200; é recomendada para nível 250 ou superior e possui um level cap no nível 350. Os jogadores deverão deixar a vida do Entei em 65% para concluir. Para entrar nesta dificuldade, é necessário que o jogador tenha 1 entei charm.",
+		],
+	})));
+
+	assert.equal(difficultyFacts.difficulties[PT_BR].entries[0].objective, "Deixar a vida do Entei em 65%");
+	assert.equal(difficultyFacts.difficulties[PT_BR].entries[0].entryRequirement.name, "Entei Charm");
+
+	const mysteryHeldEnhancement = publishSection(structureSection(localizedSection({
+		id: "held-enhancement",
+		heading: "Held Enhancement",
+		pageCategory: "mystery-dungeons",
+		paragraphs: [
+			"Hyper: caso o jogador esteja utilizando Held de Tier 6 ou maior, causará 35% mais dano e receberá 35% menos dano dos inimigos.",
+			"Master: caso o jogador esteja utilizando Held de Tier 7 ou maior, causará 35% mais dano e receberá 35% menos dano dos inimigos.",
+			"Grand Master: caso o jogador esteja utilizando Held de Tier 8, causará 35% mais dano e receberá 35% menos dano dos inimigos.",
+		],
+	})));
+
+	assert.deepEqual(mysteryHeldEnhancement.heldEnhancement[PT_BR].entries.map((entry) => entry.difficulty), ["Hyper", "Master", "Grand Master"]);
 
 	const hazards = publishSection(structureSection(localizedSection({
 		id: "armadilhas",
@@ -508,6 +580,29 @@ test("structureSection emits held item categories and x-boost groups without raw
 	});
 });
 
+test("structureSection parses Portuguese X-Boost level ranges", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "informacoes-sobre-o-x-boost",
+		pageCategory: "held-items",
+		heading: "Informações sobre o X-Boost",
+		paragraphs: [
+			"# Tier 1",
+			"Faixa de Nível Boost 0 a 99 6 100 a 149 9 150 a 399 12 400 a 625 15",
+		],
+	})));
+
+	assert.deepEqual(section.heldBoosts[PT_BR].ranges[0], {
+		name: "Tier 1",
+		rows: [
+			{ levelRange: "0 a 99", boost: "6" },
+			{ levelRange: "100 a 149", boost: "9" },
+			{ levelRange: "150 a 399", boost: "12" },
+			{ levelRange: "400 a 625", boost: "15" },
+		],
+	});
+	assert.equal(section.content, undefined);
+});
+
 test("structureSection emits typed held-item operation steps for equip/remove/device/fusion flows", () => {
 	const equipPokemon = publishSection(structureSection(localizedSection({
 		id: "como-equipar-em-seu-pokemon",
@@ -525,14 +620,14 @@ test("structureSection emits typed held-item operation steps for equip/remove/de
 	})));
 
 	assert.equal(equipPokemon.content, undefined);
-	assert.equal(equipPokemon.steps[PT_BR][0].title, "Equipar no PokÃ©mon");
+	assert.equal(equipPokemon.steps[PT_BR][0].title, "Equipar no Pokémon");
 	assert.deepEqual(equipPokemon.steps[PT_BR][0].body, [
-		"O PokÃ©mon deve estar em sua mochila para equipar um Held Item",
+		"O Pokémon deve estar em sua mochila para equipar um Held Item",
 	]);
 	assert.deepEqual(equipPokemon.steps[PT_BR][0].bullets, [
-		"Usar um Held Item em um PokÃ©mon que jÃ¡ possui um Held Item do mesmo tipo farÃ¡ com que o Held anterior seja perdido",
-		"Ao colocar um Held Item, sÃ³ poderÃ¡ remover mediante pagamento no NPC Apolo",
-		"Ã‰ possÃ­vel adicionar um Held Item inativo X e Y no seu PokÃ©mon",
+		"Usar um Held Item em um Pokémon que já possui um Held Item do mesmo tipo fará com que o Held anterior seja perdido",
+		"Ao colocar um Held Item, só poderá remover mediante pagamento no NPC Apolo",
+		"É possível adicionar um Held Item inativo X e Y no seu Pokémon",
 	]);
 
 	const equipDevice = publishSection(structureSection(localizedSection({
@@ -554,8 +649,8 @@ test("structureSection emits typed held-item operation steps for equip/remove/de
 	assert.equal(equipDevice.steps[PT_BR][1].title, "Improved Device");
 	assert.deepEqual(equipDevice.steps[PT_BR][1].rows[0], {
 		cells: [
-			{ text: "PadrÃ£o" },
-			{ text: "Improved-Device-padrÃ£o", raw: "Improved-Device-padrÃ£o.gif" },
+			{ text: "Padrão" },
+			{ text: "Improved-Device-padrão", raw: "Improved-Device-padrão.gif" },
 		],
 	});
 
@@ -576,7 +671,7 @@ test("structureSection emits typed held-item operation steps for equip/remove/de
 	})));
 
 	assert.deepEqual(removeDevice.steps[PT_BR][0].bullets, [
-		"Para remover o Held Item padrÃ£o, o Device deve estar no Modo PadrÃ£o",
+		"Para remover o Held Item padrão, o Device deve estar no Modo Padrão",
 		"Para remover o Held Item defensivo, o Device deve estar no Modo Defensivo",
 	]);
 	assert.equal(removeDevice.steps[PT_BR][0].rows[1].cells[1].text, "25K");
@@ -602,13 +697,13 @@ test("structureSection emits typed held-item operation steps for equip/remove/de
 	})));
 
 	assert.equal(fusion.content, undefined);
-	assert.equal(fusion.steps[PT_BR][0].title, "VisÃ£o Geral");
-	assert.equal(fusion.steps[PT_BR][1].title, "Como realizar a fusÃ£o");
-	assert.equal(fusion.steps[PT_BR][2].title, "ObservaÃ§Ãµes importantes");
+	assert.equal(fusion.steps[PT_BR][0].title, "Visão Geral");
+	assert.equal(fusion.steps[PT_BR][1].title, "Como realizar a fusão");
+	assert.equal(fusion.steps[PT_BR][2].title, "Observações importantes");
 	assert.deepEqual(fusion.steps[PT_BR][2].rows[0], {
 		cells: [
 			{ text: "Tier 1 para Tier 2" },
-			{ text: "60.000 dÃ³lares" },
+			{ text: "60.000 dólares" },
 		],
 	});
 });
@@ -718,6 +813,107 @@ test("structureSection emits typed commerce and dungeon support sections without
 			{ text: "DZ Mega Altaria" },
 		],
 	});
+
+	const secretLab = publishSection(structureSection(localizedSection({
+		id: "dicas",
+		pageCategory: "secret-lab",
+		heading: "Dicas",
+		paragraphs: ["Use Medicine e berries."],
+		items: ["Evite andar separado."],
+	})));
+
+	assert.equal(secretLab.content, undefined);
+	assert.equal(secretLab.dungeonSupport[PT_BR].type, "overview");
+	assert.deepEqual(secretLab.dungeonSupport[PT_BR].intro, ["Use Medicine e berries"]);
+	assert.deepEqual(secretLab.dungeonSupport[PT_BR].bullets, ["Evite andar separado"]);
+
+	const systemOverview = publishSection(structureSection(localizedSection({
+		id: "introducao",
+		pageCategory: "systems",
+		heading: "Introdução",
+		paragraphs: ["Sistema com regras próprias."],
+		items: [
+			"Recurso | Uso",
+			"Pontuação | Desbloqueia prêmios",
+			"Confira a janela do evento.",
+		],
+	})));
+
+	assert.equal(systemOverview.content, undefined);
+	assert.equal(systemOverview.tables, undefined);
+	assert.equal(systemOverview.dungeonSupport[PT_BR].type, "overview");
+	assert.deepEqual(systemOverview.dungeonSupport[PT_BR].intro, ["Sistema com regras próprias"]);
+	assert.deepEqual(systemOverview.dungeonSupport[PT_BR].bullets, ["Confira a janela do evento"]);
+	assert.deepEqual(systemOverview.dungeonSupport[PT_BR].rows[1], {
+		cells: [
+			{ text: "Pontuação" },
+			{ text: "Desbloqueia prêmios" },
+		],
+	});
+
+	const professionGuide = publishSection(structureSection(localizedSection({
+		id: "guia-de-craft",
+		pageCategory: "professions",
+		heading: "Guia de craft",
+		paragraphs: ["Escolha uma profissão antes de produzir itens."],
+		items: ["Separe os materiais necessários."],
+	})));
+
+	assert.equal(professionGuide.content, undefined);
+	assert.equal(professionGuide.dungeonSupport[PT_BR].type, "overview");
+	assert.deepEqual(professionGuide.dungeonSupport[PT_BR].bullets, ["Separe os materiais necessários"]);
+});
+
+test("structureSection broadens profession/event/lab sections into typed payloads", () => {
+	const professionProfit = publishSection(structureSection(localizedSection({
+		id: "profit",
+		pageCategory: "professions",
+		heading: "Profit",
+		paragraphs: ["Venda recursos para outros jogadores."],
+		items: ["Recurso | Valor", "Iron Ore | 100"],
+	})));
+
+	assert.equal(professionProfit.content, undefined);
+	assert.equal(professionProfit.commerceEntries[PT_BR].type, "cost");
+	assert.deepEqual(professionProfit.commerceEntries[PT_BR].rows[1], {
+		cells: [
+			{ text: "Iron Ore" },
+			{ text: "100" },
+		],
+	});
+
+	const professionFirstSteps = publishSection(structureSection(localizedSection({
+		id: "first-steps",
+		pageCategory: "professions",
+		heading: "First Steps",
+		paragraphs: ["Escolha a profissao e colete materiais."],
+		items: ["Use as ferramentas iniciais."],
+	})));
+
+	assert.equal(professionFirstSteps.content, undefined);
+	assert.equal(professionFirstSteps.dungeonSupport[PT_BR].type, "overview");
+
+	const eventEnemies = publishSection(structureSection(localizedSection({
+		id: "inimigos",
+		pageCategory: "events",
+		heading: "Inimigos",
+		items: ["025-Pikachu Pikachu | 026-Raichu Raichu"],
+	})));
+
+	assert.equal(eventEnemies.kind, "pokemon-group");
+	assert.equal(eventEnemies.content, undefined);
+	assert.deepEqual(eventEnemies.pokemon[PT_BR].map((entry) => entry.name), ["Pikachu", "Raichu"]);
+
+	const labLoot = publishSection(structureSection(localizedSection({
+		id: "loots",
+		pageCategory: "ultra-lab",
+		heading: "Loots",
+		items: ["Alpha Token Raro", "Ultra Gem Comum"],
+	})));
+
+	assert.equal(labLoot.kind, "rewards");
+	assert.equal(labLoot.content, undefined);
+	assert.equal(labLoot.rewards[PT_BR][0].name, "Alpha Token Raro");
 });
 
 test("structureSection emits embedded tower progression, unlocks, and linked cards", () => {
@@ -779,6 +975,26 @@ test("structureSection emits embedded tower progression, unlocks, and linked car
 			{ text: "Recompensa" },
 		],
 	});
+
+	const fragments = publishSection(structureSection(localizedSection({
+		id: "fragmentos",
+		pageCategory: "embedded-tower",
+		heading: "Fragmentos",
+		paragraphs: ["Durante o andar é possível encontrar fragmentos escondidos."],
+		media: [{ type: "image", url: "https://wiki.pokexgames.com/images/a/aa/Fragmento.png", alt: "Fragmento.png" }],
+	})));
+
+	assert.equal(fragments.embeddedTowerSupport[PT_BR].type, "fragments");
+	assert.equal(fragments.content, undefined);
+
+	const mediaOnlyHazards = publishSection(structureSection(localizedSection({
+		id: "armadilhas",
+		pageCategory: "embedded-tower",
+		heading: "Armadilhas",
+		media: [{ type: "image", url: "https://wiki.pokexgames.com/images/b/bb/Trap.gif", alt: "Trap.gif" }],
+	})));
+
+	assert.deepEqual(mediaOnlyHazards.hazards[PT_BR], { description: [], bullets: [] });
 
 	const mechanics = publishSection(structureSection(localizedSection({
 		id: "mecanicas-do-boss",

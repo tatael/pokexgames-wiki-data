@@ -50,15 +50,20 @@ export function classifySectionKind(id, headingText) {
 		return "tasks";
 	}
 
-	if (normHeading === "recompensa" || normHeading === "recompensas" || normHeading === "rewards" || /premios|premiacoes|premios dos baus/.test(normHeading)) {
+	if (normHeading === "recompensa" || normHeading === "recompensas" || normHeading === "rewards" || /\b(loots?|drops?|premios|premiacoes|premios dos baus)\b/.test(normHeading)) {
 		return "rewards";
+	}
+
+	if (/^(?:tasks?|tarefas?)$/.test(normHeading)) {
+		return "tasks";
 	}
 
 	if (/^habilidades?(\s+|$)/.test(normHeading)) {
 		return "info";
 	}
 
-	if (normHeading === "pokemon" || normHeading === "pokemons" || normHeading === "pokemon recomendados") {
+	if (normHeading === "pokemon" || normHeading === "pokemons" || normHeading === "pokemon recomendados"
+		|| /^(?:inimigos|enemies|criaturas encontradas|creatures found|pokemon exclusivos|exclusive pokemon)$/.test(normHeading)) {
 		return "pokemon-group";
 	}
 

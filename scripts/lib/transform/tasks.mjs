@@ -17,9 +17,15 @@ function looksLikeTaskRewardText(value) {
 function cleanTaskObjectiveText(value) {
 	return cleanStructuredText(value)
 		.replace(/\b(\d+x?\s+)?\d{3,4}\s*[-_.]\s*([A-Za-z][A-Za-z' .-]+?)\s+\2\b/gi, "$1$2")
-		.replace(/\b(\d+x?\s+)?[A-Za-z0-9%()' -]+\.(?:png|gif|webp|jpe?g)\s+([A-Za-z][A-Za-z' .-]+)/gi, "$1$2")
+		.replace(/\b(\d+x?\s+)?[\p{L}\p{N}_%()' .-]+\.(?:png|gif|webp|jpe?g)\s+([\p{L}][\p{L}' .-]+)/giu, "$1$2")
 		.replace(/\s+/g, " ")
 		.trim();
+}
+
+function cleanTaskTargetText(value) {
+	const text = cleanTaskObjectiveText(value);
+	const spriteMatch = text.match(/^(?:\d{1,4}[-_.]\s*)?([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ' .-]+?)(?:\s+\1)?$/i);
+	return cleanStructuredText(spriteMatch?.[1] ?? text).trim();
 }
 
 function parseTaskRowsFromLines(lines = []) {
@@ -210,7 +216,7 @@ export function parseTaskSectionPayloads(section) {
 			const rewards = paragraphs.length ? parseSimpleRewardText(paragraphs[0]) : [];
 			const targets = items
 				.flatMap((item) => String(item ?? "").split(/\s*\|\s*/))
-				.map((item) => stripImageRefFromText(item.trim()))
+				.map(cleanTaskTargetText)
 				.filter(Boolean);
 			tasks[locale] = [{
 				objective: fallbackTitle,

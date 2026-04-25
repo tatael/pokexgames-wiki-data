@@ -150,6 +150,10 @@ test("resolveDisplayTitle and title overrides remove redundant category prefixes
 		buildLocalizedText("Laboratório Raibolt"),
 	);
 	assert.deepEqual(
+		resolveDisplayTitle(buildLocalizedText("Nightmare Terror - Gama"), buildLocalizedText("Boss Fight")),
+		buildLocalizedText("Gama"),
+	);
+	assert.deepEqual(
 		resolveTitleOverride({ category: "tasks", slug: "tasks" }),
 		buildLocalizedText("Kanto Tasks"),
 	);
@@ -216,6 +220,32 @@ test("resolvePageGroup publishes item filter groups", () => {
 		slug: "compressed-nightmare-gem",
 		title: buildLocalizedText("Compressed Nightmare Gem"),
 	})[PT_BR], "Moedas e tokens");
+
+	assert.equal(resolvePageGroup({
+		category: "items",
+		slug: "attack-elixir",
+		title: buildLocalizedText("Attack Elixir"),
+	})[PT_BR], "Elixirs");
+
+	assert.equal(resolvePageGroup({
+		category: "items",
+		slug: "dusk-ball",
+		title: buildLocalizedText("Dusk Ball"),
+		navigationPath: ["Itens", "Bags"],
+	})[PT_BR], "Cápsulas e balls");
+
+	assert.equal(resolvePageGroup({
+		category: "items",
+		slug: "alquimista",
+		title: buildLocalizedText("Crafts de Alquimista"),
+	})[PT_BR], "Itens de profissão");
+
+	assert.equal(resolvePageGroup({
+		category: "items",
+		slug: "feather-stone",
+		title: buildLocalizedText("Feather Stone"),
+		navigationPath: ["Itens", "Itens Gerais", "Pedras de Evolução", "Profissões"],
+	})[PT_BR], "Pedras");
 });
 
 test("resolvePageGroup publishes Nightmare Rift list sections", () => {

@@ -515,7 +515,7 @@ function validateEmbeddedTowerUnlocksPayload(entry, fieldName) {
 
 function validateEmbeddedTowerSupportPayload(entry, fieldName) {
 	validateString(entry.type, `${fieldName}.type`);
-	if (!["floor-structure", "mechanics"].includes(entry.type)) {
+	if (!["floor-structure", "mechanics", "fragments"].includes(entry.type)) {
 		throw new Error(`${fieldName}.type is not supported`);
 	}
 

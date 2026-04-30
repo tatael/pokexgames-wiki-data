@@ -55,6 +55,12 @@ test("resolveCategory routes normalized wiki pages to their source categories", 
 		navigationPath: ["Itens", "Mochilas", "Mochilas de Quest"],
 		pageKind: "quest",
 	}), "items");
+
+	assert.equal(resolveCategory("systems", "pokepark", null, {
+		title: buildLocalizedText("PokéPark"),
+		navigationPath: ["Sistemas", "PokéPark"],
+		pageKind: "system",
+	}), "events");
 });
 
 test("buildLocalizedSummary replaces the generic local-sync placeholder", () => {

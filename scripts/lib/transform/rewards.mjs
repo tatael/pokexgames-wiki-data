@@ -101,6 +101,36 @@ export function parseSimpleRewardText(value) {
 
 	if (!text) return [];
 
+	const money = text.match(/^\$\s*([\d.]+)$/);
+	if (money) {
+		return [{
+			type: "loot",
+			name: "Dinheiro",
+			rarity: null,
+			difficulty: null,
+			qty: money[1],
+		}];
+	}
+
+	const xpWithNightmareIcon = text.match(/^([\d.]+)\s+Exp icon nw\s+([\d.]+)$/i);
+	if (xpWithNightmareIcon) {
+		return [{
+			type: "loot",
+			name: "Experiência",
+			icon: "xp",
+			rarity: null,
+			difficulty: null,
+			qty: xpWithNightmareIcon[1],
+		}, {
+			type: "loot",
+			name: "Nightmare Experience",
+			icon: "nightmare-xp",
+			rarity: null,
+			difficulty: null,
+			qty: xpWithNightmareIcon[2],
+		}];
+	}
+
 	if (/exp icon/i.test(text)) {
 		const rewards = [];
 		const xp = text.match(/Exp icon\s+([\d.]+)/i);

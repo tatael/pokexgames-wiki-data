@@ -220,6 +220,12 @@ export function resolveCategory(category, slug, profile, entry = {}) {
 		if (looksLikeEventPage(title, navigationPath)) return "events";
 	}
 
+	if (category === "systems") {
+		const title = entry.title?.[PT_BR] ?? entry.title?.en ?? slug;
+		const navigationPath = Array.isArray(entry.navigationPath) ? entry.navigationPath : [];
+		if (looksLikeEventPage(title, navigationPath)) return "events";
+	}
+
 	if (category === "events" && DIMENSIONAL_EVENT_DUNGEON_SLUGS.has(slug)) {
 		return "dimensional-zone";
 	}

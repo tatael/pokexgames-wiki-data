@@ -207,6 +207,53 @@ test("structureSection publishes structured task cards upstream", () => {
 	]);
 });
 
+test("task category table rows publish Kanto and Johto city tasks as typed tasks", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "cinnabar",
+		heading: "Cinnabar",
+		pageCategory: "tasks",
+		items: [
+			"1. NPC Susan | Em frente a Lan House | Entregar: 1 Chocolate Bar | $30",
+			"5. NPC Carli | Proximo ao NPC Samir | Derrotar: 30 Rattata e 30 Zubat | 4.125 EXP",
+		],
+	})));
+
+	assert.equal(section.kind, "tasks");
+	assert.equal(section.content, undefined);
+	assert.equal(section.tables, undefined);
+	assert.equal(section.tasks[PT_BR].length, 2);
+	assert.equal(section.tasks[PT_BR][0].objectiveDetails.type, "deliver");
+	assert.equal(section.tasks[PT_BR][0].targets.length, 0);
+	assert.equal(section.tasks[PT_BR][1].objectiveDetails.type, "defeat");
+	assert.deepEqual(section.tasks[PT_BR][1].objectiveDetails.targets, [
+		{ name: "Rattata", slug: "rattata", amount: 30 },
+		{ name: "Zubat", slug: "zubat", amount: 30 },
+	]);
+});
+
+test("task category prose rows publish Kanto and Johto tasks as typed tasks", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "cerulean",
+		heading: "Cerulean",
+		pageCategory: "tasks",
+		paragraphs: [
+			"1. NPC Susan Entregar: 1 Chocolate Bar $30",
+			"5. NPC Carli Derrotar: 30 Rattata e 30 Zubat 4.125 EXP",
+		],
+	})));
+
+	assert.equal(section.kind, "tasks");
+	assert.equal(section.tasks[PT_BR].length, 2);
+	assert.equal(section.tasks[PT_BR][0].objective, "Entregar: 1 Chocolate Bar");
+	assert.equal(section.tasks[PT_BR][0].objectiveDetails.type, "deliver");
+	assert.deepEqual(section.tasks[PT_BR][0].rewards.map((reward) => [reward.name, reward.qty]), [["Dinheiro", "30"]]);
+	assert.equal(section.tasks[PT_BR][1].objectiveDetails.type, "defeat");
+	assert.deepEqual(section.tasks[PT_BR][1].objectiveDetails.targets, [
+		{ name: "Rattata", slug: "rattata", amount: 30 },
+		{ name: "Zubat", slug: "zubat", amount: 30 },
+	]);
+});
+
 test("publishSection does not keep raw daily kill sprite rows as task prose", () => {
 	const section = publishSection(structureSection(localizedSection({
 		id: "nivel-25-ao-59",
@@ -241,6 +288,71 @@ test("publishSection emits v2 structured sections without legacy raw mirrors", (
 	assert.equal(section.taskGroups[PT_BR].groups[0].name, "Nightmare Cerulean");
 	assert.equal(section.taskGroups[PT_BR].groups[0].tasks[0].npc, "Missy");
 	assert.deepEqual(Object.keys(section.title), [PT_BR]);
+});
+
+test("Nightmare task groups keep multiple inline NPC tasks with their objective actions", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "nightmare-tasks",
+		heading: "Nightmare Tasks",
+		items: [
+			"1 Nightmare Cerulean",
+			"1. NPC Missy Derrotar: 300 Meowstic 2.000.000 EXP",
+			"2. NPC Lara Entregar: 10 Black Nightmare Gem $5.000",
+		],
+	})));
+
+	assert.equal(section.taskGroups[PT_BR].groups[0].tasks.length, 2);
+	assert.equal(section.taskGroups[PT_BR].groups[0].tasks[0].objectiveDetails.type, "defeat");
+	assert.equal(section.taskGroups[PT_BR].groups[0].tasks[1].objectiveDetails.type, "deliver");
+});
+
+test("Nightmare collect tasks split image noise and Exp icon nw rewards", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "nightmare-tasks",
+		heading: "Nightmare Tasks",
+		items: [
+			"1 Nightmare Cosmic",
+			"2. NPC Yami Coletar: 6x Plant Essences que estão na Cosmic Island. Task Yami NW.jpg 650.000 Exp icon nw 5.500",
+		],
+	})));
+
+	const task = section.taskGroups[PT_BR].groups[0].tasks[0];
+	assert.equal(task.objective, "Coletar: 6x Plant Essences");
+	assert.equal(task.objectiveDetails.type, "collect");
+	assert.deepEqual(task.notes, ["que estão na Cosmic Island"]);
+	assert.deepEqual(task.rewards.map((reward) => [reward.name, reward.qty]), [
+		["Experiência", "650.000"],
+		["Nightmare Experience", "5.500"],
+	]);
+});
+
+test("Nightmare pipe task rows keep requirements and rewards outside objective", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "nightmare-cerulean",
+		pageCategory: "tasks",
+		heading: "Nightmare Cerulean",
+		items: [
+			"3. NPC Kendrick | Derrotar: 100 Alolan Diglett, 100 Alolan Meowth e 100 Alolan Grimer | Level: 300 NW Level: 2 | Exp icon 3.513.600 Exp icon nw 27.000 Cyan Nightmare Gem 25 Cyan Nightmare Gem",
+			"4. NPC Yami | Coletar: 6x Plant Essences que estÃ£o na Cosmic Island. Task Yami NW.jpg | Level: 300 NW Level: 2 | Exp icon 650.000 Exp icon nw 5.500",
+		],
+	})));
+
+	const [kendrick, yami] = section.tasks[PT_BR];
+	assert.equal(kendrick.title, "NPC Kendrick");
+	assert.equal(kendrick.objective, "Derrotar: 100 Alolan Diglett, 100 Alolan Meowth e 100 Alolan Grimer");
+	assert.deepEqual(kendrick.requirements, { level: 300, nightmareLevel: 2 });
+	assert.deepEqual(kendrick.notes, []);
+	assert.deepEqual(kendrick.rewards.map((reward) => [reward.name, reward.qty]), [
+		["Experiência", "3.513.600"],
+		["Nightmare Experience", "27.000"],
+		["Cyan Nightmare Gem", "25"],
+	]);
+	assert.equal(yami.objective, "Coletar: 6x Plant Essences");
+	assert.deepEqual(yami.notes, ["que estão na Cosmic Island"]);
+	assert.deepEqual(yami.rewards.map((reward) => [reward.name, reward.qty]), [
+		["Experiência", "650.000"],
+		["Nightmare Experience", "5.500"],
+	]);
 });
 
 test("publishSection compacts identical locale payloads and emits clan task ranks", () => {
@@ -1101,4 +1213,75 @@ test("publishSection keeps boss recommendation rows normalized instead of raw sp
 		notes: [],
 		pokemon: ["Red Gyarados", "Golden Steelix"],
 	}]);
+});
+
+test("boss recommendation tank group keeps only PvE tank role rows when roles are present", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "pokemon-recomendados",
+		pageCategory: "boss-fight",
+		heading: "Pokémon recomendados",
+		paragraphs: [
+			"# Tanque",
+			"# Causador de Dano",
+		],
+		items: [
+			"Blastoise (PvE: Tank PvE / PvP: Not) | Shiny Pupitar (PvE: OTDD PvE / PvP: Tank PvP) | Steelix (PvE: Off Tank PvE / PvP: Not)",
+			"Shiny Golduck (PvE: BDD PvE / PvP: Not)",
+		],
+	})));
+
+	assert.deepEqual(section.bossRecommendations[PT_BR].groups, [{
+		label: "Tanque",
+		notes: [],
+		pokemon: ["Blastoise"],
+	}, {
+		label: "Causador de Dano",
+		notes: [],
+		pokemon: ["Shiny Golduck"],
+	}]);
+});
+
+test("boss recommendation tank filtering uses raw role rows before sprite cleanup", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "pokemon-recomendados",
+		pageCategory: "boss-fight",
+		heading: "Pokémon recomendados",
+		paragraphs: ["# Tanque"],
+		items: [
+			"0009-Blastoise Blastoise (PvE: Tank PvE / PvP: Not) | 0076-Alolan_Golem Alolan Golem (PvE: OTDD PvE / PvP: Tank PvP) | 0073-Shiny_Tentacruel Shiny Tentacruel (PvE: Off Tank PvE / PvP: Not) | 0055-Shiny_Golduck Shiny Golduck (PvE: BDD PvE / PvP: Tank PvP)",
+		],
+	})));
+
+	assert.deepEqual(section.bossRecommendations[PT_BR].groups, [{
+		label: "Tanque",
+		notes: [],
+		pokemon: ["Blastoise"],
+	}]);
+});
+
+test("boss recommendation rows follow tank damage support table shape", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "pokemon-recomendados",
+		pageCategory: "boss-fight",
+		heading: "PokÃ©mon recomendados",
+		paragraphs: [
+			"# Tanque",
+			"# Causador de Dano",
+			"*ObservaÃ§Ã£o: cuidado.",
+			"# Suporte ContÃ­nuo",
+		],
+		items: [
+			"0009-Blastoise Blastoise | 095-Onix Big Onix | 706-Goodra Goodra | Shiny Grumpig | 668-Pyroar Female Pyroar Female",
+			"Shiny golduck Shiny Golduck | 028-Shiny Sandslash Shiny Sandslash * | 073-Sh Tentacruel Shiny Tentacruel | Alolan Golem",
+			"Shiny Gyarados | Shiny steelix Golden Steelix | 105-Sh Marowak Shiny Marowak * | Shiny Lanturn",
+			"Shiny Sudowoodo Golden Sudowoodo | 247-Sh Pupitar Shiny Pupitar | 248-Tyranitar Tyranitar | 389-Shiny Torterra Shiny Torterra",
+			"Unown Legion",
+		],
+	})));
+
+	const groups = section.bossRecommendations[PT_BR].groups;
+	assert.deepEqual(groups[0].pokemon, ["Blastoise", "Big Onix", "Goodra", "Shiny Grumpig", "Pyroar Female"]);
+	assert.ok(groups[1].pokemon.includes("Alolan Golem"));
+	assert.ok(!groups[0].pokemon.includes("Alolan Golem"));
+	assert.deepEqual(groups[2].pokemon, ["Unown Legion"]);
 });

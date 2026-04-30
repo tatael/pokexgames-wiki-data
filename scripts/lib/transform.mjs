@@ -76,10 +76,14 @@ export { classifySectionKind, isTierSectionToken, SECTION_KIND_BY_ID } from "./t
 export function structureSection(section) {
 	const id = section.id ?? "";
 	const headingText = section.heading?.[PT_BR] ?? "";
-	const kind = classifySectionKind(id, headingText);
+	const pageCategory = normalizeIdToken(section.pageCategory ?? "");
+	const hasTaskRows = [...Object.values(section.items ?? {}), ...Object.values(section.paragraphs ?? {})].some((values) =>
+		(values ?? []).some((item) => /\b(?:NPC\s+.+?\s+)?(?:derrotar|entregar|coletar|capturar|trocar|encontrar|pegar|devolver)\b/i.test(String(item ?? "")))
+	);
+
+	const kind = pageCategory === "tasks" && hasTaskRows ? "tasks" : classifySectionKind(id, headingText);
 	const result = { ...section, kind };
 	const normalizedId = normalizeIdToken(id);
-	const pageCategory = normalizeIdToken(section.pageCategory ?? "");
 	const normalizedHeading = normalizeIdToken(headingText);
 
 	if (!["rewards", "tier", "pokemon-group", "tasks"].includes(kind)) {
@@ -141,7 +145,7 @@ export function structureSection(section) {
 		])) {
 			const parsed = parseBossRecommendations(
 				section.paragraphs?.[locale] ?? [],
-				result.items?.[locale] ?? section.items?.[locale] ?? [],
+				section.items?.[locale] ?? [],
 			);
 			if (parsed.intro.length || parsed.groups.length) bossRecommendations[locale] = parsed;
 		}

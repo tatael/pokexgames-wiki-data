@@ -1,4 +1,4 @@
-import { cleanStructuredText, normalizeIdToken } from "./text.mjs";
+import { cleanStructuredText, normalizeIdToken, stripImageRefFromText } from "./text.mjs";
 
 function parsePipeRows(items = []) {
 	return (items ?? [])
@@ -77,13 +77,45 @@ export function parseBossRecommendations(paragraphs = [], items = []) {
 	const targetGroups = groups.length ? groups : [{ label: "", notes: [], pokemon: [] }];
 	if (!groups.length) groups.push(targetGroups[0]);
 
+	const cleanPokemonName = (value) => cleanStructuredText(stripImageRefFromText(value) || value)
+		.replace(/\bRedgyarados\b/g, "Red Gyarados");
+
+	const shouldKeepPokemon = (name, groupLabel) => {
+		const roleMatch = String(name ?? "").match(/^(.*?)\s*\(PvE:\s*(.*?)\s*\/\s*PvP:\s*(.*?)\)\s*$/i);
+		if (!roleMatch) return cleanPokemonName(name);
+		const cleanName = cleanPokemonName(roleMatch[1]);
+		const groupToken = normalizeIdToken(groupLabel);
+		if (/^tanques?$|^tanks?$/.test(groupToken)) {
+			const pveToken = normalizeIdToken(roleMatch[2]);
+			if (!/(^|\s)tank(?:er)?\s+pve\b/.test(pveToken) || /\boff\s+tank/.test(pveToken)) return "";
+		}
+
+		return cleanName;
+	};
+
+	const resolveGroupForRow = (index) => {
+		if (targetGroups.length === 3 && items.length > targetGroups.length) {
+			const firstToken = normalizeIdToken(targetGroups[0]?.label ?? "");
+			const middleToken = normalizeIdToken(targetGroups[1]?.label ?? "");
+			const lastToken = normalizeIdToken(targetGroups[2]?.label ?? "");
+			if (/^tanques?$|^tanks?$/.test(firstToken) && /\bdano\b|\bdamage\b/.test(middleToken) && /\bsuporte\b|\bsupport\b/.test(lastToken)) {
+				if (index === 0) return targetGroups[0];
+				if (index === items.length - 1) return targetGroups[2];
+				return targetGroups[1];
+			}
+		}
+
+		return targetGroups[Math.min(Math.floor((index * targetGroups.length) / Math.max(items.length, 1)), targetGroups.length - 1)];
+	};
+
 	for (const [index, raw] of (items ?? []).entries()) {
+		const group = resolveGroupForRow(index);
 		const names = String(raw ?? "")
 			.split("|")
 			.map((part) => cleanStructuredText(part))
+			.map((part) => shouldKeepPokemon(part, group?.label ?? ""))
 			.filter(Boolean);
 		if (!names.length) continue;
-		const group = targetGroups[Math.min(Math.floor((index * targetGroups.length) / Math.max(items.length, 1)), targetGroups.length - 1)];
 		group.pokemon.push(...names);
 	}
 

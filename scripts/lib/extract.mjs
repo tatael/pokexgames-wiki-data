@@ -577,17 +577,37 @@ function isPossibleCapturesHeading(value) {
 export function extractSections(html, title, pageUrl = "") {
 	let headingRegex = /<h2[^>]*>(.*?)<\/h2>/gis;
 	const headings = [];
+	const includeTaskRegionHeadings = /(?:^|\s)(?:tasks?|tarefas?)(?:\s|$)/i.test(String(title ?? ""))
+		|| /\/(?:Tasks|Johto_Tasks)(?:[#?]|$)/i.test(String(pageUrl ?? ""));
 
-	for (const match of String(html ?? "").matchAll(headingRegex)) {
-		const fullMatch = match[0];
-		const headingText = stripHtml(match[1] ?? "");
-		const start = match.index ?? -1;
-		if (start >= 0) {
-			headings.push({
-				start,
-				end: start + fullMatch.length,
-				heading: headingText,
-			});
+	if (includeTaskRegionHeadings) {
+		for (const match of String(html ?? "").matchAll(/<h1[^>]*>(.*?)<\/h1>|<h2[^>]*>(.*?)<\/h2>/gis)) {
+			const fullMatch = match[0];
+			const headingText = stripHtml(match[1] ?? match[2] ?? "");
+			if (buildSlug(headingText, "") === buildSlug(title, "")) continue;
+			const start = match.index ?? -1;
+			if (start >= 0) {
+				headings.push({
+					start,
+					end: start + fullMatch.length,
+					heading: headingText,
+				});
+			}
+		}
+	}
+
+	if (!headings.length) {
+		for (const match of String(html ?? "").matchAll(headingRegex)) {
+			const fullMatch = match[0];
+			const headingText = stripHtml(match[1] ?? "");
+			const start = match.index ?? -1;
+			if (start >= 0) {
+				headings.push({
+					start,
+					end: start + fullMatch.length,
+					heading: headingText,
+				});
+			}
 		}
 	}
 

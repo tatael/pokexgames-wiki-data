@@ -106,13 +106,16 @@ function parseRankBody(body) {
 	const dangerRoomTeamText = normalizeLine(text.match(/Danger Room Team\s+([\s\S]*?)(?=Ap[oóàa]?s concluir|Apos concluir|$)/i)?.[1] ?? "");
 	const rewardText = normalizeLine(text.match(/(Ap[oóàa]?s concluir[\s\S]*)$/i)?.[1] ?? "");
 
+	const rewardItems = splitRewardText(rewardText);
+	const rewards = rewardText ? parseSimpleRewardText(rewardText) : [];
+
 	return {
 		intro: splitSentences(introText),
 		stages,
-		dangerRoomTeamText,
-		rewardText,
-		rewardItems: splitRewardText(rewardText),
-		rewards: rewardText ? parseSimpleRewardText(rewardText) : [],
+		...(dangerRoomTeamText ? { dangerRoomTeamText } : {}),
+		...(rewardText ? { rewardText } : {}),
+		...(rewardItems.length ? { rewardItems } : {}),
+		...(rewards.length ? { rewards } : {}),
 	};
 }
 

@@ -115,6 +115,28 @@ test("extractSections falls back to h3 headings when h2 is only the wiki toc", (
 	assert.deepEqual(sections[0].paragraphs["pt-BR"], ["Texto inicial."]);
 });
 
+test("extractSections keeps task h1 region headings before h2 city headings", () => {
+	const sections = extractSections(`
+		<h1>Tasks</h1>
+		<h1>Kanto</h1>
+		<h2>Cinnabar</h2>
+		<p>1. NPC Susan Entregar: 1 Chocolate Bar $30</p>
+		<h2>Cerulean</h2>
+		<p>1. NPC Penny Entregar: 20 Magikarp Fin</p>
+	`, "Tasks", "https://wiki.pokexgames.com/index.php/Tasks");
+
+	assert.deepEqual(sections.map((section) => section.heading["pt-BR"]), [
+		"Kanto",
+		"Cinnabar",
+		"Cerulean",
+	]);
+	assert.deepEqual(sections.map((section) => section.id), [
+		"kanto",
+		"cinnabar",
+		"cerulean",
+	]);
+});
+
 test("extractSections and buildSummary shape a pokemon page into readable blocks", async () => {
 	const html = await loadFixture("pokemon-page.html");
 	const articleHtml = extractArticleHtml(html);

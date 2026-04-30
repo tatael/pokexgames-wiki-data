@@ -56,9 +56,10 @@ export function parseHeadingGroupedEntries(paragraphs = [], bodyKey = "body") {
 export function parseStepEntries(paragraphs = [], items = [], fallbackTitle = "") {
 	const normalizedFallbackTitle = cleanStructuredText(fallbackTitle);
 	const numberedFallbackTitle = /^(?:\d+[ÂºÂªÂ°]?|[ivxlcdm]+)\b/i.test(normalizedFallbackTitle);
-	const grouped = parseHeadingGroupedEntries(paragraphs, "body").map((entry, index) => ({
+	const headingGroups = parseHeadingGroupedEntries(paragraphs, "body");
+	const grouped = headingGroups.map((entry, index) => ({
 		index: index + 1,
-		title: entry.name || (numberedFallbackTitle && index === 0 ? normalizedFallbackTitle : `${fallbackTitle || "Etapa"} ${index + 1}`),
+		title: entry.name || (numberedFallbackTitle && index === 0 ? normalizedFallbackTitle : headingGroups.length === 1 ? normalizedFallbackTitle : `${fallbackTitle || "Etapa"} ${index + 1}`),
 		body: entry.body ?? [],
 	}));
 
@@ -75,7 +76,7 @@ export function parseStepEntries(paragraphs = [], items = [], fallbackTitle = ""
 			index: Number(numbered?.[1] ?? index + 1),
 			title: numbered
 				? cleanStructuredText(numbered[2])
-				: (numberedFallbackTitle && index === 0 ? cleanStructuredText(fallbackTitle) : `${fallbackTitle || "Etapa"} ${index + 1}`),
+				: (numberedFallbackTitle && index === 0 ? cleanStructuredText(fallbackTitle) : rows.length === 1 ? normalizedFallbackTitle : `${fallbackTitle || "Etapa"} ${index + 1}`),
 			body: numbered ? [] : [text],
 		};
 	});

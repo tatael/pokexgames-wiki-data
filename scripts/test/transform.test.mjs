@@ -441,6 +441,16 @@ test("publishSection emits typed abilities, steps and locations", () => {
 	]);
 	assert.equal(steps.content, undefined);
 
+	const singleStep = publishSection(structureSection(localizedSection({
+		id: "como-usar",
+		heading: "Como usar",
+		paragraphs: ["Use o item no local indicado."],
+	})));
+
+	assert.deepEqual(singleStep.steps[PT_BR], [
+		{ index: 1, title: "Como usar", body: ["Use o item no local indicado"] },
+	]);
+
 	const location = publishSection(structureSection(localizedSection({
 		id: "localizacao",
 		heading: "Localiza\u00e7\u00e3o",

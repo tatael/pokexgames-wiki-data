@@ -156,10 +156,17 @@ async function syncEntry(entry) {
 	sourceUrl.hash = "";
 	const shouldRefresh = WIKI_REFRESH.includes(entry.slug) || WIKI_REFRESH.includes(entry.url);
 
-	const html = await fetchWikiHtml(sourceUrl.toString(), {
-		cacheKey: entry.slug,
-		refresh: shouldRefresh,
-	});
+	let html = null;
+	try {
+		html = await fetchWikiHtml(sourceUrl.toString(), {
+			cacheKey: entry.slug,
+			refresh: shouldRefresh,
+		});
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.warn(`skipping ${entry.slug}: failed to fetch page (${message})`);
+		return null;
+	}
 
 	if (!html) {
 		console.warn(`skipping ${entry.slug}: page not found (${entry.url})`);

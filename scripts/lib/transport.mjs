@@ -126,6 +126,15 @@ async function fetchWikiHtmlWithHttpFallback(url) {
 	return decodeHtmlBytes(result.bytes, result.contentType);
 }
 
+async function fetchJsonWithHttpFallback(url) {
+	const result = await requestUrlRaw(url);
+	if (result === null) {
+		throw new Error(`failed to fetch ${url}: HTTP 404`);
+	}
+
+	return JSON.parse(decodeHtmlBytes(result.bytes, result.contentType));
+}
+
 async function _fetchWikiHtml(url) {
 	let lastError = null;
 
@@ -218,6 +227,12 @@ async function _fetchJson(url) {
 			return await response.json();
 		} catch (error) {
 			lastError = error;
+			try {
+				return await fetchJsonWithHttpFallback(url);
+			} catch (fallbackError) {
+				lastError = fallbackError;
+			}
+
 			if (attempt < WIKI_FETCH_RETRY_ATTEMPTS) {
 				await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
 			}

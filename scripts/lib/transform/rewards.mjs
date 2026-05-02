@@ -205,7 +205,7 @@ export function parseSimpleRewardText(value) {
 	}
 
 	return splitRewardTextParts(text).flatMap((part) => {
-		const exp = part.match(/^([\d.]+k?)\s+de\s+experi[êe]ncia$/i);
+		const exp = part.match(/^([\d.]+k{0,2})\s+de\s+experi[êe]ncia$/i);
 
 		if (exp) {
 			return [{
@@ -232,7 +232,7 @@ export function parseSimpleRewardText(value) {
 			}];
 		}
 
-		const match = part.match(/^([\d.]+k?)\s+(?:de\s+)?(.+)$/i);
+		const match = part.match(/^([\d.]+k{0,2})\s+(?:de\s+)?(.+)$/i);
 
 		if (!match) return [];
 
@@ -251,8 +251,33 @@ export function parseRewardItemText(item) {
 	if (!raw) return null;
 	const normalizedRaw = normalizeIdToken(raw);
 	if (["item raridade", "item quantidade raridade", "colocacao recompensa"].includes(normalizedRaw)) return null;
+	if (["itens dropaveis", "itens dropados", "droppable items", "dropped items"].includes(normalizedRaw)) return null;
+	if (/^paginas? que usam a etiqueta tabber\b/.test(normalizedRaw)) return null;
 	if (/^(facil|normal|dificil|easy|hard|platinum|ultra|hyper|master|grand master|gold|nightmare|especialista|expert|recompensa semanal|recompensa de temporada)$/.test(normalizedRaw)) {
 		return { type: "difficulty", difficulty: raw };
+	}
+
+	const simpleRewards = parseSimpleRewardText(raw);
+	if (simpleRewards.length === 1) return simpleRewards[0];
+
+	const labeledExperience = raw.match(/^(?:(Exp icon(?: nw)?(?:\.png)?|Improved XP2?\.png)\s+)?((?:NW\s+)?Experi[êe]ncia|Experience|Improved XP)\s*:\s*([\d.]+)$/i);
+	if (labeledExperience) {
+		const icon = normalizeIdToken(labeledExperience[1] ?? "");
+		const label = normalizeIdToken(labeledExperience[2] ?? "");
+		const normalized = icon.startsWith("exp icon nw")
+			? { name: "Nightmare Experience", icon: "nightmare-xp" }
+			: label === "nw experiencia"
+				? { name: "Nightmare Experience", icon: "nightmare-xp" }
+				: label === "improved xp"
+					? { name: "Improved XP" }
+					: normalizeExperienceRewardName(labeledExperience[2]);
+		return {
+			type: "loot",
+			...normalized,
+			difficulty: null,
+			rarity: null,
+			qty: labeledExperience[3],
+		};
 	}
 
 	const pipeIdx = raw.indexOf("|");

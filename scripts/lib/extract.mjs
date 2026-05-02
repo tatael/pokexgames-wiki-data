@@ -342,7 +342,17 @@ function extractTableRows(html) {
 
 		for (let i = dataStart; i < allRows.length; i += 1) {
 			const rowHtml = allRows[i];
-			if (!/<td\b/i.test(rowHtml)) continue;
+			if (!/<td\b/i.test(rowHtml)) {
+				if (/<th\b/i.test(rowHtml)) {
+					const thRegex = /<th\b[^>]*>([\s\S]*?)<\/th>/gi;
+					const cells = [...rowHtml.matchAll(thRegex)].map((m) => cleanTableCellText(extractCellContent(m[1])));
+					const joined = cells.filter(Boolean).join(" | ");
+					if (joined) rows.push(`* ${joined}`);
+				}
+
+				continue;
+			}
+
 			const tdRegex = /<td\b[^>]*>([\s\S]*?)<\/td>/gi;
 			const cells = [...rowHtml.matchAll(tdRegex)].map((m) => cleanTableCellText(extractCellContent(m[1])));
 			if (cells.every((c) => !c)) continue;
@@ -365,11 +375,11 @@ function extractTableRows(html) {
 
 export function extractLines(html) {
 	const lines = [];
-	const blockRegex = /<(p|li|h2|h3|h4)[^>]*>(.*?)<\/(p|li|h2|h3|h4)>/gis;
+	const blockRegex = /<(p|li|h2|h3|h4|center)[^>]*>(.*?)<\/(p|li|h2|h3|h4|center)>/gis;
 
 	for (const match of html.matchAll(blockRegex)) {
 		const kind = match[1]?.toLowerCase();
-		const raw = stripHtml(match[2] ?? "");
+		const raw = stripHtml(preserveMediaText(match[2] ?? ""));
 		if (!kind || !raw) continue;
 
 		const body = raw.replace(TABBER_FALLBACK_PATTERN, "").trim();
@@ -401,12 +411,29 @@ export function extractLines(html) {
 	return lines;
 }
 
+function preserveMediaText(html) {
+	const readTagAttr = (tag, name) => {
+		const match = String(tag ?? "").match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+		return decodeHtmlEntities(match?.[1] ?? match?.[2] ?? match?.[3] ?? "");
+	};
+
+	return String(html ?? "").replace(/<img\b[^>]*>/gi, (tag) => {
+		const label = readTagAttr(tag, "alt") || readTagAttr(tag, "title");
+		return label ? ` ${label} ` : " ";
+	});
+}
+
 function absolutizeWikiAssetUrl(pageUrl, rawSrc) {
 	const source = String(rawSrc ?? "").trim();
 	if (!source) return null;
 	try {
 		const url = new URL(source, pageUrl);
 		if (url.hostname !== "wiki.pokexgames.com" || !url.pathname.includes("/images/")) return null;
+		const thumbMatch = url.pathname.match(/^\/images\/thumb\/([a-f0-9]\/[a-f0-9]+\/[^/]+)\/\d+px-[^/]+$/i);
+		if (thumbMatch) {
+			return `${url.origin}/images/${thumbMatch[1]}`;
+		}
+
 		return url.toString();
 	} catch {
 		return null;
@@ -538,12 +565,31 @@ function extractTabberPanelLines(html) {
 	const panelRegex = /<article\b[^>]*\bdata-title=(?:"([^"]+)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/article>/gi;
 	for (const match of String(html ?? "").matchAll(panelRegex)) {
 		const title = decodeHtmlEntities(match[1] ?? match[2] ?? match[3] ?? "").trim();
-		const body = stripHtml(stripMediaAndScript(match[4] ?? "")).trim();
 		if (title) lines.push(`# ${title}`);
-		if (body) lines.push(body);
+		lines.push(...extractPanelBodyLines(match[4] ?? ""));
 	}
 
 	return lines;
+}
+
+function extractPanelBodyLines(html) {
+	const marker = "__PXO_LINE_BREAK__";
+	const normalized = preserveMediaText(html)
+		.replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+		.replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+		.replace(/<(?:video|source)\b[\s\S]*?<\/video>/gi, " ")
+		.replace(/<(?:video|source)\b[^>]*>/gi, " ")
+		.replace(/<h([2-4])[^>]*>([\s\S]*?)<\/h\1>/gi, (_match, _level, body) => ` ${marker} # ${stripHtml(body)} ${marker} `)
+		.replace(/<center[^>]*>/gi, ` ${marker} `)
+		.replace(/<\/center>/gi, ` ${marker} `)
+		.replace(/<p\b[^>]*>/gi, ` ${marker} `)
+		.replace(/<\/p>/gi, ` ${marker} `)
+		.replace(/<br\s*\/?>/gi, ` ${marker} `);
+
+	return stripHtml(normalized)
+		.split(marker)
+		.map((line) => line.replace(TABBER_FALLBACK_PATTERN, "").trim())
+		.filter(Boolean);
 }
 
 function extractRewardTabberLines(html) {
@@ -556,11 +602,17 @@ function extractRewardTabberLines(html) {
 		const rows = extractTableRows(panelHtml);
 		if (rows.length) {
 			lines.push(...rows);
-			continue;
 		}
 
-		const body = stripHtml(stripMediaAndScript(panelHtml)).trim();
-		if (body) lines.push(`* ${body}`);
+		const bodyHtml = panelHtml
+			.replace(/<table\b[\s\S]*?<\/table>/gi, " ")
+			.replace(/<img\b[^>]*\balt="([^"]*)"[^>]*\/?>/gi, " $1 ");
+		const bodyLines = extractLines(stripMediaAndScript(bodyHtml))
+			.map((line) => line.replace(/^\*\s*/, "").trim())
+			.filter((line) => /(?:experi[êe]ncia|experience|improved\s*xp|exp icon)/i.test(line));
+		for (const body of bodyLines) {
+			if (body) lines.push(`* ${body}`);
+		}
 	}
 
 	return lines;
@@ -575,7 +627,7 @@ function isPossibleCapturesHeading(value) {
 }
 
 export function extractSections(html, title, pageUrl = "") {
-	let headingRegex = /<h2[^>]*>(.*?)<\/h2>/gis;
+	let headingRegex = /<h1[^>]*>(.*?)<\/h1>|<h2[^>]*>(.*?)<\/h2>/gis;
 	const headings = [];
 	const includeTaskRegionHeadings = /(?:^|\s)(?:tasks?|tarefas?)(?:\s|$)/i.test(String(title ?? ""))
 		|| /\/(?:Tasks|Johto_Tasks)(?:[#?]|$)/i.test(String(pageUrl ?? ""));
@@ -599,7 +651,8 @@ export function extractSections(html, title, pageUrl = "") {
 	if (!headings.length) {
 		for (const match of String(html ?? "").matchAll(headingRegex)) {
 			const fullMatch = match[0];
-			const headingText = stripHtml(match[1] ?? "");
+			const headingText = stripHtml(match[1] ?? match[2] ?? "");
+			if (buildSlug(headingText, "") === buildSlug(title, "")) continue;
 			const start = match.index ?? -1;
 			if (start >= 0) {
 				headings.push({
@@ -677,6 +730,7 @@ export function extractSections(html, title, pageUrl = "") {
 export function buildSummary(sections) {
 	let summary = "";
 	const maxLength = 180;
+	const maxSentenceLength = 360;
 
 	for (const section of sections) {
 		const paragraphs = section.paragraphs?.[PT_BR] ?? [];
@@ -698,7 +752,12 @@ export function buildSummary(sections) {
 				if (lastSentenceEnd > 0) {
 					summary = truncated.slice(0, lastSentenceEnd + 1).trimEnd();
 				} else {
-					summary = normalizeWhitespace(lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated).trimEnd();
+					const firstSentenceEnd = String(summary).search(/[.!?](?:\s|$)/);
+					if (firstSentenceEnd > 0 && firstSentenceEnd + 1 <= maxSentenceLength) {
+						summary = summary.slice(0, firstSentenceEnd + 1).trimEnd();
+					} else {
+						summary = normalizeWhitespace(lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated).trimEnd();
+					}
 				}
 
 				return { [PT_BR]: summary };

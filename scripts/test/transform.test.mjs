@@ -586,6 +586,20 @@ test("structureSection emits boss difficulties, held enhancement, hazards, and q
 	assert.equal(heldEnhancement.heldEnhancement[PT_BR].entries[0].tiers[2].damageBonus, 39);
 	assert.equal(heldEnhancement.heldEnhancement[PT_BR].notes.length, 1);
 
+	const multiTierHeldEnhancement = publishSection(structureSection(localizedSection({
+		id: "held-enhancement",
+		heading: "Held Enhancement",
+		pageCategory: "boss-fight",
+		paragraphs: [
+			"Difícil: caso o jogador esteja utilizando Held de Tier 6, 7 ou 8, causará 35% mais dano e receberá 35% menos dano dos inimigos.",
+			"Especialista: caso o jogador esteja utilizando Held de Tier 7 ou 8 causará 35% mais dano e receberá 35% menos dano dos inimigos.",
+		],
+	})));
+
+	assert.deepEqual(multiTierHeldEnhancement.heldEnhancement[PT_BR].entries[0].tiers.map((tier) => tier.tier), [6, 7, 8]);
+	assert.deepEqual(multiTierHeldEnhancement.heldEnhancement[PT_BR].entries[1].tiers.map((tier) => tier.tier), [7, 8]);
+	assert.deepEqual(multiTierHeldEnhancement.heldEnhancement[PT_BR].notes, []);
+
 	const difficultyFacts = publishSection(structureSection(localizedSection({
 		id: "dificuldades",
 		heading: "Dificuldades",
@@ -597,6 +611,34 @@ test("structureSection emits boss difficulties, held enhancement, hazards, and q
 
 	assert.equal(difficultyFacts.difficulties[PT_BR].entries[0].objective, "Deixar a vida do Entei em 65%");
 	assert.equal(difficultyFacts.difficulties[PT_BR].entries[0].entryRequirement.name, "Entei Charm");
+
+	const nightmareDifficultyFacts = publishSection(structureSection(localizedSection({
+		id: "dificuldade",
+		heading: "Dificuldade",
+		pageCategory: "boss-fight",
+		paragraphs: [
+			"Normal: requer nível minimo 525 e nightmare nível 65. Para entrar nessa dificuldade, é necessário que o jogador possua 3 Nightmare Tokens.",
+			"Nightmare: requer nível minimo 600 e nightmare nível 65. Para entrar nessa dificuldade, é necessário que o jogador possua 5 Nightmare Tokens.",
+		],
+	})));
+
+	assert.equal(nightmareDifficultyFacts.difficulties[PT_BR].entries[0].minimumLevel, 525);
+	assert.equal(nightmareDifficultyFacts.difficulties[PT_BR].entries[0].nightmareLevel, 65);
+	assert.equal(nightmareDifficultyFacts.difficulties[PT_BR].entries[0].entryRequirement.amount, 3);
+
+	const combinedNightmareDifficultyFacts = publishSection(structureSection(localizedSection({
+		id: "dificuldade",
+		heading: "Dificuldade",
+		pageCategory: "boss-fight",
+		paragraphs: [
+			"Os jogadores podem realizar a batalha em duas dificuldades: Normal e Nightmare. Normal: requer nÃ­vel minimo 525 e nightmare nÃ­vel 65. Para entrar nessa dificuldade, Ã© necessÃ¡rio que o jogador possua 3 Nightmare Tokens. Nightmare: requer nÃ­vel minimo 600 e nightmare nÃ­vel 65. Para entrar nessa dificuldade, Ã© necessÃ¡rio que o jogador possua 5 Nightmare Tokens. ObservaÃ§Ãµes:",
+		],
+	})));
+
+	assert.equal(combinedNightmareDifficultyFacts.difficulties[PT_BR].entries.length, 2);
+	assert.equal(combinedNightmareDifficultyFacts.difficulties[PT_BR].entries[1].minimumLevel, 600);
+	assert.equal(combinedNightmareDifficultyFacts.difficulties[PT_BR].entries[1].entryRequirement.amount, 5);
+	assert.ok(!combinedNightmareDifficultyFacts.difficulties[PT_BR].entries[1].description.includes("ObservaÃ§Ãµes"));
 
 	const mysteryHeldEnhancement = publishSection(structureSection(localizedSection({
 		id: "held-enhancement",
@@ -895,8 +937,8 @@ test("structureSection emits typed commerce and dungeon support sections without
 		heading: "Crafts",
 		paragraphs: ["Use a bancada para criar os itens."],
 		items: [
-			"Item | Custo | Resultado",
-			"Tech Ball | 10 Iron | 1 Tech Ball",
+			"Item | Skill | Tempo | Materiais",
+			"Tech Ball.png Tech Ball (10x) | Skill 10 | 1 Minuto | Iron.png 10 Iron Screw 5 Screw",
 			"Requer nível de profissão.",
 		],
 	})));
@@ -904,12 +946,23 @@ test("structureSection emits typed commerce and dungeon support sections without
 	assert.equal(commerce.content, undefined);
 	assert.equal(commerce.tables, undefined);
 	assert.equal(commerce.commerceEntries[PT_BR].type, "craft");
+	assert.deepEqual(commerce.craftEntries[PT_BR].entries[0], {
+		rank: "Crafts",
+		result: { name: "Tech Ball", quantity: 10 },
+		skill: 10,
+		duration: "1 Minuto",
+		ingredients: [
+			{ name: "Iron", amount: 10 },
+			{ name: "Screw", amount: 5 },
+		],
+	});
 	assert.deepEqual(commerce.commerceEntries[PT_BR].bullets, ["Requer nível de profissão"]);
 	assert.deepEqual(commerce.commerceEntries[PT_BR].rows[0], {
 		cells: [
 			{ text: "Item" },
-			{ text: "Custo" },
-			{ text: "Resultado" },
+			{ text: "Skill" },
+			{ text: "Tempo" },
+			{ text: "Materiais" },
 		],
 	});
 

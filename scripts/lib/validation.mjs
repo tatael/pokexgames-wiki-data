@@ -42,6 +42,7 @@ const TYPED_SECTION_KEYS = [
 	"embeddedTowerSupport",
 	"linkedCards",
 	"commerceEntries",
+	"craftEntries",
 	"facts",
 	"tasks",
 	"taskGroups",
@@ -54,7 +55,7 @@ const TYPED_SECTION_KEYS = [
 ];
 
 const CATEGORY_GENERIC_ONLY_BUDGETS = {
-	clans: 0.1,
+	clans: 0.4,
 	quests: 0.05,
 	"boss-fight": 0.55,
 	"dimensional-zone": 0.7,
@@ -216,20 +217,23 @@ function validateDifficultyPayload(entry, fieldName) {
 			if (!isPlainObject(difficulty)) throw new Error(`${fieldName}.entries.${index} must be an object`);
 			validateString(difficulty.name, `${fieldName}.entries.${index}.name`);
 			if (difficulty.description !== undefined) validateString(difficulty.description, `${fieldName}.entries.${index}.description`);
-			for (const numericKey of ["minimumLevel", "recommendedLevel", "levelCap"]) {
+			for (const numericKey of ["minimumLevel", "recommendedLevel", "levelCap", "nightmareLevel"]) {
 				if (difficulty[numericKey] === undefined) continue;
 				if (!Number.isInteger(difficulty[numericKey]) || difficulty[numericKey] < 1) {
 					throw new Error(`${fieldName}.entries.${index}.${numericKey} must be a positive integer`);
 				}
 			}
+
 			if (difficulty.objective !== undefined) validateString(difficulty.objective, `${fieldName}.entries.${index}.objective`);
 			if (difficulty.entryRequirement !== undefined) {
 				if (!isPlainObject(difficulty.entryRequirement)) {
 					throw new Error(`${fieldName}.entries.${index}.entryRequirement must be an object`);
 				}
+
 				if (!Number.isInteger(difficulty.entryRequirement.amount) || difficulty.entryRequirement.amount < 1) {
 					throw new Error(`${fieldName}.entries.${index}.entryRequirement.amount must be a positive integer`);
 				}
+
 				validateString(difficulty.entryRequirement.name, `${fieldName}.entries.${index}.entryRequirement.name`);
 			}
 		}
@@ -302,6 +306,34 @@ function validateTypedRowsSupportPayload(entry, fieldName, supportedTypes) {
 	if (entry.intro !== undefined) validateStringArray(entry.intro, `${fieldName}.intro`);
 	if (entry.bullets !== undefined) validateStringArray(entry.bullets, `${fieldName}.bullets`);
 	if (entry.rows !== undefined) validateTableRows(entry.rows, `${fieldName}.rows`);
+}
+
+function validateCraftEntriesPayload(entry, fieldName) {
+	if (!Array.isArray(entry.entries)) throw new Error(`${fieldName}.entries must be an array`);
+	for (const [entryIndex, craft] of entry.entries.entries()) {
+		if (!isPlainObject(craft)) throw new Error(`${fieldName}.entries.${entryIndex} must be an object`);
+		if (craft.rank !== undefined) validateString(craft.rank, `${fieldName}.entries.${entryIndex}.rank`);
+		if (!isPlainObject(craft.result)) throw new Error(`${fieldName}.entries.${entryIndex}.result must be an object`);
+		validateString(craft.result.name, `${fieldName}.entries.${entryIndex}.result.name`);
+		if (!Number.isInteger(craft.result.quantity) || craft.result.quantity < 1) {
+			throw new Error(`${fieldName}.entries.${entryIndex}.result.quantity must be a positive integer`);
+		}
+		if (craft.skill !== null && craft.skill !== undefined && (!Number.isInteger(craft.skill) || craft.skill < 0)) {
+			throw new Error(`${fieldName}.entries.${entryIndex}.skill must be a non-negative integer or null`);
+		}
+		validateString(craft.duration, `${fieldName}.entries.${entryIndex}.duration`);
+		if (craft.station !== undefined) validateString(craft.station, `${fieldName}.entries.${entryIndex}.station`);
+		if (!Array.isArray(craft.ingredients) || craft.ingredients.length === 0) {
+			throw new Error(`${fieldName}.entries.${entryIndex}.ingredients must be a non-empty array`);
+		}
+		for (const [ingredientIndex, ingredient] of craft.ingredients.entries()) {
+			if (!isPlainObject(ingredient)) throw new Error(`${fieldName}.entries.${entryIndex}.ingredients.${ingredientIndex} must be an object`);
+			validateString(ingredient.name, `${fieldName}.entries.${entryIndex}.ingredients.${ingredientIndex}.name`);
+			if (typeof ingredient.amount !== "number" || !Number.isFinite(ingredient.amount) || ingredient.amount <= 0) {
+				throw new Error(`${fieldName}.entries.${entryIndex}.ingredients.${ingredientIndex}.amount must be a positive number`);
+			}
+		}
+	}
 }
 
 function validateHeldCategoriesPayload(entry, fieldName) {
@@ -671,6 +703,7 @@ function validateSection(section, fieldName) {
 	validateStructuredObjectMap(section.commerceEntries, `${fieldName}.commerceEntries`, ["type", "intro", "bullets", "rows"], (entry, entryFieldName) =>
 		validateTypedRowsSupportPayload(entry, entryFieldName, ["exchange", "shop", "craft", "cost", "generic"])
 	);
+	validateStructuredObjectMap(section.craftEntries, `${fieldName}.craftEntries`, ["entries"], validateCraftEntriesPayload);
 
 	if (section.mediaRefs !== undefined) {
 		for (const [locale, refs] of Object.entries(section.mediaRefs)) {

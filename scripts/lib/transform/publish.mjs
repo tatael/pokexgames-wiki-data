@@ -12,7 +12,7 @@ export function publishSection(section) {
 	if (Object.keys(content).length) output.content = content;
 	if (Object.keys(tables).length) output.tables = tables;
 	if (section.media) output.media = compactLocalizedValueMap(section.media);
-	for (const key of ["facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness", "variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations", "heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails", "questSupport", "questPhases", "clanTasks", "embeddedTowerProgression", "embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries"]) {
+	for (const key of ["facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness", "variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations", "heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails", "questSupport", "questPhases", "clanTasks", "embeddedTowerProgression", "embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries"]) {
 		if (section[key]) output[key] = compactLocalizedValueMap(section[key]);
 	}
 
@@ -46,6 +46,7 @@ function buildPublicSectionContent(section) {
 }
 
 function shouldPublishParagraphContent(section) {
+	if (section.kind === "rewards") return false;
 	if (section.abilities || section.steps || section.locations) return false;
 	if (section.difficulties || section.bossSupport || section.bossRecommendations || section.heldEnhancement || section.hazards) return false;
 	if (section.dungeonSupport || section.commerceEntries) return false;

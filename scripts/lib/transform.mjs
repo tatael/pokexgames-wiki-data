@@ -21,7 +21,7 @@ import {
 import { parseTaskSectionPayloads } from "./transform/tasks.mjs";
 import { isQuestLocationSection, isQuestStepSection, isQuestSupportSection, parseQuestPhase, parseQuestSupport } from "./transform/quests.mjs";
 import { parseClanTaskRanks } from "./transform/clan-tasks.mjs";
-import { isCommerceSection, parseCommerceEntries } from "./transform/commerce.mjs";
+import { isCommerceSection, parseCommerceEntries, parseCraftEntries } from "./transform/commerce.mjs";
 import {
 	isHeldBoostSection,
 	isHeldCategoriesSection,
@@ -36,6 +36,7 @@ import {
 	isBossRecommendationsSection,
 	isDifficultySection as isBossFightDifficultySection,
 	isHeldEnhancementSection as isBossFightHeldEnhancementSection,
+	addBossRecommendationMediaPokemon,
 	parseBossRecommendations,
 	parseBossSupport,
 	parseDifficultyEntries as parseBossFightDifficultyEntries,
@@ -143,10 +144,10 @@ export function structureSection(section) {
 			...Object.keys(section.paragraphs ?? {}),
 			...Object.keys(section.items ?? {}),
 		])) {
-			const parsed = parseBossRecommendations(
+			const parsed = addBossRecommendationMediaPokemon(parseBossRecommendations(
 				section.paragraphs?.[locale] ?? [],
 				section.items?.[locale] ?? [],
-			);
+			), section.media?.[locale] ?? []);
 			if (parsed.intro.length || parsed.groups.length) bossRecommendations[locale] = parsed;
 		}
 
@@ -333,7 +334,7 @@ export function structureSection(section) {
 		if (Object.keys(difficulties).length) result.difficulties = difficulties;
 	}
 
-	if (isBossSupportSection(normalizedId, normalizedHeading, pageCategory)) {
+	if (isBossSupportSection(normalizedId, normalizedHeading, pageCategory) && !isBossRecommendationsSection(normalizedId, normalizedHeading, pageCategory)) {
 		const bossSupport = {};
 		for (const locale of new Set([
 			...Object.keys(section.paragraphs ?? {}),
@@ -570,6 +571,21 @@ export function structureSection(section) {
 		}
 
 		if (Object.keys(commerceEntries).length) result.commerceEntries = commerceEntries;
+	}
+
+	if (result.commerceEntries) {
+		const craftEntries = {};
+		for (const locale of Object.keys(section.items ?? {})) {
+			const commerce = result.commerceEntries?.[locale];
+			if (commerce?.type !== "craft") continue;
+			const parsed = parseCraftEntries(
+				section.heading?.[locale] ?? section.heading?.[PT_BR] ?? "",
+				section.items?.[locale] ?? [],
+			);
+			if (parsed.length) craftEntries[locale] = { entries: parsed };
+		}
+
+		if (Object.keys(craftEntries).length) result.craftEntries = craftEntries;
 	}
 
 	return result;

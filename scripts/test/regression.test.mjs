@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { extractArticleWikiLinks } from "../lib/extract.mjs";
+import { buildSummary, extractArticleWikiLinks, extractSections } from "../lib/extract.mjs";
 import { shouldRecurseDiscoveredPage } from "../lib/discovery.mjs";
-import { resolveDisplayInList, resolveDisplayTitle, resolvePageGroup } from "../lib/page-pipeline.mjs";
+import { normalizeSections, resolveDisplayInList, resolveDisplayTitle, resolvePageGroup } from "../lib/page-pipeline.mjs";
 import { structureSection } from "../lib/transform.mjs";
+import { publishSection } from "../lib/transform/publish.mjs";
 import { PT_BR, buildLocalizedText } from "../lib/shared.mjs";
 
 test("linked image discovery uses target title instead of image filename", () => {
@@ -101,6 +102,176 @@ test("special reward labels are difficulties, not loot", () => {
 	assert.equal(rewards.some((item) => ["Gold", "Nightmare", "Especialista"].includes(item.name)), false);
 	assert.deepEqual(rewards.map((item) => item.name), ["Wool Ball", "Cosmic Addons Recipe", "Cursed Ghostly Hand", "Darkness Stone"]);
 	assert.deepEqual(rewards.map((item) => item.difficulty), ["Gold", "Nightmare", "Especialista", "Especialista"]);
+});
+
+test("labeled boss reward experience rows are parsed as loot", () => {
+	const section = structureSection({
+		id: "recompensas",
+		heading: { [PT_BR]: "Recompensas" },
+		paragraphs: { [PT_BR]: [] },
+		items: {
+			[PT_BR]: [
+				"Normal",
+				"Exp icon.png Experiência: 1.500.000",
+				"Improved XP2.png Improved XP: 90.000",
+				"Exp icon nw.png Experiência: 6.000",
+			],
+		},
+	});
+
+	assert.deepEqual(section.rewards[PT_BR].map((item) => [item.name, item.qty, item.difficulty]), [
+		["Experiência", "1.500.000", "Normal"],
+		["Improved XP", "90.000", "Normal"],
+		["Nightmare Experience", "6.000", "Normal"],
+	]);
+});
+
+test("extractSections keeps h1 wiki sections and reward text outside tabber tables", () => {
+	const sections = extractSections(`
+		<h1 id="firstHeading">Boss Shiny Giant Tentacruel</h1>
+		<h2>Índice</h2>
+		<h1>Introdução</h1>
+		<p>Texto de introdução.</p>
+		<h1>Recompensas</h1>
+		<article data-title="Normal">
+			<table><tr><th>Item</th><th>Raridade</th></tr><tr><td>Echo Shard.gif</td><td>Comum</td></tr></table>
+			<p><img alt="Exp icon.png" src="/images/e.png"> Experiência: 1.500.000</p>
+			<p><img alt="Improved XP2.png" src="/images/i.png"> Improved XP: 90.000</p>
+		</article>
+	`, "Boss Shiny Giant Tentacruel", "https://wiki.pokexgames.com/index.php/Boss_Shiny_Giant_Tentacruel");
+
+	assert.deepEqual(sections.map((section) => section.id), ["indice", "introducao", "recompensas"]);
+	assert.ok(sections.find((section) => section.id === "recompensas").items[PT_BR].some((item) => item.includes("Experiência: 1.500.000")));
+});
+
+test("summaries prefer the complete first sentence over a cropped first clause", () => {
+	const summary = buildSummary([{
+		paragraphs: {
+			[PT_BR]: [
+				"A dungeon do Shiny Giant Tentacruel é de suma importância para jogadores que desejam adquirir um dos Alolan Pokémon provenientes do Alolan Egg, obtido em determinada etapa da The Chosen One Quest.",
+			],
+		},
+	}]);
+
+	assert.equal(summary[PT_BR].endsWith("The Chosen One Quest."), true);
+});
+
+test("small reward thumbnails are recovered as original media files", () => {
+	const sections = extractSections(`
+		<h1>Recompensas</h1>
+		<table><tr><td><img alt="10.000 carat emerald.png" src="/images/thumb/0/05/10.000_carat_emerald.png/30px-10.000_carat_emerald.png" width="30" /></td><td>10.000 Carat Emerald</td></tr></table>
+	`, "Rewards", "https://wiki.pokexgames.com/index.php/Boss_Shiny_Giant_Tentacruel");
+	const media = sections[0].media[PT_BR];
+
+	assert.equal(media[0].url, "https://wiki.pokexgames.com/images/0/05/10.000_carat_emerald.png");
+});
+
+test("extractSections keeps center media markers in paragraph order", () => {
+	const sections = extractSections(`
+		<h1>Localizacao</h1>
+		<p>Texto antes <img alt="Orb.gif" src="/images/0/0a/Orb.gif" /> Orb.</p>
+		<center><img alt="Mapa A.png" src="/images/a/aa/Mapa_A.png" /> <img alt="Mapa B.png" src="/images/b/bb/Mapa_B.png" /></center>
+		<p>Texto depois.</p>
+	`, "Boss Shiny Giant Tentacruel", "https://wiki.pokexgames.com/index.php/Boss_Shiny_Giant_Tentacruel");
+
+	assert.deepEqual(sections[0].paragraphs[PT_BR], [
+		"Texto antes Orb.gif Orb.",
+		"Mapa A.png Mapa B.png",
+		"Texto depois.",
+	]);
+});
+
+test("extractSections keeps tabber center media between mechanic paragraphs", () => {
+	const sections = extractSections(`
+		<h1>Batalha contra o boss</h1>
+		<h2>Mecanicas</h2>
+		<article data-title="Inicio">
+			<p>Texto antes.</p>
+			<center><img alt="Localizacao bau.png" src="/images/6/6c/Localizacao_bau.png" /> <img alt="Bau cruel.png" src="/images/8/80/Bau_cruel.png" /></center>
+			Texto solto depois.
+		</article>
+	`, "Boss Shiny Giant Tentacruel", "https://wiki.pokexgames.com/index.php/Boss_Shiny_Giant_Tentacruel");
+	const mechanics = sections.find((section) => section.id === "mecanicas");
+
+	assert.deepEqual(mechanics.paragraphs[PT_BR], [
+		"# Inicio",
+		"Texto antes.",
+		"Localizacao bau.png Bau cruel.png",
+		"Texto solto depois.",
+	]);
+});
+
+test("Boss Shiny Giant Tentacruel keeps lead requirements and rewards", () => {
+	const sections = normalizeSections([{
+		id: "recompensas",
+		heading: { [PT_BR]: "Recompensas" },
+		paragraphs: { [PT_BR]: [] },
+		items: { [PT_BR]: ["Itens Dropáveis", "Páginas que usam a etiqueta Tabber do analisador sintático"] },
+		media: { [PT_BR]: [] },
+	}], {
+		category: "boss-fight",
+		slug: "boss-shiny-giant-tentacruel",
+		pageKind: "boss",
+	});
+
+	assert.equal(sections[0].id, "requisitos");
+	const rewards = sections.find((section) => section.id === "recompensas").rewards[PT_BR];
+	assert.deepEqual(rewards.map((reward) => reward.name).slice(0, 2), ["Emerald Loot Bag", "Carat Emerald"]);
+	assert.equal(rewards[1].qty, "10.000");
+	assert.equal(rewards.some((reward) => reward.name === "Itens Dropáveis"), false);
+	assert.equal(rewards.some((reward) => reward.name.includes("Tabber")), false);
+});
+
+test("structured reward sections do not publish raw prose mirrors", () => {
+	const section = publishSection(structureSection({
+		id: "recompensas",
+		heading: { [PT_BR]: "Recompensas" },
+		paragraphs: { [PT_BR]: ["Emerald Loot Bag Itens Dropáveis Experiência: 1.000.000"] },
+		items: { [PT_BR]: ["Emerald loot bag.png | Emerald Loot Bag", "Experiência: 1.000.000"] },
+		media: { [PT_BR]: [] },
+		pageCategory: "boss-fight",
+		slug: "boss-shiny-giant-tentacruel",
+		title: buildLocalizedText("Boss Shiny Giant Tentacruel"),
+	}));
+
+	assert.equal(section.kind, "rewards");
+	assert.equal(section.content, undefined);
+	assert.deepEqual(section.rewards[PT_BR].map((reward) => reward.name), ["Emerald Loot Bag", "Experiência"]);
+});
+
+test("Boss Shiny Giant Tentacruel recommendations publish Pokemon cards payload only", () => {
+	const section = publishSection(structureSection({
+		id: "recomendacoes",
+		heading: { [PT_BR]: "Recomendações" },
+		paragraphs: { [PT_BR]: [] },
+		items: {
+			[PT_BR]: [
+				"O 095-CrystalOnix.png Crystal Onix é útil.",
+				"Use 201-UnownLegion.png Unown Legion, S.klinklang.png Shiny Klinklang, 356-Dusclops.png Dusclops e 196-shEspeon.png Shiny Espeon.",
+			],
+		},
+		media: {
+			[PT_BR]: [
+				{ type: "image", url: "https://wiki.pokexgames.com/images/1/11/095-CrystalOnix.png", alt: "095-CrystalOnix.png", slug: "crystal-onix" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/f/fd/201-UnownLegion.png", alt: "201-UnownLegion.png", slug: "unown-legion" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/6/68/S.klinklang.png", alt: "S.klinklang.png", slug: "shiny-klinklang" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/d/d0/356-Dusclops.png", alt: "356-Dusclops.png", slug: "dusclops" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/4/41/196-shEspeon.png", alt: "196-shEspeon.png", slug: "shiny-espeon" },
+			],
+		},
+		pageCategory: "boss-fight",
+		slug: "boss-shiny-giant-tentacruel",
+		title: buildLocalizedText("Boss Shiny Giant Tentacruel"),
+	}));
+
+	assert.equal(section.bossSupport, undefined);
+	assert.deepEqual(section.bossRecommendations[PT_BR].groups[0].pokemon, [
+		"Crystal Onix",
+		"Unown Legion",
+		"Shiny Klinklang",
+		"Dusclops",
+		"Shiny Espeon",
+	]);
 });
 
 test("ability-prefixed sections render as info cards", () => {

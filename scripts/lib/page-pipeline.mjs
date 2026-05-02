@@ -577,8 +577,50 @@ function isTrapMedia(item) {
 	return isTrapItemText(String(item?.alt ?? "") + " " + String(item?.url ?? "") + " " + String(item?.slug ?? ""));
 }
 
+function withBossShinyGiantTentacruelLeadSections(sectionsBase, pageContext) {
+	if (pageContext.slug !== "boss-shiny-giant-tentacruel") return sectionsBase;
+	const leadRewardItems = [
+		"Emerald loot bag.png | Emerald Loot Bag",
+		"10.000 Carat Emerald",
+		"Giant Fang | Giant Fang",
+		"Shiny Tentacruel tentacle..png | Shiny Tentacruel Tentacle",
+		"Water-stone.gif | Water Stone",
+		"Venom-stone.gif | Venom Stone",
+	];
+
+	const sections = sectionsBase.map((section) => {
+		if (normalizeCategoryText(section.id ?? "") !== "recompensas") return section;
+		const currentItems = (section.items?.[PT_BR] ?? [])
+			.filter((item) => !/\bcarat emerald\b/.test(normalizeCategoryText(item)));
+		const currentKeys = new Set(currentItems.map(normalizeCategoryText));
+		const missingItems = leadRewardItems.filter((item) => !currentKeys.has(normalizeCategoryText(item)));
+		if (!missingItems.length) return section;
+		return {
+			...section,
+			items: {
+				...(section.items ?? {}),
+				[PT_BR]: [...missingItems, ...currentItems],
+			},
+		};
+	});
+
+	const hasRequirements = sections.some((section) => normalizeCategoryText(section.id ?? "") === "requisitos");
+	if (hasRequirements) return sections;
+	const section = {
+		id: "requisitos",
+		heading: { [PT_BR]: "Requisitos" },
+		paragraphs: {
+			[PT_BR]: ["Ter concluído a nave (parte da The Chosen One Quest)."],
+		},
+		items: { [PT_BR]: [] },
+		media: { [PT_BR]: [] },
+	};
+
+	return [section, ...sections];
+}
+
 export function normalizeSections(sectionsBase, pageContext = {}) {
-	return sectionsBase.flatMap((section) => {
+	return withBossShinyGiantTentacruelLeadSections(sectionsBase, pageContext).flatMap((section) => {
 		const sectionId = cleanDisplayText(section.id ?? "");
 		const normalizedSectionId = normalizeCategoryText(sectionId);
 		const normalizedHeading = normalizeCategoryText(section.heading?.[PT_BR] ?? "");

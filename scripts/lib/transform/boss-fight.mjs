@@ -125,6 +125,47 @@ export function parseBossRecommendations(paragraphs = [], items = []) {
 	};
 }
 
+export function addBossRecommendationMediaPokemon(payload, media = []) {
+	if (!payload?.groups?.length || !media?.length) return payload;
+	if (payload.groups.length !== 1) return payload;
+	const group = payload.groups.find((entry) => Array.isArray(entry.pokemon)) ?? payload.groups[0];
+	const mediaNames = [];
+	for (const item of media ?? []) {
+		const slug = String(item?.slug ?? "").trim();
+		if (!slug || /(?:berry|stone|orb|compass|hammer|portal|entrada|localizacao|redemoinho)/i.test(slug)) continue;
+		const name = slug
+			.split("-")
+			.filter(Boolean)
+			.map((part) => part === "tm" || part === "tr" ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1))
+			.join(" ");
+		if (name) mediaNames.push(name);
+	}
+
+	if (mediaNames.length >= 2) {
+		group.pokemon = mediaNames;
+	} else {
+		const seen = new Set((group.pokemon ?? []).map((name) => normalizeIdToken(name)));
+		for (const name of mediaNames) {
+			const key = normalizeIdToken(name);
+			if (!name || seen.has(key)) continue;
+			seen.add(key);
+			group.pokemon.push(name);
+		}
+	}
+
+	for (const entry of payload.groups) {
+		const localSeen = new Set();
+		entry.pokemon = (entry.pokemon ?? []).filter((name) => {
+			const key = normalizeIdToken(name);
+			if (!key || localSeen.has(key)) return false;
+			localSeen.add(key);
+			return true;
+		});
+	}
+
+	return payload;
+}
+
 export function isDifficultySection(normalizedId, normalizedHeading, pageCategory) {
 	return normalizedId === "dificuldades"
 		|| normalizedId === "dificuldade"
@@ -137,25 +178,29 @@ export function parseDifficultyEntries(paragraphs = [], items = []) {
 	const intro = [];
 	const notes = [];
 	const entries = [];
-	for (const raw of [...paragraphs, ...items]) {
+	for (const raw of expandDifficultyTexts([...paragraphs, ...items])) {
 		const text = String(raw ?? "").trim();
 		if (!text) continue;
 		const separatorIndex = text.indexOf(":");
 		const difficultyLabel = separatorIndex >= 0 ? cleanDisplayDifficultyName(text.slice(0, separatorIndex)) : "";
 		if (!isSupportedDifficultyLabel(difficultyLabel)) {
+			if (isObservationLabelOnly(text)) continue;
 			if (isObservationLine(text)) notes.push(text);
 			else intro.push(text);
 			continue;
 		}
 
 		const name = difficultyLabel;
-		const body = text.slice(separatorIndex + 1).trim();
+		const body = stripTrailingObservationLabel(text.slice(separatorIndex + 1).trim());
 		const normalizedBody = normalizeIdToken(body);
 		const minimumLevel = body.match(/(?:mÃ­nimo\s+(?:nÃ­vel|level)|level\s*m[iÃ­]nimo|nÃ­vel\s*m[iÃ­]nimo)\s*(\d+)/i)?.[1]
 			?? body.match(/requer\s+no\s+m[iÃ­]nimo\s+(?:nÃ­vel|level)\s*(\d+)/i)?.[1]
+			?? normalizedBody.match(/requer no minimo (?:nivel|level)\s+(\d+)/)?.[1]
+			?? normalizedBody.match(/requer (?:nivel|level) minimo\s+(\d+)/)?.[1]
 			?? normalizedBody.match(/(?:minimo nivel|level minimo|nivel minimo)\s+(\d+)/)?.[1]
 			?? normalizedBody.match(/requer no minimo nivel\s+(\d+)/)?.[1]
 			?? null;
+		const nightmareLevel = normalizedBody.match(/nightmare nivel\s+(\d+)/)?.[1] ?? null;
 		const recommendedLevel = body.match(/recomendada?\s+para\s+(?:nÃ­vel|level)\s*(\d+)/i)?.[1]
 			?? normalizedBody.match(/recomendada para nivel\s+(\d+)/)?.[1]
 			?? normalizedBody.match(/recomendado para nivel\s+(\d+)/)?.[1]
@@ -165,13 +210,17 @@ export function parseDifficultyEntries(paragraphs = [], items = []) {
 			?? null;
 		const objective = body.match(/dever[aÃ£]o?\s+(.+?)\s+para\s+concluir/i)?.[1] ?? null;
 		const requirement = body.match(/necess[aÃ¡]rio\s+que\s+o\s+jogador\s+tenha\s+(\d+)\s+(.+?)(?:\.|$)/i)
-			?? normalizedBody.match(/necessario que o jogador tenha\s+(\d+)\s+(.+?)(?:\s*$)/i);
+			?? normalizedBody.match(/necessario que o jogador tenha\s+(\d+)\s+(.+?)(?:\s*$)/i)
+			?? normalizedBody.match(/necessario que o jogador possua\s+(\d+)\s+(.+?)(?:\s*$)/i)
+			?? normalizedBody.match(/necessario que o jogador (?:tenha|possua)\s+(\d+)\s+(.+?)(?:\s+observacoes|\s*$)/i)
+			?? normalizedBody.match(/jogador (?:tenha|possua)\s+(\d+)\s+(.+?)(?:\.|\s+observa|\s*$)/i);
 		const cleanedObjective = objective ? sentenceCase(cleanStructuredText(objective)) : "";
 		const cleanedRequirementName = requirement ? titleCaseItemName(cleanStructuredText(requirement[2])) : "";
 		entries.push({
 			name,
 			description: body,
 			...(minimumLevel ? { minimumLevel: Number(minimumLevel) } : {}),
+			...(nightmareLevel ? { nightmareLevel: Number(nightmareLevel) } : {}),
 			...(recommendedLevel ? { recommendedLevel: Number(recommendedLevel) } : {}),
 			...(levelCap ? { levelCap: Number(levelCap) } : {}),
 			...(cleanedObjective ? { objective: cleanedObjective } : {}),
@@ -185,6 +234,33 @@ export function parseDifficultyEntries(paragraphs = [], items = []) {
 	}
 
 	return { intro, entries, notes };
+}
+
+function expandDifficultyTexts(values = []) {
+	const labels = "Fácil|Normal|Difícil|Especialista|Nightmare|Elite|Ultimate|Easy|Hard|Expert|Medium|Platinum|Ultra|Hyper|Master|Grand Master";
+	const labelRe = new RegExp(`(?:^|\\s)(${labels}):`, "gi");
+	const output = [];
+	for (const raw of values ?? []) {
+		const text = String(raw ?? "").trim();
+		if (!text) continue;
+		const matches = [...text.matchAll(labelRe)];
+		if (matches.length <= 1) {
+			output.push(text);
+			continue;
+		}
+
+		const firstIndex = matches[0].index ?? 0;
+		const prefix = text.slice(0, firstIndex).trim();
+		if (prefix) output.push(prefix);
+		for (let index = 0; index < matches.length; index++) {
+			const start = (matches[index].index ?? 0) + (matches[index][0].startsWith(" ") ? 1 : 0);
+			const end = index + 1 < matches.length ? (matches[index + 1].index ?? text.length) : text.length;
+			const chunk = text.slice(start, end).trim();
+			if (chunk) output.push(chunk);
+		}
+	}
+
+	return output;
 }
 
 function sentenceCase(value) {
@@ -223,12 +299,13 @@ export function parseHeldEnhancementEntries(paragraphs = [], items = []) {
 		const separatorIndex = text.indexOf(":");
 		const difficultyLabel = separatorIndex >= 0 ? cleanDisplayDifficultyName(text.slice(0, separatorIndex)) : "";
 		if (!isSupportedDifficultyLabel(difficultyLabel)) {
+			if (isObservationLabelOnly(text)) continue;
 			if (isObservationLine(text)) notes.push(text);
 			else intro.push(text);
 			continue;
 		}
 
-		const body = text.slice(separatorIndex + 1).trim();
+		const body = stripTrailingObservationLabel(text.slice(separatorIndex + 1).trim());
 		const normalizedBody = normalizeIdToken(body);
 		const explicitTiers = [...normalizedBody.matchAll(/tier\s*(\d+)[^0-9]*(\d+)\s+mais\s+dano[^0-9]+(\d+)\s+menos\s+dano/gi)]
 			.map((match) => ({
@@ -244,22 +321,32 @@ export function parseHeldEnhancementEntries(paragraphs = [], items = []) {
 				defenseBonus: Number(match[2]),
 			}));
 
-		const tierMentions = [...body.matchAll(/tier\s*(\d+)/gi)]
+		const tierMentions = [...body.matchAll(/tier\s*(\d+(?:\s*,\s*\d+)*(?:\s*(?:ou|e|or|and)\s*\d+)*)/gi)]
+			.flatMap((match) => [...String(match[1]).matchAll(/\d+/g)].map((item) => Number(item[0])))
+			.filter((value) => Number.isFinite(value));
+		const simpleTierMentions = [...body.matchAll(/tier\s*(\d+)/gi)]
 			.map((match) => Number(match[1]))
 			.filter((value) => Number.isFinite(value));
 		const percentMentions = [...body.matchAll(/(\d+)\s*%/g)]
 			.map((match) => Number(match[1]))
 			.filter((value, index, values) => Number.isFinite(value) && values.indexOf(value) === index);
-		const orderedProseTiers = tierMentions.length && percentMentions.length >= tierMentions.length
-			? tierMentions.map((tier, index) => ({
+		const orderedProseTiers = simpleTierMentions.length && percentMentions.length >= simpleTierMentions.length
+			? simpleTierMentions.map((tier, index) => ({
 				tier,
 				damageBonus: percentMentions[index],
 				defenseBonus: percentMentions[index],
 			}))
 			: [];
+		const defaultBonusTiers = tierMentions.length && percentMentions.length
+			? tierMentions.map((tier) => ({
+				tier,
+				damageBonus: percentMentions[0],
+				defenseBonus: percentMentions[0],
+			}))
+			: [];
 
 		const tiersByTier = new Map();
-		for (const tier of [...explicitTiers, ...proseTiers, ...orderedProseTiers]) {
+		for (const tier of [...defaultBonusTiers, ...explicitTiers, ...proseTiers, ...orderedProseTiers]) {
 			if (!Number.isFinite(tier.tier) || !Number.isFinite(tier.damageBonus)) continue;
 			tiersByTier.set(tier.tier, tier);
 		}
@@ -274,7 +361,7 @@ export function parseHeldEnhancementEntries(paragraphs = [], items = []) {
 
 	for (const note of items) {
 		const text = String(note ?? "").trim();
-		if (text) notes.push(text);
+		if (text && !isObservationLabelOnly(text)) notes.push(text);
 	}
 
 	return { intro, entries, notes };
@@ -290,9 +377,17 @@ function cleanDisplayDifficultyName(value) {
 }
 
 function isSupportedDifficultyLabel(value) {
-	return ["Fácil", "Normal", "Difícil", "Elite", "Ultimate", "Easy", "Hard", "Medium", "Platinum", "Ultra", "Hyper", "Master", "Grand Master"].includes(value);
+	return ["Fácil", "Normal", "Difícil", "Especialista", "Nightmare", "Elite", "Ultimate", "Easy", "Hard", "Expert", "Medium", "Platinum", "Ultra", "Hyper", "Master", "Grand Master"].includes(value);
 }
 
 function isObservationLine(value) {
 	return normalizeIdToken(value).startsWith("observa");
+}
+
+function isObservationLabelOnly(value) {
+	return /^observa(?:cao|coes|\s+es)?\s*:?\s*$/i.test(normalizeIdToken(value));
+}
+
+function stripTrailingObservationLabel(value) {
+	return String(value ?? "").replace(/\s+Observa(?:ção|ções|cao|coes|[^\s:]*es)\s*:?\s*$/i, "").trim();
 }

@@ -1,5 +1,5 @@
 import { buildSlug } from "../shared.mjs";
-import { cleanStructuredText, dedupeBySlug, displayStructuredText, stripImageRefFromText } from "./text.mjs";
+import { cleanStructuredText, dedupeBySlug, displayStructuredText, normalizeIdToken, stripImageRefFromText } from "./text.mjs";
 
 const FACT_LABEL_RE = /(Nome|Level|Elemento|Habilidades?|Boost|Materia)\s*:/gi;
 const FACT_LINE_RE = /^([^:]{2,36}):\s*(.+)$/;
@@ -192,6 +192,7 @@ export function parseEffectivenessGroupsText(paragraphs = []) {
 	const groups = [];
 	for (const match of text.matchAll(/([^.:]+):\s*([^.:]+)(?:\.|$)/g)) {
 		const label = cleanStructuredText(match[1]);
+		if (normalizeIdToken(label).startsWith("observa")) continue;
 		const values = dedupeBySlug(
 			String(match[2] ?? "")
 				.split(/\s*(?:,| and | e | y )\s*/i)

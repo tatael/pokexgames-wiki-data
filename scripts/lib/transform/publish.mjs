@@ -28,13 +28,13 @@ function buildPublicSectionContent(section) {
 	for (const locale of locales) {
 		let paragraphs = [];
 		if (shouldPublishParagraphContent(section)) {
-			paragraphs = section.kind === "tasks" ? [] : (section.paragraphs?.[locale] ?? []);
+			paragraphs = section.kind === "tasks" ? [] : filterLinkedCardMarkerLines(section, section.paragraphs?.[locale] ?? []);
 		}
 
 		const bullets = section.kind === "pokemon-group" && !section.bossRecommendations && !section.pokemon
 			? (section.items?.[locale] ?? [])
 			: (shouldPublishListContent(section)
-				? (section.items?.[locale] ?? []).filter((item) => !String(item ?? "").includes("|"))
+				? filterLinkedCardMarkerLines(section, section.items?.[locale] ?? []).filter((item) => !String(item ?? "").includes("|"))
 				: []);
 		const value = {};
 		if (paragraphs.length) value.paragraphs = paragraphs;
@@ -43,6 +43,21 @@ function buildPublicSectionContent(section) {
 	}
 
 	return content;
+}
+
+function isLinkedCardMarkerLine(value = "") {
+	const token = String(value ?? "")
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, " ")
+		.trim();
+	return /\b(?:veja mais|veja tambem|ver mais|saiba mais|para saber mais|acesse a pagina)\b/.test(token);
+}
+
+function filterLinkedCardMarkerLines(section, values = []) {
+	if (!section.linkedCards || !section.wikiLinks) return values;
+	return (values ?? []).filter((value) => !isLinkedCardMarkerLine(value));
 }
 
 function shouldPublishParagraphContent(section) {
@@ -54,7 +69,8 @@ function shouldPublishParagraphContent(section) {
 	if (section.questSupport) return false;
 	if (section.questPhases) return false;
 	if (section.clanTasks) return false;
-	if (section.embeddedTowerProgression || section.embeddedTowerUnlocks || section.embeddedTowerSupport || section.linkedCards) return false;
+	if (section.embeddedTowerProgression || section.embeddedTowerUnlocks || section.embeddedTowerSupport) return false;
+	if (section.linkedCards && !section.wikiLinks) return false;
 	return true;
 }
 
@@ -67,7 +83,8 @@ function shouldPublishListContent(section) {
 	if (section.questSupport) return false;
 	if (section.questPhases) return false;
 	if (section.clanTasks) return false;
-	if (section.embeddedTowerProgression || section.embeddedTowerUnlocks || section.embeddedTowerSupport || section.linkedCards) return false;
+	if (section.embeddedTowerProgression || section.embeddedTowerUnlocks || section.embeddedTowerSupport) return false;
+	if (section.linkedCards && !section.wikiLinks) return false;
 	return true;
 }
 

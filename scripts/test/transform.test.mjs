@@ -11,6 +11,7 @@ function localizedSection(section) {
 		paragraphs: { [PT_BR]: section.paragraphs ?? [], en: section.paragraphs ?? [], es: section.paragraphs ?? [] },
 		items: { [PT_BR]: section.items ?? [], en: section.items ?? [], es: section.items ?? [] },
 		media: { [PT_BR]: section.media ?? [], en: section.media ?? [], es: section.media ?? [] },
+		...(section.wikiLinks ? { wikiLinks: { [PT_BR]: section.wikiLinks, en: section.wikiLinks, es: section.wikiLinks } } : {}),
 	};
 }
 
@@ -1205,6 +1206,36 @@ test("structureSection emits embedded tower progression, unlocks, and linked car
 	assert.deepEqual(linkedCards.linkedCards[PT_BR].notes, [
 		"Depois disso, o jogador poderá enfrentar o Rayquaza",
 	]);
+	const seeMoreCards = publishSection(structureSection(localizedSection({
+		id: "relacionados",
+		pageCategory: "systems",
+		heading: "Relacionados",
+		paragraphs: [
+			"Use estes sistemas juntos.",
+			"Veja mais: Boost Stone e Held Items.",
+		],
+		items: [
+			"A velocidade de movimento é fundamental.",
+		],
+		media: [
+			{ type: "image", url: "https://wiki.pokexgames.com/images/1/11/Salacberry.png", alt: "Salacberry.png", slug: "berries" },
+			{ type: "image", url: "https://wiki.pokexgames.com/images/2/22/Telekinetic-compass.gif", alt: "Telekinetic-compass.gif", slug: "telekinetic-compass" },
+		],
+		wikiLinks: [
+			{ title: "Boost Stone", label: "Boost Stone", slug: "boost-stone" },
+			{ title: "Held Items", label: "Held Items", slug: "held-items" },
+		],
+	})));
+
+	assert.deepEqual(seeMoreCards.content[PT_BR], {
+		paragraphs: ["Use estes sistemas juntos."],
+		bullets: ["A velocidade de movimento é fundamental."],
+	});
+	assert.deepEqual(seeMoreCards.linkedCards[PT_BR].cards, [
+		{ label: "Boost Stone", slug: "boost-stone" },
+		{ label: "Held Items", slug: "held-items" },
+	]);
+	assert.equal(seeMoreCards.linkedCards[PT_BR].cards.some((card) => card.slug === "berries"), false);
 });
 
 test("structureSection keeps boss legendary rewards available on normal and hard difficulties", () => {

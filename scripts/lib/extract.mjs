@@ -200,6 +200,80 @@ export function extractArticleWikiLinks(html, pageUrl) {
 	return results;
 }
 
+function hasSeeMoreReferenceText(value = "") {
+	const text = String(value ?? "")
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, " ")
+		.trim();
+	return /\b(?:veja mais|veja tambem|ver mais|saiba mais|para saber mais|acesse a pagina)\b/.test(text);
+}
+
+function readHtmlTagAttr(tag, name) {
+	const match = String(tag ?? "").match(new RegExp("\\b" + name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", "i"));
+	return decodeHtmlEntities(match?.[1] ?? match?.[2] ?? match?.[3] ?? "");
+}
+
+function extractAnchorLabel(innerHtml, fallbackTitle, anchorHtml) {
+	const textLabel = stripHtml(innerHtml ?? "");
+	if (textLabel) return textLabel;
+	const anchorTitle = readHtmlTagAttr(anchorHtml, "title");
+	if (anchorTitle) return anchorTitle;
+	const imageTag = String(innerHtml ?? "").match(/<img\b[^>]*>/i)?.[0] ?? "";
+	const imageLabel = readHtmlTagAttr(imageTag, "title") || readHtmlTagAttr(imageTag, "alt");
+	return fallbackTitle || imageLabel;
+}
+
+export function extractSeeMoreWikiLinks(html, pageUrl) {
+	if (!pageUrl || !hasSeeMoreReferenceText(stripHtml(html))) return [];
+
+	let markerIndex = -1;
+	const blockRegex = /<(p|li|center|td|th|div)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+	for (const match of String(html ?? "").matchAll(blockRegex)) {
+		const text = stripHtml(match[2] ?? "");
+		if (!hasSeeMoreReferenceText(text)) continue;
+		markerIndex = match.index ?? -1;
+		break;
+	}
+
+	const baseUrl = new URL(pageUrl);
+	const links = [];
+	const seen = new Set();
+	const anchorRegex = /<a\b[^>]*\bhref\s*=\s*(?:"([^"]+)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
+	for (const match of String(html ?? "").matchAll(anchorRegex)) {
+		const start = match.index ?? -1;
+		if (markerIndex >= 0 && start >= 0 && start < markerIndex) continue;
+		const href = match[1] ?? match[2] ?? match[3];
+		if (!href) continue;
+
+		let resolved;
+		try {
+			resolved = new URL(href, baseUrl);
+		} catch {
+			continue;
+		}
+
+		if (resolved.hostname !== "wiki.pokexgames.com" || !resolved.pathname.startsWith("/index.php/")) continue;
+		if (resolved.searchParams.has("action") || resolved.searchParams.has("redlink")) continue;
+
+		const title = decodeWikiTitleFromUrl(resolved.toString());
+		if (!title || title.includes(":") || title.includes("=")) continue;
+		const slug = buildSlug(title, "");
+		if (!slug || seen.has(slug)) continue;
+		seen.add(slug);
+		links.push({
+			url: resolved.toString(),
+			title,
+			label: extractAnchorLabel(match[4] ?? "", title, match[0]),
+			slug,
+			hasImage: /<img\b/i.test(match[4] ?? ""),
+		});
+	}
+
+	return links;
+}
+
 function extractWindowQuestData(html) {
 	const source = String(html ?? "");
 	const markerMatch = [...source.matchAll(/window\.quests\s*=/g)].pop();
@@ -455,6 +529,14 @@ export function isNoiseMediaAsset(url, alt = "") {
 		|| /\/images\/[0-9a-f]\/[0-9a-f]{2}\/(?:bug|dark|dragon|electric|fairy|fighting|fire|flying|ghost|grass|ground|ice|normal|poison|psychic|rock|steel|water)\.(?:png|gif|jpe?g|webp)(?:\?|$)/i.test(url);
 }
 
+function isInterfaceRoleMediaAsset(url = "", alt = "") {
+	const source = `${url} ${alt}`
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase();
+	return /(?:^|[\/_\s-])interface[-_\s][a-z0-9_-]+[-_\s]pv[ep](?:[._\s-]|$)/i.test(source);
+}
+
 function extractMedia(html, pageUrl = "", options = {}) {
 	if (!pageUrl) return [];
 	const media = [];
@@ -500,7 +582,7 @@ function extractMedia(html, pageUrl = "", options = {}) {
 	const add = (type, rawUrl, alt = "", metadata = {}) => {
 		const url = absolutizeWikiAssetUrl(pageUrl, rawUrl);
 		if (!url || (!allowDuplicates && seen.has(url))) return;
-		if (isNoiseMediaAsset(url, alt)) return;
+		if (isNoiseMediaAsset(url, alt) && !isInterfaceRoleMediaAsset(url, alt)) return;
 		if (!allowDuplicates) seen.add(url);
 		const entry = { type, url, alt: stripHtml(alt || "") };
 		if (metadata.width) entry.width = metadata.width;
@@ -550,6 +632,30 @@ function extractMedia(html, pageUrl = "", options = {}) {
 	}
 
 	return media;
+}
+
+function normalizeMediaReferenceText(value = "") {
+	return String(value ?? "")
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.replace(/[_-]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function filterContextualMedia(media = [], textValues = []) {
+	const text = ` ${normalizeMediaReferenceText(textValues.join(" "))} `;
+	return (media ?? []).filter((item) => {
+		if (!isInterfaceRoleMediaAsset(item?.url ?? "", item?.alt ?? "")) return true;
+		const names = [
+			item?.alt,
+			decodeURIComponent(String(item?.url ?? "").split("/").pop() ?? ""),
+		]
+			.map(normalizeMediaReferenceText)
+			.filter(Boolean);
+		return names.some((name) => text.includes(` ${name} `));
+	});
 }
 
 function stripMediaAndScript(html) {
@@ -690,6 +796,7 @@ export function extractSections(html, title, pageUrl = "") {
 		const items = lines
 			.filter((line) => line.startsWith("* "))
 			.map((line) => line.slice(2));
+		const wikiLinks = extractSeeMoreWikiLinks(html, pageUrl);
 
 		return [
 			{
@@ -697,7 +804,8 @@ export function extractSections(html, title, pageUrl = "") {
 				heading: { [PT_BR]: "Visão geral" },
 				paragraphs: { [PT_BR]: paragraphs },
 				items: { [PT_BR]: items },
-				media: { [PT_BR]: extractMedia(html, pageUrl) },
+				media: { [PT_BR]: filterContextualMedia(extractMedia(html, pageUrl), [...paragraphs, ...items]) },
+				...(wikiLinks.length ? { wikiLinks: { [PT_BR]: wikiLinks } } : {}),
 			},
 		];
 	}
@@ -712,6 +820,10 @@ export function extractSections(html, title, pageUrl = "") {
 		const items = lines
 			.filter((line) => line.startsWith("* "))
 			.map((line) => line.slice(2));
+		const media = extractMedia(slice, pageUrl, {
+			allowDuplicates: isPossibleCapturesHeading(entry.heading),
+		});
+		const wikiLinks = extractSeeMoreWikiLinks(slice, pageUrl);
 
 		return {
 			id: buildSlug(entry.heading, `section-${index + 1}`),
@@ -719,10 +831,9 @@ export function extractSections(html, title, pageUrl = "") {
 			paragraphs: { [PT_BR]: paragraphs },
 			items: { [PT_BR]: items },
 			media: {
-				[PT_BR]: extractMedia(slice, pageUrl, {
-					allowDuplicates: isPossibleCapturesHeading(entry.heading),
-				}),
+				[PT_BR]: filterContextualMedia(media, [...paragraphs, ...items]),
 			},
+			...(wikiLinks.length ? { wikiLinks: { [PT_BR]: wikiLinks } } : {}),
 		};
 	});
 }

@@ -1204,6 +1204,46 @@
 		"pageKind": "system"
 	},
 	{
+		"category": "systems",
+		"categoryLabel": {
+			"pt-BR": "Sistemas",
+			"en": "Systems",
+			"es": "Sistemas"
+		},
+		"slug": "mystical-tailoring-machine",
+		"url": "https://wiki.pokexgames.com/index.php/Mystical_Tailoring_Machine",
+		"title": {
+			"pt-BR": "Mystical Tailoring Machine",
+			"en": "Mystical Tailoring Machine",
+			"es": "Mystical Tailoring Machine"
+		},
+		"navigationPath": [
+			"Sistemas",
+			"Mystical Tailoring Machine"
+		],
+		"pageKind": "system"
+	},
+	{
+		"category": "npcs",
+		"categoryLabel": {
+			"pt-BR": "NPCs",
+			"en": "NPCs",
+			"es": "NPCs"
+		},
+		"slug": "npc-mr-fuji",
+		"url": "https://wiki.pokexgames.com/index.php/NPC_Mr._Fuji",
+		"title": {
+			"pt-BR": "NPC Mr. Fuji",
+			"en": "NPC Mr. Fuji",
+			"es": "NPC Mr. Fuji"
+		},
+		"navigationPath": [
+			"NPCs",
+			"NPC Mr. Fuji"
+		],
+		"pageKind": "npc"
+	},
+	{
 		"category": "tasks",
 		"categoryLabel": {
 			"pt-BR": "Tasks",

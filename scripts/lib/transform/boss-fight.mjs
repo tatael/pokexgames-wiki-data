@@ -1,11 +1,81 @@
 import { cleanStructuredText, normalizeIdToken, stripImageRefFromText } from "./text.mjs";
 
+const IMAGE_REF_RE = /\b(?:\d{1,4}[-_][\p{L}\p{N}_%()'-]+\s+)?[\p{L}\p{N}_%()'-]+\.(?:png|gif|webp|jpe?g|svg)\s*/giu;
+const INTERFACE_ROLE_RE = /\bInterface\s+([\w][\w\s]*?)\s+PV([EP])\.png\b/gi;
+const ELEMENT_LABELS = new Set([
+	"normal", "fire", "water", "grass", "electric", "ice", "fighting", "poison", "ground", "flying",
+	"psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy", "crystal",
+]);
+
+export function cleanBossText(value) {
+	return cleanStructuredText(String(value ?? "")
+		.replace(INTERFACE_ROLE_RE, "$1 Pv$2")
+		.replace(/\b((?:[\p{L}\p{N}_%()'-]+\s+){1,3}[\p{L}\p{N}_%()'-]+)\.(?:png|gif|webp|jpe?g|svg)\s+\1\b/giu, "$1")
+		.replace(IMAGE_REF_RE, ""));
+}
+
+function cleanBossItemName(value) {
+	const text = cleanBossText(value).replace(/\bBossFightRaiz\b/gi, "").trim();
+	return cleanStructuredText(stripImageRefFromText(text) || text);
+}
+
+function cleanRecommendationLabel(value) {
+	return cleanBossText(value)
+		.replace(/^(?:Tank|Tanker)\s+PvE\s+/i, "")
+		.replace(/^OTDD\s+PvE\s+/i, "")
+		.replace(/^SupportOT\s+PvE\s+/i, "")
+		.trim();
+}
+
+function cleanRecommendationPokemonName(value) {
+	let name = cleanBossText(value).trim();
+	for (const prefix of ["Shiny", "Golden", "Mega", "Alolan", "Galarian", "Hisuian", "Giant", "Champion"]) {
+		const duplicated = new RegExp(`^${prefix}\\s+(.+?)\\s+${prefix}$`, "i");
+		const duplicatedMatch = name.match(duplicated);
+		if (duplicatedMatch) name = `${prefix} ${duplicatedMatch[1]}`;
+		const reversed = new RegExp(`^(.+?)\\s+${prefix}$`, "i");
+		if (!new RegExp(`^${prefix}\\b`, "i").test(name)) {
+			const reversedMatch = name.match(reversed);
+			if (reversedMatch) name = `${prefix} ${reversedMatch[1]}`;
+		}
+	}
+
+	return name.replace(/\bRedgyarados\b/g, "Red Gyarados").trim();
+}
+
+function parsePokemonNamesFromMediaDump(value, groupLabel = "") {
+	const text = String(value ?? "");
+	if (!/\.(?:png|gif|webp|jpe?g|svg)\b/i.test(text)) return [];
+	const matches = [...text.matchAll(IMAGE_REF_RE)];
+	if (!matches.length) return [];
+	const names = [];
+	const groupToken = normalizeIdToken(cleanRecommendationLabel(groupLabel));
+	for (let index = 0; index < matches.length; index += 1) {
+		const start = (matches[index].index ?? 0) + matches[index][0].length;
+		const end = matches[index + 1]?.index ?? text.length;
+		let label = cleanBossText(text.slice(start, end))
+			.replace(/^\*+\s*/, "")
+			.replace(/\s+\*+$/, "")
+			.trim();
+		if (!label || /^observa/i.test(normalizeIdToken(label))) continue;
+		if (groupToken && normalizeIdToken(label).startsWith(`${groupToken} `)) {
+			label = label.slice(cleanRecommendationLabel(groupLabel).length).trim();
+		}
+
+		const token = normalizeIdToken(label);
+		if (!token || ELEMENT_LABELS.has(token) || token.length <= 2) continue;
+		names.push(cleanRecommendationPokemonName(label));
+	}
+
+	return names;
+}
+
 function parsePipeRows(items = []) {
 	return (items ?? [])
 		.filter((item) => String(item ?? "").includes("|"))
-		.map((item) => String(item ?? "")
+		.map((item) => cleanBossText(item)
 			.split(/\s*\|\s*/)
-			.map((part) => cleanStructuredText(part))
+			.map((part) => cleanBossText(part))
 			.filter(Boolean))
 		.filter((cells) => cells.length >= 2)
 		.map((cells) => ({ cells: cells.map((text) => ({ text })) }));
@@ -30,12 +100,12 @@ export function parseBossSupport(normalizedId, normalizedHeading, paragraphs = [
 	const rows = parsePipeRows(items);
 	const bullets = (items ?? [])
 		.filter((item) => !String(item ?? "").includes("|"))
-		.map(cleanStructuredText)
+		.map(cleanBossText)
 		.filter(Boolean);
 
 	return {
 		type: getSupportType(normalizedId, normalizedHeading),
-		intro: (paragraphs ?? []).map(cleanStructuredText).filter(Boolean),
+		intro: (paragraphs ?? []).map(cleanBossText).filter(Boolean),
 		bullets,
 		rows,
 	};
@@ -56,12 +126,12 @@ export function parseBossRecommendations(paragraphs = [], items = []) {
 	const groups = [];
 	let currentGroup = null;
 	for (const raw of paragraphs ?? []) {
-		const text = cleanStructuredText(raw);
+		const text = cleanBossText(raw);
 		if (!text) continue;
 		const heading = text.match(/^#\s+(.+)/);
 		if (heading) {
 			currentGroup = {
-				label: cleanStructuredText(heading[1]),
+				label: cleanRecommendationLabel(heading[1]),
 				notes: [],
 				pokemon: [],
 			};
@@ -70,14 +140,24 @@ export function parseBossRecommendations(paragraphs = [], items = []) {
 			continue;
 		}
 
-		if (!currentGroup) intro.push(text);
-		else currentGroup.notes.push(text);
+		if (!currentGroup) {
+			intro.push(text);
+			continue;
+		}
+
+		const pokemonNames = parsePokemonNamesFromMediaDump(raw, currentGroup.label);
+		const rawStartsWithGroup = normalizeIdToken(raw).startsWith(normalizeIdToken(currentGroup.label));
+		if (pokemonNames.length && (rawStartsWithGroup || normalizeIdToken(text).startsWith(normalizeIdToken(currentGroup.label)))) {
+			currentGroup.pokemon.push(...pokemonNames);
+		} else {
+			currentGroup.notes.push(text);
+		}
 	}
 
 	const targetGroups = groups.length ? groups : [{ label: "", notes: [], pokemon: [] }];
 	if (!groups.length) groups.push(targetGroups[0]);
 
-	const cleanPokemonName = (value) => cleanStructuredText(stripImageRefFromText(value) || value)
+	const cleanPokemonName = (value) => cleanBossItemName(value)
 		.replace(/\bRedgyarados\b/g, "Red Gyarados");
 
 	const shouldKeepPokemon = (name, groupLabel) => {
@@ -108,15 +188,18 @@ export function parseBossRecommendations(paragraphs = [], items = []) {
 		return targetGroups[Math.min(Math.floor((index * targetGroups.length) / Math.max(items.length, 1)), targetGroups.length - 1)];
 	};
 
-	for (const [index, raw] of (items ?? []).entries()) {
-		const group = resolveGroupForRow(index);
-		const names = String(raw ?? "")
-			.split("|")
-			.map((part) => cleanStructuredText(part))
-			.map((part) => shouldKeepPokemon(part, group?.label ?? ""))
-			.filter(Boolean);
-		if (!names.length) continue;
-		group.pokemon.push(...names);
+	const hasParagraphPokemon = groups.some((group) => group.pokemon.length);
+	if (!hasParagraphPokemon) {
+		for (const [index, raw] of (items ?? []).entries()) {
+			const group = resolveGroupForRow(index);
+			const names = String(raw ?? "")
+				.split("|")
+				.map((part) => cleanBossText(part))
+				.map((part) => shouldKeepPokemon(part, group?.label ?? ""))
+				.filter(Boolean);
+			if (!names.length) continue;
+			group.pokemon.push(...names);
+		}
 	}
 
 	return {
@@ -132,7 +215,7 @@ export function addBossRecommendationMediaPokemon(payload, media = []) {
 	const mediaNames = [];
 	for (const item of media ?? []) {
 		const slug = String(item?.slug ?? "").trim();
-		if (!slug || /(?:berry|stone|orb|compass|hammer|portal|entrada|localizacao|redemoinho)/i.test(slug)) continue;
+		if (!slug || /(?:berry|stone|orb|compass|hammer|portal|entrada|localizacao|redemoinho|interface)/i.test(slug)) continue;
 		const name = slug
 			.split("-")
 			.filter(Boolean)
@@ -179,7 +262,7 @@ export function parseDifficultyEntries(paragraphs = [], items = []) {
 	const notes = [];
 	const entries = [];
 	for (const raw of expandDifficultyTexts([...paragraphs, ...items])) {
-		const text = String(raw ?? "").trim();
+		const text = cleanBossText(raw);
 		if (!text) continue;
 		const separatorIndex = text.indexOf(":");
 		const difficultyLabel = separatorIndex >= 0 ? cleanDisplayDifficultyName(text.slice(0, separatorIndex)) : "";
@@ -214,8 +297,8 @@ export function parseDifficultyEntries(paragraphs = [], items = []) {
 			?? normalizedBody.match(/necessario que o jogador possua\s+(\d+)\s+(.+?)(?:\s*$)/i)
 			?? normalizedBody.match(/necessario que o jogador (?:tenha|possua)\s+(\d+)\s+(.+?)(?:\s+observacoes|\s*$)/i)
 			?? normalizedBody.match(/jogador (?:tenha|possua)\s+(\d+)\s+(.+?)(?:\.|\s+observa|\s*$)/i);
-		const cleanedObjective = objective ? sentenceCase(cleanStructuredText(objective)) : "";
-		const cleanedRequirementName = requirement ? titleCaseItemName(cleanStructuredText(requirement[2])) : "";
+		const cleanedObjective = objective ? sentenceCase(cleanBossText(objective)) : "";
+		const cleanedRequirementName = requirement ? titleCaseItemName(cleanBossItemName(requirement[2])) : "";
 		entries.push({
 			name,
 			description: body,
@@ -294,7 +377,7 @@ export function parseHeldEnhancementEntries(paragraphs = [], items = []) {
 	const notes = [];
 	const entries = [];
 	for (const raw of paragraphs) {
-		const text = String(raw ?? "").trim();
+		const text = cleanBossText(raw);
 		if (!text) continue;
 		const separatorIndex = text.indexOf(":");
 		const difficultyLabel = separatorIndex >= 0 ? cleanDisplayDifficultyName(text.slice(0, separatorIndex)) : "";

@@ -37,6 +37,7 @@ import {
 	isDifficultySection as isBossFightDifficultySection,
 	isHeldEnhancementSection as isBossFightHeldEnhancementSection,
 	addBossRecommendationMediaPokemon,
+	cleanBossText,
 	parseBossRecommendations,
 	parseBossSupport,
 	parseDifficultyEntries as parseBossFightDifficultyEntries,
@@ -56,8 +57,8 @@ import {
 	parseEmbeddedTowerProgression,
 	parseEmbeddedTowerSupport,
 	parseEmbeddedTowerUnlocks,
-	parseLinkedCards,
 } from "./transform/embedded-tower.mjs";
+import { parseLinkedCards } from "./transform/linked-cards.mjs";
 import {
 	isAbilitySection,
 	isLocationSection,
@@ -437,15 +438,18 @@ export function structureSection(section) {
 		if (Object.keys(embeddedTowerUnlocks).length) result.embeddedTowerUnlocks = embeddedTowerUnlocks;
 	}
 
-	if (isEmbeddedTowerLinkedCardsSection(normalizedId, normalizedHeading, pageCategory)) {
+	if (section.wikiLinks || isEmbeddedTowerLinkedCardsSection(normalizedId, normalizedHeading, pageCategory)) {
 		const linkedCards = {};
 		for (const locale of new Set([
 			...Object.keys(section.paragraphs ?? {}),
 			...Object.keys(section.media ?? {}),
+			...Object.keys(section.wikiLinks ?? {}),
 		])) {
 			const parsed = parseLinkedCards(
 				section.paragraphs?.[locale] ?? [],
 				section.media?.[locale] ?? [],
+				section.wikiLinks?.[locale] ?? [],
+				{ allowMediaFallback: !section.wikiLinks },
 			);
 
 			if (parsed.intro.length || parsed.cards.length || parsed.notes.length) {
@@ -588,5 +592,18 @@ export function structureSection(section) {
 		if (Object.keys(craftEntries).length) result.craftEntries = craftEntries;
 	}
 
+	if (pageCategory === "boss fight") {
+		result.paragraphs = cleanLocalizedStringLists(result.paragraphs, cleanBossText);
+		result.items = cleanLocalizedStringLists(result.items, cleanBossText);
+	}
+
 	return result;
+}
+
+function cleanLocalizedStringLists(values, cleaner) {
+	if (!values) return values;
+	return Object.fromEntries(Object.entries(values).map(([locale, entries]) => [
+		locale,
+		(entries ?? []).map(cleaner).filter(Boolean),
+	]));
 }

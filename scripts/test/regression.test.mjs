@@ -201,6 +201,17 @@ test("extractSections keeps tabber center media between mechanic paragraphs", ()
 	]);
 });
 
+test("extractSections keeps meaningful PvE interface role icons", () => {
+	const sections = extractSections(`
+		<h1>Mecânicas</h1>
+		<p>Utilize Pokémon da categoria <img alt="Interface Tank PVE.png" src="/images/thumb/8/80/Interface_Tank_PVE.png/20px-Interface_Tank_PVE.png" /> Tanque - PVE.</p>
+	`, "Boss Shiny Giant Tentacruel", "https://wiki.pokexgames.com/index.php/Boss_Shiny_Giant_Tentacruel");
+
+	assert.equal(sections[0].paragraphs[PT_BR][0], "Utilize Pokémon da categoria Interface Tank PVE.png Tanque - PVE.");
+	assert.deepEqual(sections[0].media[PT_BR].map((item) => item.alt), ["Interface Tank PVE.png"]);
+	assert.equal(sections[0].media[PT_BR][0].url, "https://wiki.pokexgames.com/images/8/80/Interface_Tank_PVE.png");
+});
+
 test("Boss Shiny Giant Tentacruel keeps lead requirements and rewards", () => {
 	const sections = normalizeSections([{
 		id: "recompensas",
@@ -272,6 +283,59 @@ test("Boss Shiny Giant Tentacruel recommendations publish Pokemon cards payload 
 		"Dusclops",
 		"Shiny Espeon",
 	]);
+});
+
+test("boss structured sections strip role and sprite filenames", () => {
+	const difficulty = publishSection(structureSection({
+		id: "dificuldades",
+		heading: { [PT_BR]: "Dificuldades" },
+		paragraphs: {
+			[PT_BR]: [
+				"Pokeball.png Normal: requer no minimo nivel 250 e possui um level cap no nivel 275. Para entrar nesta dificuldade, e necessario que o jogador tenha 1 BossFightRaiz Enteicharm.png Entei Charm.",
+			],
+		},
+		items: { [PT_BR]: [] },
+		pageCategory: "boss-fight",
+	}));
+
+	assert.equal(difficulty.difficulties[PT_BR].entries[0].name, "Normal");
+	assert.equal(difficulty.difficulties[PT_BR].entries[0].entryRequirement.name, "Entei Charm");
+	assert.equal(difficulty.difficulties[PT_BR].entries[0].description.includes(".png"), false);
+
+	const recommendations = publishSection(structureSection({
+		id: "pokemon-recomendados",
+		heading: { [PT_BR]: "Pokemon recomendados" },
+		paragraphs: {
+			[PT_BR]: [
+				"# Interface Tank PVE.png Tanque",
+				"Tanque 0009-Blastoise.png Blastoise 095-Onix.png Big Onix",
+				"# Interface OTDD PVE.png Causador de Dano",
+				"Causador de Dano Shiny golduck.png Shiny Golduck 028-Shiny Sandslash.png Shiny Sandslash 130-RedGyarados.png Shiny Gyarados Shiny steelix.png Golden Steelix 171-shLanturn.png Shiny Lanturn",
+				"# Interface SupportOT PVE.png Suporte Contínuo",
+				"Suporte Contínuo 201-UnownLegion.png Unown Legion",
+			],
+		},
+		items: { [PT_BR]: [] },
+		pageCategory: "boss-fight",
+	}));
+
+	assert.deepEqual(recommendations.bossRecommendations[PT_BR].groups.map((group) => group.label), ["Tanque", "Causador de Dano", "Suporte Contínuo"]);
+	assert.deepEqual(recommendations.bossRecommendations[PT_BR].groups[0].pokemon, ["Blastoise", "Big Onix"]);
+	assert.deepEqual(recommendations.bossRecommendations[PT_BR].groups[1].pokemon, ["Shiny Golduck", "Shiny Sandslash", "Shiny Gyarados", "Golden Steelix", "Shiny Lanturn"]);
+	assert.deepEqual(recommendations.bossRecommendations[PT_BR].groups[2].pokemon, ["Unown Legion"]);
+	assert.equal(JSON.stringify(recommendations.bossRecommendations[PT_BR]).includes(".png"), false);
+
+	const intro = publishSection(structureSection({
+		id: "introducao",
+		heading: { [PT_BR]: "Introdução" },
+		paragraphs: { [PT_BR]: ["O 244-Entei.png Entei foi criado pelo 250-Ho-Oh.png Ho-Oh e é do tipo Fire.png Fogo."] },
+		items: { [PT_BR]: [] },
+		pageCategory: "boss-fight",
+	}));
+
+	assert.equal(intro.content[PT_BR].paragraphs[0].includes(".png"), false);
+	assert.match(intro.content[PT_BR].paragraphs[0], /Entei/);
+	assert.match(intro.content[PT_BR].paragraphs[0], /Ho-Oh/);
 });
 
 test("ability-prefixed sections render as info cards", () => {

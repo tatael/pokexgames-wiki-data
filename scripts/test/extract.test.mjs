@@ -6,6 +6,7 @@ import {
 	extractArticleFragmentHtml,
 	extractArticleHtml,
 	extractArticleWikiLinks,
+	extractSeeMoreWikiLinks,
 	extractSections,
 } from "../lib/extract.mjs";
 import { loadFixture } from "./helpers.mjs";
@@ -44,6 +45,20 @@ test("extractArticleFragmentHtml supports top-level h1 wiki fragments", () => {
 
 	assert.match(fragmentHtml, /Bronze block/);
 	assert.doesNotMatch(fragmentHtml, /Silver block/);
+});
+
+test("extractSeeMoreWikiLinks captures only links after Veja mais markers", () => {
+	const html = `
+		<p><a href="/index.php/Unrelated_Page" title="Unrelated Page">Unrelated</a></p>
+		<p>Veja mais: <a href="/index.php/Boost_Stone" title="Boost Stone">Boost Stone</a></p>
+		<ul><li><a href="/index.php/Held_Items" title="Held Items">Held Items</a></li></ul>
+	`;
+	const links = extractSeeMoreWikiLinks(html, "https://wiki.pokexgames.com/index.php/Teste");
+
+	assert.deepEqual(links.map((link) => ({ label: link.label, slug: link.slug })), [
+		{ label: "Boost Stone", slug: "boost-stone" },
+		{ label: "Held Items", slug: "held-items" },
+	]);
 });
 
 test("extractArticleFragmentHtml trims footer headings from final h1 fragments", () => {

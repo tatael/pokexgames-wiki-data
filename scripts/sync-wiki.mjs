@@ -36,6 +36,7 @@ import { loadConfig } from "./lib/discovery.mjs";
 import { prepareBuildDir, publishBuildDir } from "./lib/output.mjs";
 import {
 	buildLocalizedSummary,
+	buildLocalizedPageSummary,
 	normalizeSections,
 	resolveCategory,
 	resolveCategoryLabel,
@@ -202,7 +203,7 @@ async function syncEntry(entry) {
 		?? resolveTitleOverride({ category: resolvedCategory, slug: entry.slug })
 		?? resolveDisplayTitle(entry.title, resolvedCategoryLabel);
 	const fallbackSummary = displayTitle?.[PT_BR] || entry.title?.[PT_BR] || resolvedTitle || entry.slug;
-	const summary = buildLocalizedSummary(rawSummary, fallbackSummary);
+	const summary = buildLocalizedPageSummary(rawSummary, fallbackSummary, sections);
 	const images = await resolvePageImages({
 		articleHtml,
 		sourceUrl,

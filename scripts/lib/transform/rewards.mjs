@@ -253,12 +253,10 @@ export function parseRewardItemText(item) {
 	if (["item raridade", "item quantidade raridade", "colocacao recompensa"].includes(normalizedRaw)) return null;
 	if (["itens dropaveis", "itens dropados", "droppable items", "dropped items"].includes(normalizedRaw)) return null;
 	if (/^paginas? que usam a etiqueta tabber\b/.test(normalizedRaw)) return null;
-	if (/^(facil|normal|dificil|easy|hard|platinum|ultra|hyper|master|grand master|gold|nightmare|especialista|expert|recompensa semanal|recompensa de temporada)$/.test(normalizedRaw)) {
-		return { type: "difficulty", difficulty: raw };
+	if (/^(observacao|observacoes|caso)\b/.test(normalizedRaw)) return null;
+	if (/^(facil|normal|dificil|elite|ultimate|easy|hard|platinum|ultra|hyper|master|grand master|gold|nightmare|especialista|expert|recompensa semanal|recompensa de temporada)\s*:?$/.test(normalizedRaw)) {
+		return { type: "difficulty", difficulty: raw.replace(/:$/, "").trim() };
 	}
-
-	const simpleRewards = parseSimpleRewardText(raw);
-	if (simpleRewards.length === 1) return simpleRewards[0];
 
 	const labeledExperience = raw.match(/^(?:(Exp icon(?: nw)?(?:\.png)?|Improved XP2?\.png)\s+)?((?:NW\s+)?Experi[êe]ncia|Experience|Improved XP)\s*:\s*([\d.]+)$/i);
 	if (labeledExperience) {
@@ -290,11 +288,20 @@ export function parseRewardItemText(item) {
 		}
 	}
 
+	if (pipeIdx < 0) {
+		const simpleRewards = parseSimpleRewardText(raw);
+		if (simpleRewards.length === 1) return simpleRewards[0];
+	}
+
 	const parts = raw
 		.split(/\s*\|\s*/)
 		.map((part) => {
 			const trimmed = part.trim();
 			if (/^\d+(?:[.,]\d+)?(?:\s*a\s*\d+(?:[.,]\d+)?)?$/i.test(trimmed)) {
+				return trimmed;
+			}
+
+			if (/^\d+(?:[.,]\d+)?(?:\s*a\s*\d+(?:[.,]\d+)?)?\s+\S/.test(trimmed) && !/\.(gif|png|jpg|jpeg|webp|svg)\b/i.test(trimmed)) {
 				return trimmed;
 			}
 

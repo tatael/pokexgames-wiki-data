@@ -11,12 +11,22 @@ export function cleanBossText(value) {
 	return cleanStructuredText(String(value ?? "")
 		.replace(INTERFACE_ROLE_RE, "$1 Pv$2")
 		.replace(/\b((?:[\p{L}\p{N}_%()'-]+\s+){1,3}[\p{L}\p{N}_%()'-]+)\.(?:png|gif|webp|jpe?g|svg)\s+\1\b/giu, "$1")
-		.replace(IMAGE_REF_RE, ""));
+		.replace(IMAGE_REF_RE, "")
+		.replace(/\bGiant\s+Shiny\s+Tentacruel\s+Shiny\s+Giant\s+Tentacruel\b/gi, "Shiny Giant Tentacruel")
+		.replace(/\bBerrie\s+Lum\s+berry\b/gi, "Lum Berry")
+		.replace(/\blum\s+berry\b/gi, "Lum Berry"));
 }
 
 function cleanBossItemName(value) {
 	const text = cleanBossText(value).replace(/\bBossFightRaiz\b/gi, "").trim();
 	return cleanStructuredText(stripImageRefFromText(text) || text);
+}
+
+function canonicalBossItemName(value) {
+	const text = cleanStructuredText(value);
+	const token = normalizeIdToken(text);
+	if (token === "talisma de feitico") return "Talismã de Feitiço";
+	return text;
 }
 
 function cleanRecommendationLabel(value) {
@@ -298,7 +308,7 @@ export function parseDifficultyEntries(paragraphs = [], items = []) {
 			?? normalizedBody.match(/necessario que o jogador (?:tenha|possua)\s+(\d+)\s+(.+?)(?:\s+observacoes|\s*$)/i)
 			?? normalizedBody.match(/jogador (?:tenha|possua)\s+(\d+)\s+(.+?)(?:\.|\s+observa|\s*$)/i);
 		const cleanedObjective = objective ? sentenceCase(cleanBossText(objective)) : "";
-		const cleanedRequirementName = requirement ? titleCaseItemName(cleanBossItemName(requirement[2])) : "";
+		const cleanedRequirementName = requirement ? canonicalBossItemName(titleCaseItemName(cleanBossItemName(requirement[2]))) : "";
 		entries.push({
 			name,
 			description: body,

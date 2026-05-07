@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { buildSummary, extractArticleWikiLinks, extractSections } from "../lib/extract.mjs";
 import { shouldRecurseDiscoveredPage } from "../lib/discovery.mjs";
-import { normalizeSections, resolveDisplayInList, resolveDisplayTitle, resolvePageGroup } from "../lib/page-pipeline.mjs";
+import { buildLocalizedPageSummary, normalizeSections, resolveDisplayInList, resolveDisplayTitle, resolvePageGroup } from "../lib/page-pipeline.mjs";
 import { structureSection } from "../lib/transform.mjs";
 import { publishSection } from "../lib/transform/publish.mjs";
 import { PT_BR, buildLocalizedText } from "../lib/shared.mjs";
@@ -338,6 +338,44 @@ test("boss structured sections strip role and sprite filenames", () => {
 	assert.match(intro.content[PT_BR].paragraphs[0], /Ho-Oh/);
 });
 
+test("boss text cleanup fixes repeated names, berry names, and accented entry items", () => {
+	const importantInfo = publishSection(structureSection({
+		id: "informacoes-importantes",
+		heading: { [PT_BR]: "Informações importantes" },
+		paragraphs: { [PT_BR]: [] },
+		items: {
+			[PT_BR]: [
+				"A Berrie Lum berry não funciona nesta batalha.",
+				"O Boss Giant Shiny Tentacruel Shiny Giant Tentacruel possui o elemento Water e Poison.",
+			],
+		},
+		pageCategory: "boss-fight",
+		slug: "boss-shiny-giant-tentacruel",
+		title: buildLocalizedText("Boss Shiny Giant Tentacruel"),
+	}));
+
+	assert.deepEqual(importantInfo.bossSupport[PT_BR].bullets, [
+		"A Lum Berry não funciona nesta batalha",
+		"O Boss Shiny Giant Tentacruel possui o elemento Water e Poison",
+	]);
+
+	const difficulty = publishSection(structureSection({
+		id: "dificuldades",
+		heading: { [PT_BR]: "Dificuldades" },
+		paragraphs: {
+			[PT_BR]: [
+				"Normal: requer no mínimo level 250; possui um level cap no level 275. Para entrar nesta dificuldade, é necessário que o jogador tenha 1 Talismã de Feitiço.",
+			],
+		},
+		items: { [PT_BR]: [] },
+		pageCategory: "boss-fight",
+		slug: "lavender-s-curse",
+		title: buildLocalizedText("Lavender's Curse"),
+	}));
+
+	assert.equal(difficulty.difficulties[PT_BR].entries[0].entryRequirement.name, "Talismã de Feitiço");
+});
+
 test("ability-prefixed sections render as info cards", () => {
 	const section = structureSection({
 		id: "habilidades-do-meowth-fight-the-bite",
@@ -347,4 +385,80 @@ test("ability-prefixed sections render as info cards", () => {
 	});
 
 	assert.equal(section.kind, "info");
+});
+
+test("boss event introductions and summaries use cleaned full intro prose", () => {
+	const sections = normalizeSections(extractSections(`
+		<h2>Introdução</h2>
+		<p>A Bowstoise Dungeon faz parte do Evento de Páscoa da PokeXGames. Os jogadores devem enfrentar o <img alt="SshBlastoise.png" src="/images/3/37/SshBlastoise.png" /> Bowser Blastoise no modo PokéView. É a oportunidade que os jogadores têm de tentar adquirir o <img alt="Bowser-costume.png" src="/images/d/d2/Bowser-costume.png" /> Bowser Costume, um addon muito raro para o <img alt="SshBlastoise.png" src="/images/3/37/SshBlastoise.png" /> Shiny Blastoise.</p>
+	`, "Bowstoise Dungeon", "https://wiki.pokexgames.com/index.php/Bowstoise_Dungeon"), {
+		category: "boss-fight",
+		slug: "bowstoise-dungeon",
+		pageKind: "dungeons",
+	});
+
+	const summary = buildLocalizedPageSummary(buildSummary([]), "Bowstoise Dungeon", sections);
+	assert.equal(summary[PT_BR].includes(".png"), false);
+	assert.match(summary[PT_BR], /Bowser Costume/);
+	assert.match(summary[PT_BR], /Shiny Blastoise/);
+});
+
+test("boss event reward tabbers keep difficulty, quantity, name, and rarity separate", () => {
+	const [section] = normalizeSections(extractSections(`
+		<h2>Recompensas</h2>
+		<div class="tabber">
+			<article class="tabber__panel" data-title="Fácil">
+				<table><tr><th>Item</th><th>Quantidade</th><th>Raridade</th></tr>
+					<tr><td><img alt="Easter Tickets.png" src="/images/8/82/Easter_Tickets.png" /></td><td>35 Arcade Tickets</td><td>Comum</td></tr>
+				</table>
+			</article>
+			<article class="tabber__panel" data-title="Elite">
+				<table><tr><th>Item</th><th>Quantidade</th><th>Raridade</th></tr>
+					<tr><td><img alt="Rough Gemstone.png" src="/images/1/1d/Rough_Gemstone.png" /></td><td>9 Rough Gemstone</td><td>Comum</td></tr>
+				</table>
+				<p><img alt="Improved XP2.png" src="/images/3/35/Improved_XP2.png" /> Improved XP: 70.000</p>
+				<p><b>Observação</b>: O jogador receberá a Improved XP se for no mínimo level 600. Caso ele seja level menor que isso, receberá a experiência normal.</p>
+			</article>
+			<article class="tabber__panel" data-title="Ultimate">
+				<table><tr><th>Item</th><th>Quantidade</th><th>Raridade</th></tr>
+					<tr><td><img alt="Easter Tickets.png" src="/images/8/82/Easter_Tickets.png" /></td><td>175 Arcade Tickets</td><td>Comum</td></tr>
+				</table>
+			</article>
+		</div>
+	`, "Bowstoise Dungeon", "https://wiki.pokexgames.com/index.php/Bowstoise_Dungeon"), {
+		category: "boss-fight",
+		slug: "bowstoise-dungeon",
+		pageKind: "dungeons",
+	});
+
+	const rewards = section.rewards[PT_BR];
+	assert.deepEqual(rewards[0], { type: "loot", name: "Arcade Tickets", difficulty: "Fácil", rarity: "Comum", qty: "35" });
+	assert(rewards.some((reward) => reward.name === "Rough Gemstone" && reward.difficulty === "Elite" && reward.qty === "9"));
+	assert(rewards.some((reward) => reward.name === "Arcade Tickets" && reward.difficulty === "Ultimate" && reward.qty === "175"));
+	assert.equal(rewards.some((reward) => /Elite|Ultimate|Caso|\|/.test(reward.name)), false);
+});
+
+test("tabber ability sections preserve trailing subsection prose and media", () => {
+	const [section] = normalizeSections(extractSections(`
+		<h2>Habilidades</h2>
+		<div class="tabber">
+			<article class="tabber__panel" data-title="Ember">
+				<p>O King Charizard ataca o jogador.</p>
+				<video src="https://wiki.pokexgames.com/images/2/27/King_Charizard_Ember.mp4"></video>
+			</article>
+		</div>
+		<h3>Black Pawn Charmander</h3>
+		<p>Quando o King Charizard chega a uma certa porcentagem de HP ele invocará dois Black Pawn Charmander, isso acontece duas vezes por combate.</p>
+		<h3>Cura</h3>
+		<p>Os jogadores podem curar a HP e remover o status BURN, pisando na água ao norte da arena como no video abaixo.</p>
+		<video src="https://wiki.pokexgames.com/images/e/e8/King_Charizard_Cura.mp4"></video>
+	`, "King Charizard Dungeon", "https://wiki.pokexgames.com/index.php/King_Charizard_Dungeon"), {
+		category: "boss-fight",
+		slug: "king-charizard-dungeon",
+		pageKind: "dungeons",
+	});
+
+	assert.deepEqual(section.abilities[PT_BR].map((entry) => entry.name), ["Ember", "Black Pawn Charmander", "Cura"]);
+	assert.equal(section.abilities[PT_BR][1].description[0].includes("Black Pawn Charmander"), true);
+	assert.equal(section.media[PT_BR].some((item) => item.slug === "king-charizard-cura"), true);
 });

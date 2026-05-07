@@ -678,6 +678,10 @@ function extractTabberPanelLines(html) {
 	return lines;
 }
 
+function stripTabberPanels(html) {
+	return String(html ?? "").replace(/<article\b[^>]*\bdata-title=(?:"[^"]+"|'[^']*'|[^\s>]+)[^>]*>[\s\S]*?<\/article>/gi, " ");
+}
+
 function extractPanelBodyLines(html) {
 	const marker = "__PXO_LINE_BREAK__";
 	const normalized = preserveMediaText(html)
@@ -815,7 +819,8 @@ export function extractSections(html, title, pageUrl = "") {
 		const slice = html.slice(entry.end, nextStart);
 		const isRewardSection = buildSlug(entry.heading, "") === "recompensas" || buildSlug(entry.heading, "") === "recompensa" || buildSlug(entry.heading, "") === "rewards";
 		const tabberLines = isRewardSection ? extractRewardTabberLines(slice) : extractTabberPanelLines(slice);
-		const lines = tabberLines.length ? tabberLines : extractLines(slice);
+		const trailingLines = tabberLines.length ? extractLines(stripTabberPanels(slice)) : [];
+		const lines = tabberLines.length ? [...tabberLines, ...trailingLines] : extractLines(slice);
 		const paragraphs = lines.filter((line) => !line.startsWith("* "));
 		const items = lines
 			.filter((line) => line.startsWith("* "))

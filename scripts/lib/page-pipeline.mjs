@@ -1,5 +1,6 @@
 import { PT_BR, decodeHtmlEntities, normalizeWhitespace } from "./shared.mjs";
 import { publishSection, structureSection } from "./transform.mjs";
+import { cleanStructuredText } from "./transform/text.mjs";
 
 export function cleanDisplayText(value) {
 	let text = String(value ?? "");
@@ -709,7 +710,7 @@ export function normalizeSections(sectionsBase, pageContext = {}) {
 }
 
 export function buildLocalizedSummary(summary, fallbackValue = "") {
-	const rawValue = cleanDisplayText(summary?.[PT_BR] || "");
+	const rawValue = cleanSummaryText(summary?.[PT_BR] || "");
 	const fallback = cleanDisplayText(fallbackValue);
 	const normalizedRaw = normalizeCategoryText(rawValue);
 	const baseValue = /^conteudo local sincronizado da wiki\.?$/.test(normalizedRaw)
@@ -720,4 +721,23 @@ export function buildLocalizedSummary(summary, fallbackValue = "") {
 		en: baseValue,
 		es: baseValue,
 	};
+}
+
+export function buildLocalizedPageSummary(rawSummary, fallbackValue = "", sections = []) {
+	const introParagraph = findIntroductionSummary(sections);
+	return buildLocalizedSummary(introParagraph ? { [PT_BR]: introParagraph } : rawSummary, fallbackValue);
+}
+
+function findIntroductionSummary(sections = []) {
+	const intro = (sections ?? []).find((section) => normalizeCategoryText(section?.id ?? "") === "introducao");
+	const paragraphs = intro?.content?.[PT_BR]?.paragraphs
+		?? intro?.content?.en?.paragraphs
+		?? intro?.content?.es?.paragraphs
+		?? [];
+	return cleanSummaryText(paragraphs.find(Boolean) ?? "");
+}
+
+function cleanSummaryText(value) {
+	return cleanStructuredText(cleanDisplayText(value)
+		.replace(/\b(?:\d{1,4}[-_][\p{L}\p{N}_%()'-]+\s+)?[\p{L}\p{N}_%()'-]+\.(?:png|gif|webp|jpe?g|svg)\s*/giu, ""));
 }

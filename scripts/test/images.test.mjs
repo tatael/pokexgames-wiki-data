@@ -71,6 +71,15 @@ test("discoverPageImages falls back to generated pokemon showdown sprite urls", 
 	});
 });
 
+test("discoverPageImages normalizes apostrophe pokemon showdown slugs", async () => {
+	const images = await discoverPageImages("sirfetch-d", async () => ({ query: { pages: {} } }));
+
+	assert.deepEqual(images, {
+		sprite: { url: "https://play.pokemonshowdown.com/sprites/gen5/sirfetchd.png" },
+		hero: { url: "https://play.pokemonshowdown.com/sprites/gen5/sirfetchd.png" },
+	});
+});
+
 test("extractLeadWikiImageUrl skips language flags and interface chrome", () => {
 	const html = `
 		<img src="/images/8/81/ES.png" alt="ES.png">

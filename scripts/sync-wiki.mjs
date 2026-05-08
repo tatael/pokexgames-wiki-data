@@ -148,7 +148,8 @@ async function resolvePageImages({ articleHtml, sourceUrl, slug, pageKind, categ
 	const hero = leadHeroUrl
 		? { url: leadHeroUrl }
 		: (images?.hero ?? images?.sprite ?? discoveredImages?.hero ?? discoveredImages?.sprite ?? null);
-	return hero ? { hero } : null;
+	const sprite = images?.sprite ?? discoveredImages?.sprite ?? hero;
+	return hero ? { ...(sprite ? { sprite } : {}), hero } : null;
 }
 
 async function syncEntry(entry) {

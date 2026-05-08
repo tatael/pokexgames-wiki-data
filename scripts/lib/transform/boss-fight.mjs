@@ -10,9 +10,13 @@ const ELEMENT_LABELS = new Set([
 export function cleanBossText(value) {
 	return cleanStructuredText(String(value ?? "")
 		.replace(INTERFACE_ROLE_RE, "$1 Pv$2")
+		.replace(/\bBerrie\s+\d+\.png\s+([\p{L}\p{N}' -]+?\s+Berr(?:y|ies))\b/giu, "$1")
 		.replace(/\b((?:[\p{L}\p{N}_%()'-]+\s+){1,3}[\p{L}\p{N}_%()'-]+)\.(?:png|gif|webp|jpe?g|svg)\s+\1\b/giu, "$1")
 		.replace(IMAGE_REF_RE, "")
 		.replace(/\bGiant\s+Shiny\s+Tentacruel\s+Shiny\s+Giant\s+Tentacruel\b/gi, "Shiny Giant Tentacruel")
+		.replace(/\bBerrie\s+([\p{L}\p{N}' -]+?\s+Berr(?:y|ies))\b/giu, "$1")
+		.replace(/\bBeery\b/gi, "Berry")
+		.replace(/\b([\p{Lu}][\p{L}'-]*)\s+berry\b/gu, "$1 Berry")
 		.replace(/\bBerrie\s+Lum\s+berry\b/gi, "Lum Berry")
 		.replace(/\blum\s+berry\b/gi, "Lum Berry"));
 }

@@ -1,5 +1,5 @@
 import { PT_BR, buildSlug } from "./shared.mjs";
-import { cleanStructuredText, dedupeBySlug, normalizeIdToken } from "./transform/text.mjs";
+import { cleanStructuredText, dedupeBySlug, normalizeIdToken, stripImageRefFromText } from "./transform/text.mjs";
 import { classifySectionKind } from "./transform/classification.mjs";
 import {
 	cleanRawPokemonReferenceItems,
@@ -101,6 +101,22 @@ export function structureSection(section) {
 		}
 
 		result.pokemon = pokemon;
+	}
+
+	if (pageCategory === "clans" && !result.pokemon && isClanPokemonPayloadSection(normalizedId, normalizedHeading)) {
+		const pokemon = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.items ?? {}),
+		])) {
+			const entries = parseClanPokemonPayloadEntries(
+				section.paragraphs?.[locale] ?? [],
+				section.items?.[locale] ?? [],
+			);
+			if (entries.length) pokemon[locale] = entries;
+		}
+
+		if (Object.keys(pokemon).length) result.pokemon = pokemon;
 	}
 
 	if (kind === "rewards") {
@@ -211,7 +227,9 @@ export function structureSection(section) {
 		const effectiveness = {};
 		for (const locale of Object.keys(section.paragraphs ?? {})) {
 			const paragraphs = section.paragraphs?.[locale] ?? [];
-			const structured = parseEffectivenessGroupsText(paragraphs);
+			const structured = pageCategory === "clans"
+				? parseClanEffectivenessGroups(paragraphs)
+				: parseEffectivenessGroupsText(paragraphs);
 			if (structured.length) effectiveness[locale] = structured;
 		}
 
@@ -598,6 +616,194 @@ export function structureSection(section) {
 	}
 
 	return result;
+}
+
+function isClanPokemonPayloadSection(normalizedId, normalizedHeading) {
+	const source = `${normalizedId} ${normalizedHeading}`;
+	return /\btechnical machine\b|\btechnical records\b|\btm\b|\btr\b/.test(source)
+		|| /pokemon obtido via npc de cla|pokemon obtained by clan npc/.test(source)
+		|| /exclusividade do cla no pvp|pvp exclusiv/.test(source)
+		|| /rotacao mid late game|mid late rotation|rotation/.test(source);
+}
+
+function parseClanPokemonPayloadEntries(paragraphs = [], items = []) {
+	const seen = new Set();
+	const entries = [];
+	const add = (rawName, roles = {}) => {
+		const parsed = roles.raw ? parsePokemonItemText(roles.raw) : null;
+		const name = cleanStructuredText(parsed?.name ?? rawName)
+			.replace(/\s*\((?:TM|TR)\)\s*$/i, (match) => match.toUpperCase())
+			.trim();
+		if (!name) return;
+		const key = buildSlug(name.replace(/\s*\((?:TM|TR)\)\s*$/i, ""), "");
+		const variantKey = `${key}:${/\((tm|tr)\)$/i.test(name) ? name.match(/\((tm|tr)\)$/i)?.[1]?.toLowerCase() : ""}`;
+		if (!key || seen.has(variantKey)) return;
+		seen.add(variantKey);
+		entries.push({
+			name,
+			exclusive: parsed?.exclusive ?? false,
+			pve: parsed?.pve ?? roles.pve ?? "Not",
+			pvp: parsed?.pvp ?? roles.pvp ?? "Not",
+			...(roles.tier ? { tier: roles.tier } : {}),
+		});
+	};
+
+	for (const item of items ?? []) {
+		const row = parseClanPokemonTableRow(item);
+		if (row) {
+			add(row.name, row);
+			continue;
+		}
+
+		if (isClanTableHeaderText(item)) continue;
+
+		const parsed = parsePokemonItemText(item);
+		if (parsed) {
+			add(parsed.name, { raw: item });
+			continue;
+		}
+
+		const text = cleanStructuredText(item);
+		if (isClanTableHeaderText(text)) continue;
+		const token = normalizeIdToken(text);
+		if (text && !/shiny de cla|nightmare world/.test(token)) add(text);
+	}
+
+	if (entries.length) return entries;
+
+	const pokemonFileRe = /(?:#?\d{1,4}\s*[-_. ]*)?[\p{L}\p{N}'-]+(?:\s+[\p{L}\p{N}'-]+){0,2}\.png/giu;
+	for (const paragraph of paragraphs ?? []) {
+		const source = cleanStructuredText(paragraph);
+		const fileMatches = [...source.matchAll(pokemonFileRe)];
+		for (let index = 0; index < fileMatches.length; index += 1) {
+			const match = fileMatches[index];
+			if (isClanNonPokemonMediaFile(match[0])) continue;
+			const start = (match.index ?? 0) + match[0].length;
+			const end = fileMatches[index + 1]?.index ?? source.length;
+			const label = cleanStructuredText(source.slice(start, end).split(/\s*,|\sou\b|\se\b|\sfale\b|\sobservacao\b/i)[0]);
+			if (!label || /^(?:npc|para|rank|master)\b/i.test(label) || isClanNonPokemonLabel(label)) continue;
+			add(label);
+		}
+	}
+
+	return entries;
+}
+
+function parseClanPokemonTableRow(value) {
+	const cells = String(value ?? "")
+		.split(/\s*\|\s*/)
+		.map((cell) => cleanStructuredText(cell))
+		.filter(Boolean);
+	if (cells.length < 2) return null;
+	if (cells.every((cell) => /^(?:pokemon|pokémon|nome|name|funcao|função|tier|icone|ícone)$/i.test(normalizeIdToken(cell)))) return null;
+	if (cells.some((cell) => /held recomendado/i.test(cell))) return null;
+
+	const nameCandidates = cells.slice(0, 2)
+		.map((cell) => cleanClanPokemonNameText(stripClanCellMediaText(cell)))
+		.map((cell) => cleanStructuredText(cell))
+		.filter((cell) => cell && !isClanNonPokemonLabel(cell) && !/^(?:pokemon|pokémon|nome|name|funcao|função|tier|icone|ícone|\d+)$/.test(normalizeIdToken(cell)));
+	const name = nameCandidates
+		.filter((cell) => /[A-Za-z]/.test(cell))
+		.sort((left, right) => right.length - left.length)[0] ?? "";
+	if (!name) return null;
+
+	const roleCell = cells.find((cell) => /\b(?:tank|bdd|otdd|offensive|offensivetanker|off[- ]?tank|support|speedster|disrupter)\b/i.test(cell));
+	const pve = roleCell ? normalizeClanRoleText(stripClanCellMediaText(roleCell)) : "Not";
+	const tierCell = cells.findLast((cell) => /^(?:tm|tr|[1-4][a-z]?h?|t[1-4][a-z]?h?)\b/i.test(cleanStructuredText(stripClanCellMediaText(cell))));
+	const tierText = tierCell ? cleanStructuredText(stripClanCellMediaText(tierCell)).split(/\s+/)[0] : "";
+	const tier = /^(?:tm|tr)$/i.test(tierText)
+		? tierText.toUpperCase()
+		: tierText
+			? (/^t/i.test(tierText) ? tierText.toUpperCase() : `T${tierText.toUpperCase()}`)
+			: "";
+	return {
+		name,
+		pve,
+		pvp: "Not",
+		...(tier ? { tier } : {}),
+	};
+}
+
+function isClanTableHeaderText(value) {
+	const cells = String(value ?? "")
+		.split(/\s*\|\s*/)
+		.map((cell) => normalizeIdToken(cleanStructuredText(cell)))
+		.filter(Boolean);
+	return cells.length > 1 && cells.every((cell) => /^(?:pokemon|nome|name|funcao|function|role|tier|icone|icon)$/.test(cell));
+}
+
+function isClanNonPokemonMediaFile(value) {
+	const token = normalizeIdToken(String(value ?? "")
+		.replace(/\.(?:png|gif|webp|jpe?g|svg)$/i, "")
+		.replace(/\d+$/u, "")
+		.replace(/[_-]+/g, " "));
+	return /^(?:not|normal|fire|water|grass|electric|ice|fighting|poison|ground|flying|psychic|bug|rock|ghost|dragon|dark|steel|fairy|crystal)$/.test(token)
+		|| /^(?:interface|attack|defense|held|rank|npc)\b/.test(token);
+}
+
+function isClanNonPokemonLabel(value) {
+	const token = normalizeIdToken(value);
+	return /^(?:not|attack|defense|held|tier|tm|tr|tm off tank|tm burst|tr|tank pve|bdd pve|otdd pve|offensive tank pve|offensivetanker pve)$/.test(token)
+		|| /^(?:normal|fire|water|grass|electric|ice|fighting|poison|ground|flying|psychic|bug|rock|ghost|dragon|dark|steel|fairy|crystal)(?:\s+pokemon\s+nome\s+funcao)?$/.test(token)
+		|| /^(?:female|male)$/.test(token)
+		|| /^(?:attack|defense)\s+t\d+\b/.test(token);
+}
+
+function stripClanCellMediaText(value) {
+	return cleanStructuredText(stripImageRefFromText(String(value ?? "")
+		.replace(/^[\p{L}\p{N}_%().'-]+(?:\s+[\p{L}\p{N}_%().'-]+)*\.(?:png|gif|webp|jpe?g|svg)\s+/iu, "")));
+}
+
+function cleanClanPokemonNameText(value) {
+	return cleanStructuredText(String(value ?? "")
+		.replace(/^#?\d{1,4}(?:\s*[-_.]\s*|\s+)/u, "")
+		.replace(/^[-_.]\s*/u, ""));
+}
+
+function normalizeClanRoleText(value) {
+	return cleanStructuredText(value)
+		.replace(/\bOffensiveTanker\b/gi, "Offensive Tank")
+		.replace(/\bOFF-Tank\b/gi, "Offensive Tank");
+}
+
+function parseClanEffectivenessGroups(paragraphs = []) {
+	const elementNames = new Set([
+		"Normal", "Fire", "Water", "Grass", "Electric", "Ice", "Fighting", "Poison", "Ground", "Flying",
+		"Psychic", "Bug", "Rock", "Ghost", "Dragon", "Dark", "Steel", "Fairy", "Crystal",
+	]);
+	const groups = [];
+	const seen = new Set();
+	for (const raw of paragraphs ?? []) {
+		const text = cleanStructuredText(raw)
+			.replace(/\b([\p{L}_%()'][\p{L}\p{N}_%().'-]*\.png)\b/giu, (fileName) => `${cleanStructuredText(fileName
+				.replace(/\.(?:png|gif|webp|jpe?g)$/i, "")
+				.replace(/^\d{1,4}[-_. ]*/, "")
+				.replace(/\d+$/, "")
+				.replace(/[_-]+/g, " "))} `)
+			.replace(/\bDano\s+Elemento\b/i, "")
+			.replace(/\s+/g, " ")
+			.trim();
+		if (!/\b(?:Ofensivo|Defensivo)\b/i.test(text)) continue;
+		const header = text.match(/^([A-Z][A-Za-z]+)\s+(Ofensivo|Defensivo)\b/i);
+		if (!header) continue;
+		const baseElement = header[1];
+		const mode = header[2];
+		const body = text.slice(header[0].length).trim();
+		for (const match of body.matchAll(/\b(2x|0\.5x|0x)\s+(.+?)(?=\s+(?:2x|0\.5x|0x)\b|$)/gi)) {
+			const values = dedupeBySlug(String(match[2] ?? "")
+				.split(/\s+/)
+				.map((value) => cleanStructuredText(value))
+				.filter((value) => elementNames.has(value)), (value) => value);
+			if (!values.length) continue;
+			const label = `${baseElement} ${mode} ${match[1]}`;
+			const key = `${label}:${values.join("|")}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			groups.push({ label, values });
+		}
+	}
+
+	return groups;
 }
 
 function cleanLocalizedStringLists(values, cleaner) {

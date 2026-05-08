@@ -315,6 +315,10 @@ function showdownPokemonSlug(slug) {
 	const normalizedTokens = withoutNumbers.length ? withoutNumbers : formTokens;
 	if (!normalizedTokens.length) return "";
 
+	if (normalizedTokens.join("-") === "sirfetch-d") {
+		return "sirfetchd";
+	}
+
 	if (normalizedTokens[0] === "alolan" && normalizedTokens.length > 1) {
 		return `${normalizedTokens.slice(1).join("-")}-alola`;
 	}

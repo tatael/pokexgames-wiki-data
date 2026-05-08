@@ -55,6 +55,26 @@ test("structureSection extracts pokemon profile, moves, effectiveness and varian
 	assert.equal(variants.variants[PT_BR][1].badge, "TM");
 });
 
+test("structureSection parses clan effectiveness tables into element groups", () => {
+	const section = structureSection(localizedSection({
+		id: "efetividade",
+		heading: "Efetividade",
+		pageCategory: "clans",
+		paragraphs: [
+			"Fighting.png Ofensivo Dano Elemento 2x Dark1.png Dark Ice.png Ice 0.5x Flying.png Flying Psychic.png Psychic 0x Ghost1.png Ghost",
+			"Normal1.png Defensivo Dano Elemento 0.5x - 2x Fighting.png Fighting 0x Ghost1.png Ghost",
+		],
+	}));
+
+	assert.deepEqual(section.effectiveness[PT_BR], [
+		{ label: "Fighting Ofensivo 2x", values: ["Dark", "Ice"] },
+		{ label: "Fighting Ofensivo 0.5x", values: ["Flying", "Psychic"] },
+		{ label: "Fighting Ofensivo 0x", values: ["Ghost"] },
+		{ label: "Normal Defensivo 2x", values: ["Fighting"] },
+		{ label: "Normal Defensivo 0x", values: ["Ghost"] },
+	]);
+});
+
 test("parseRewardItemText keeps ranking places and loot difficulties structured", () => {
 	assert.deepEqual(
 		parseRewardItemText("1º lugar | ultra-box.png Ultra Box 2 rare-candy.png Rare Candy"),
@@ -155,6 +175,104 @@ test("structureSection removes bogus Link role text from pokemon table rows", ()
 		pve: "Not",
 		pvp: "Tank PvP",
 	});
+});
+
+test("structureSection publishes clan technical and NPC pokemon payloads", () => {
+	const tm = publishSection(structureSection(localizedSection({
+		id: "technical-machine-tm",
+		heading: "Technical Machine (TM)",
+		pageCategory: "clans",
+		items: [
+			"Shiny Machamp (TM) (PvE: OTDD PvE / PvP: Not)",
+			"Mega Kangaskhan (TM) (PvE: BDD PvE / PvP: Not)",
+		],
+	})));
+
+	assert.deepEqual(tm.pokemon[PT_BR].map((entry) => [entry.name, entry.pve, entry.pvp]), [
+		["Shiny Machamp (TM)", "OTDD PvE", "Not"],
+		["Mega Kangaskhan (TM)", "BDD PvE", "Not"],
+	]);
+	assert.doesNotMatch(JSON.stringify(tm.pokemon), /Attack T7|Defense T7/);
+
+	const npc = publishSection(structureSection(localizedSection({
+		id: "pokemon-obtido-via-npc-de-cla",
+		heading: "Pokémon obtido via NPC de Clã",
+		pageCategory: "clans",
+		paragraphs: [
+			"Para obter um 237-EliteHitmontop.png Elite Hitmontop, 107-Hitmonchan.png Elite Hitmonchan ou Elite Hitmonlee.png Elite Hitmonlee, fale com a NPC Betsy.",
+			"NPC Betsy Gardestrike.png",
+			"Para obter um 446-ShinyMunchlax1.png Shiny Munchlax, fale com a NPC Betsy.",
+		],
+		items: ["Shiny de Clã"],
+	})));
+
+	assert.deepEqual(npc.pokemon[PT_BR].map((entry) => entry.name), [
+		"Elite Hitmontop",
+		"Elite Hitmonchan",
+		"Elite Hitmonlee",
+		"Shiny Munchlax",
+	]);
+	assert.doesNotMatch(JSON.stringify(npc), /Pasted text/i);
+
+	const pvp = publishSection(structureSection(localizedSection({
+		id: "exclusividade-do-cla-no-pvp",
+		heading: "Exclusividade do Clã no PvP",
+		pageCategory: "clans",
+		paragraphs: [
+			"Pokémon Nome 020-AlolanRaticate.png Alolan Raticate 901 - Bloodmoon Ursaluna.png Bloodmoon Ursaluna",
+			"Observação: A exclusividade é aplicada apenas em conteúdos PvP.",
+		],
+	})));
+
+	assert.deepEqual(pvp.pokemon[PT_BR].map((entry) => entry.name), [
+		"Alolan Raticate",
+		"Bloodmoon Ursaluna",
+	]);
+	assert.doesNotMatch(JSON.stringify(pvp.pokemon), /Observa/i);
+
+	const rotation = publishSection(structureSection(localizedSection({
+		id: "rotacao-mid-late-game",
+		heading: "Rotação Mid-Late Game",
+		pageCategory: "clans",
+		items: [
+			"Pokémon | Nome | Função | Tier",
+			"538-Throh.png Throh | Throh | Interface Tank PVE.png Tank PvE | 2",
+			"448-MegaLucario.png Mega Lucario Fighting (TM) | Interface OffensiveTanker pve.png OffensiveTanker PvE | TM OFF-Tank",
+		],
+	})));
+
+	assert.deepEqual(rotation.pokemon[PT_BR].map((entry) => [entry.name, entry.pve, entry.tier ?? ""]), [
+		["Throh", "Tank PvE", "T2"],
+		["Mega Lucario Fighting (TM)", "Offensive Tank PvE", "TM"],
+	]);
+
+	const messyRotation = publishSection(structureSection(localizedSection({
+		id: "rotacao-mid-late-game",
+		heading: "Rotação Mid-Late Game",
+		pageCategory: "clans",
+		paragraphs: [
+			"Fighting.png Fighting Pokémon Nome Função Tier 538-Throh.png Throh Interface Tank PVE.png 2",
+			"Normal1.png Normal Pokémon Nome Função Tier 668-Pyroar Female.png Pyroar Female Interface Tank PVE.png 2",
+			"Master Gardestrike fem.gif Gardestrikemale.gif",
+		],
+		items: [
+			"Pokémon | Nome | Função | Tier",
+			"068 Machamp | Machamp | Interface BDD PVE.png BDD PvE | 3",
+			"057 - Shiny Primeape | Shiny Primeape | Interface BDD PVE.png BDD PvE | 3",
+			"214-Heracross | Heracross | Interface BDD PVE.png BDD PvE | TR",
+			"865-Sirfetch'd | Sirfetch'd | Interface BDD PVE.png BDD PvE | 2",
+			"297-Shiny Hariyama | Shiny Hariyama | Interface BDD PVE.png BDD PvE | 1H",
+		],
+	})));
+
+	assert.deepEqual(messyRotation.pokemon[PT_BR].map((entry) => [entry.name, entry.pve, entry.tier ?? ""]), [
+		["Machamp", "BDD PvE", "T3"],
+		["Shiny Primeape", "BDD PvE", "T3"],
+		["Heracross", "BDD PvE", "TR"],
+		["Sirfetch'd", "BDD PvE", "T2"],
+		["Shiny Hariyama", "BDD PvE", "T1H"],
+	]);
+	assert.doesNotMatch(JSON.stringify(messyRotation.pokemon), /Normal Pokémon Nome Função|Fighting|Female|Master Gardestrike/);
 });
 
 test("structureSection removes raw pokemon sprite reference rows from prose sections", () => {

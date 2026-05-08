@@ -346,6 +346,7 @@ test("boss text cleanup fixes repeated names, berry names, and accented entry it
 		items: {
 			[PT_BR]: [
 				"A Berrie Lum berry não funciona nesta batalha.",
+				"Berries recomendadas: Berrie 5.png Colbur Berry, Ganlon Beery e Ganlon berry.png Ganlon Berry.",
 				"O Boss Giant Shiny Tentacruel Shiny Giant Tentacruel possui o elemento Water e Poison.",
 			],
 		},
@@ -356,6 +357,7 @@ test("boss text cleanup fixes repeated names, berry names, and accented entry it
 
 	assert.deepEqual(importantInfo.bossSupport[PT_BR].bullets, [
 		"A Lum Berry não funciona nesta batalha",
+		"Berries recomendadas: Colbur Berry, Ganlon Berry e Ganlon Berry",
 		"O Boss Shiny Giant Tentacruel possui o elemento Water e Poison",
 	]);
 

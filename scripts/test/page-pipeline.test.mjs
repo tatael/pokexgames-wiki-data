@@ -148,6 +148,13 @@ test("resolveDisplayInList hides aliases and non-card pages from category lists"
 		title: buildLocalizedText("Advanced Ultra Lab - Raibolt"),
 		pageKind: "lab",
 	}), true);
+
+	assert.equal(resolveDisplayInList({
+		category: "events",
+		slug: "pokepark-pontuacao",
+		title: buildLocalizedText("PokÃ©park: PontuaÃ§Ã£o"),
+		pageKind: "system",
+	}), false);
 });
 
 test("resolveDisplayTitle and title overrides remove redundant category prefixes", () => {
@@ -397,6 +404,66 @@ test("normalizeSections keeps mystery dungeon abilities typed and preserves abil
 	]);
 	assert.equal(sections[0].media[PT_BR].length, 2);
 	assert.equal(sections[0].media[PT_BR][0].type, "video");
+});
+
+test("extractSections promotes reward h3 headings out of important information", () => {
+	const sections = normalizeSections(extractSections(`
+		<h2>Informacoes Importantes</h2>
+		<p>Derrote os inimigos antes que o tempo acabe.</p>
+		<h3>Recompensas</h3>
+		<div class="tabber">
+			<article class="tabber__panel" data-title="Primeira vez">
+				<p>Granbull Backpack.png Christmas Defender Granbull</p>
+			</article>
+		</div>
+	`, "Christmas Defender Granbull", "https://wiki.pokexgames.com/index.php/Christmas_Defender_Granbull"), {
+		category: "events",
+		slug: "christmas-defender-granbull",
+		pageKind: "item",
+	});
+
+	assert.deepEqual(sections.map((section) => section.id), ["informacoes-importantes", "recompensas"]);
+	assert.deepEqual(sections[0].dungeonSupport[PT_BR].intro, ["Derrote os inimigos antes que o tempo acabe"]);
+	assert.equal(sections[1].kind, "rewards");
+	assert.ok(sections[1].rewards[PT_BR].length >= 1);
+});
+
+test("normalizeSections extracts PokÃ©Park score tool rows from the embedded wiki script", () => {
+	const sections = normalizeSections(extractSections(`
+		<h2>Pontuacao</h2>
+		<div id="pokepark-tool"></div>
+		<script>
+			const pokemonByPoints = {
+				1: [
+					{ name: "Bulbasaur", image: "001-Bulbasaur.png" },
+					{ name: "Charmander", image: "004-Charmander.png" },
+				],
+				20: [
+					{ name: "Mew", image: "151-Mew.png", special: true },
+				],
+			};
+		</script>
+	`, "PokÃ©Park", "https://wiki.pokexgames.com/index.php/Pok%C3%A9Park"), {
+		category: "events",
+		slug: "pokepark",
+		pageKind: "system",
+	});
+
+	const pontuacao = sections.find((section) => section.id === "pontuacao");
+	assert.equal(pontuacao.commerceEntries[PT_BR].type, "pokepark-score");
+	assert.deepEqual(pontuacao.commerceEntries[PT_BR].rows[0], {
+		cells: [
+			{ text: "Bulbasaur", raw: "001-Bulbasaur.png" },
+			{ text: "1 pts" },
+		],
+	});
+	assert.deepEqual(pontuacao.commerceEntries[PT_BR].rows[2], {
+		cells: [
+			{ text: "Mew", raw: "151-Mew.png" },
+			{ text: "20 pts" },
+			{ text: "Especial" },
+		],
+	});
 });
 
 test("normalizeSections keeps daily mission location galleries as media-rich table sections", () => {

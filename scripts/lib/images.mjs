@@ -117,6 +117,16 @@ function normalizeStemForIdentity(stem, expectedMarkers) {
 		stemCore = stripFormatSuffix(stripVariantMarkers(stem.slice(3)));
 	}
 
+	// "S."/"S" prefix as "Shiny" abbreviation after filename normalization
+	// (e.g. "S.klinklang" -> "sklinklang" for shiny-klinklang).
+	if (expectedMarkers.has('shiny') && !stemMarkers.has('shiny') && stem.startsWith('s')) {
+		const shortCore = stripFormatSuffix(stripVariantMarkers(stem.slice(1)));
+		if (shortCore) {
+			stemMarkers.add('shiny');
+			stemCore = shortCore;
+		}
+	}
+
 	// "M" prefix as "Mega" abbreviation (e.g. "MSalamence" for mega-salamence)
 	if (expectedMarkers.has('mega') && !stemMarkers.has('mega') && stem.startsWith('m')) {
 		stemMarkers.add('mega');
@@ -281,6 +291,8 @@ function selectImageUrlFor(urls, kind, slug) {
 		// Expand abbreviations in pre-filter so short pokemon cores (e.g. "muk") still pass
 		const stemForFilter = (expectedMarkers.has('shiny') && !variantMarkersFor(stem).has('shiny') && stem.startsWith('shi'))
 			? 'shiny' + stem.slice(3)
+			: (expectedMarkers.has('shiny') && !variantMarkersFor(stem).has('shiny') && stem.startsWith('s'))
+				? 'shiny' + stem.slice(1)
 			: (expectedMarkers.has('mega') && !variantMarkersFor(stem).has('mega') && stem.startsWith('m'))
 				? 'mega' + stem.slice(1)
 				: stem;
@@ -345,7 +357,8 @@ function showdownPokemonSlug(slug) {
 function generatedPokemonImageSet(slug) {
 	const showdownSlug = showdownPokemonSlug(slug);
 	if (!showdownSlug) return null;
-	const url = `https://play.pokemonshowdown.com/sprites/gen5/${showdownSlug}.png`;
+	const spriteSet = variantMarkersFor(slug).has("shiny") ? "gen5-shiny" : "gen5";
+	const url = `https://play.pokemonshowdown.com/sprites/${spriteSet}/${showdownSlug}.png`;
 	return {
 		sprite: toImageAsset(url),
 		hero: toImageAsset(url),

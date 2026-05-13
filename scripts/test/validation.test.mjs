@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -478,6 +478,12 @@ test("validateBundle accepts commerce and dungeon support payloads", async () =>
 					intro: ["Introdução"],
 					bullets: ["Observação"],
 					rows: [{ cells: [{ text: "Item" }, { text: "Custo" }] }],
+				},
+				en: {
+					type: "pokepark-score",
+					intro: [],
+					bullets: [],
+					rows: [{ cells: [{ text: "Bulbasaur", raw: "001-Bulbasaur.png" }, { text: "1 pts" }] }],
 				},
 			},
 		}, {

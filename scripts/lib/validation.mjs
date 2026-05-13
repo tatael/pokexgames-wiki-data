@@ -701,7 +701,7 @@ function validateSection(section, fieldName) {
 	validateStructuredObjectMap(section.embeddedTowerSupport, `${fieldName}.embeddedTowerSupport`, ["type", "intro", "bullets", "rows"], validateEmbeddedTowerSupportPayload);
 	validateStructuredObjectMap(section.linkedCards, `${fieldName}.linkedCards`, ["intro", "cards", "notes"], validateLinkedCardsPayload);
 	validateStructuredObjectMap(section.commerceEntries, `${fieldName}.commerceEntries`, ["type", "intro", "bullets", "rows"], (entry, entryFieldName) =>
-		validateTypedRowsSupportPayload(entry, entryFieldName, ["exchange", "shop", "craft", "cost", "generic"])
+		validateTypedRowsSupportPayload(entry, entryFieldName, ["exchange", "shop", "craft", "cost", "generic", "pokepark-score"])
 	);
 	validateStructuredObjectMap(section.craftEntries, `${fieldName}.craftEntries`, ["entries"], validateCraftEntriesPayload);
 

@@ -13,6 +13,28 @@ function parsePipeRows(items = []) {
 		.filter((cells) => cells.length >= 2);
 }
 
+function parsePokeparkScoreRows(items = []) {
+	return (items ?? [])
+		.filter((item) => String(item ?? "").startsWith("__POKEPARK_SCORE__"))
+		.map((item) => String(item ?? "")
+			.split(/\s*\|\s*/)
+			.map((part) => cleanStructuredText(part)))
+		.map((cells) => ({
+			name: cells[1] ?? "",
+			points: cells[2] ?? "",
+			special: cells[3] === "true",
+			image: cells[4] ?? "",
+		}))
+		.filter((entry) => entry.name && entry.points)
+		.map((entry) => ({
+			cells: [
+				{ text: entry.name, raw: entry.image },
+				{ text: `${entry.points} pts` },
+				...(entry.special ? [{ text: "Especial" }] : []),
+			],
+		}));
+}
+
 export function isCommerceSection(normalizedId, normalizedHeading, pageKind = "") {
 	const token = `${normalizedId} ${normalizedHeading} ${pageKind}`;
 	return /\b(exchange|troca|trocando|shop|loja|mercado|craft|crafts|custo|custos|cost|costs|preco|precos|price|prices|recompensa|recompensas|profit|lucro|ganancia|ganho|pontuacao|pontos|points|ticket|tokens?|jewels?|joia|joias|slot)\b/.test(token);
@@ -20,6 +42,15 @@ export function isCommerceSection(normalizedId, normalizedHeading, pageKind = ""
 
 export function parseCommerceEntries(normalizedId, normalizedHeading, pageKind = "", paragraphs = [], items = []) {
 	const token = `${normalizedId} ${normalizedHeading} ${pageKind}`;
+	const pokeparkRows = parsePokeparkScoreRows(items);
+	if (pokeparkRows.length) {
+		return {
+			type: "pokepark-score",
+			intro: [],
+			bullets: [],
+			rows: pokeparkRows,
+		};
+	}
 	const type = /\b(exchange|troca)\b/.test(token)
 		? "exchange"
 		: /\b(shop|loja)\b/.test(token)
@@ -35,6 +66,7 @@ export function parseCommerceEntries(normalizedId, normalizedHeading, pageKind =
 		intro: (paragraphs ?? []).map(cleanStructuredText).filter(Boolean),
 		bullets: (items ?? [])
 			.filter((item) => !String(item ?? "").includes("|"))
+			.filter((item) => !String(item ?? "").startsWith("__POKEPARK_SCORE__"))
 			.map(cleanStructuredText)
 			.filter(Boolean),
 		rows: parsePipeRows(items).map((cells) => ({

@@ -405,6 +405,7 @@ export function resolveDisplayInList({ category, slug, title, pageKind, navigati
 	const titleText = title?.[PT_BR] ?? title?.en ?? slug;
 	const normalizedText = normalizeCategoryText(`${slug} ${titleText} ${navigationPath.join(" ")} ${pageKind ?? ""}`);
 	if (isTranslatedVariantTitle(titleText)) return false;
+	if (category === "events" && slug === "pokepark-pontuacao") return false;
 	if (category === "boss-fight" && slug === "boss-fight") return false;
 
 	if (category === "boss-fight" && pageKind === "index" && slug !== "boss-fight") {

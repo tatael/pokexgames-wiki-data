@@ -79,6 +79,34 @@ function parseSupportRows(items = []) {
 	}));
 }
 
+function isEmbeddedTowerMediaOnlyLine(value = "") {
+	const text = cleanStructuredText(value);
+	return Boolean(text) && /^[\p{L}\p{N}_%()' .,&-]+\.(?:gif|png|jpe?g|webp|svg)$/iu.test(text);
+}
+
+function isEmbeddedTowerSupportMirrorParagraph(value = "") {
+	const token = normalizeIdToken(value);
+	if (/^andar boss item fragmento experiencia obtida pontos tablet\b/.test(token)) return true;
+	if (/^armadilhas dano causado\b/.test(token)) return true;
+	return /\btrap\d* gif\b/.test(token) && /\bvida maxima\b/.test(token);
+}
+
+function isProgressionMirrorParagraph(value = "") {
+	const token = normalizeIdToken(value);
+	return /^andar tower attempts/.test(token)
+		|| /^floor tower attempts/.test(token)
+		|| /^andar nivel necessario/.test(token)
+		|| /^floor level required/.test(token)
+		|| /^andar pocoes e elixirs/.test(token)
+		|| /^floor potions and elixirs/.test(token);
+}
+
+function isUnlockMirrorParagraph(value = "") {
+	const token = normalizeIdToken(value);
+	return /^item pontos necessarios/.test(token)
+		|| /^item required points/.test(token);
+}
+
 function getEmbeddedTowerSupportType(normalizedId, normalizedHeading) {
 	const token = `${normalizedId} ${normalizedHeading}`;
 	if (/\b(fragmentos?|fragments?|esferas?|spheres?|orbs?)\b/.test(token)) return 'fragments';
@@ -98,10 +126,13 @@ export function isEmbeddedTowerSupportSection(normalizedId, normalizedHeading, p
 export function parseEmbeddedTowerSupport(normalizedId, normalizedHeading, paragraphs = [], items = []) {
 	return {
 		type: getEmbeddedTowerSupportType(normalizedId, normalizedHeading),
-		intro: (paragraphs ?? []).map(cleanStructuredText).filter(Boolean),
+		intro: (paragraphs ?? [])
+			.map(cleanStructuredText)
+			.filter((paragraph) => paragraph && !isEmbeddedTowerSupportMirrorParagraph(paragraph)),
 		bullets: (items ?? [])
 			.filter((item) => !String(item ?? "").includes("|"))
 			.map(cleanStructuredText)
+			.filter((item) => item && !isEmbeddedTowerMediaOnlyLine(item))
 			.filter(Boolean),
 		rows: parseSupportRows(items),
 	};
@@ -116,7 +147,9 @@ export function isEmbeddedTowerProgressionSection(normalizedId, normalizedHeadin
 }
 
 export function parseEmbeddedTowerProgression(paragraphs = [], items = []) {
-	const intro = (paragraphs ?? []).map(cleanStructuredText).filter(Boolean);
+	const intro = (paragraphs ?? [])
+		.map(cleanStructuredText)
+		.filter((paragraph) => paragraph && !isProgressionMirrorParagraph(paragraph));
 	const attempts = [];
 	const rewards = [];
 	const resources = [];
@@ -173,7 +206,9 @@ export function isEmbeddedTowerUnlockSection(normalizedId, normalizedHeading, pa
 }
 
 export function parseEmbeddedTowerUnlocks(paragraphs = [], items = []) {
-	const intro = (paragraphs ?? []).map(cleanStructuredText).filter(Boolean);
+	const intro = (paragraphs ?? [])
+		.map(cleanStructuredText)
+		.filter((paragraph) => paragraph && !isUnlockMirrorParagraph(paragraph));
 	const bullets = (items ?? [])
 		.filter((item) => !String(item ?? "").includes("|"))
 		.map(cleanStructuredText)

@@ -124,7 +124,7 @@ export function parsePokemonItemText(item) {
 		const role = String(value ?? "")
 			.replace(/\bLink\b/gi, "")
 			.split("/")
-			.map((part) => part.replace(/\s+/g, " ").trim())
+			.map((part) => normalizePokemonRoleText(part.replace(/\s+/g, " ").trim()))
 			.filter(Boolean)
 			.join(" / ");
 		return role || "Not";
@@ -136,6 +136,13 @@ export function parsePokemonItemText(item) {
 		pve: cleanRole(roleMatch[1]),
 		pvp: cleanRole(roleMatch[2])
 	};
+}
+
+export function normalizePokemonRoleText(value) {
+	return cleanStructuredText(value)
+		.replace(/\bOffensive\s*Tanker\b/gi, "Off Tank")
+		.replace(/\bOffensive\s*Tank\b/gi, "Off Tank")
+		.replace(/\bOFF[-\s]*Tank\b/gi, "Off Tank");
 }
 
 function parseMoveRowText(moveLine, levelLine) {

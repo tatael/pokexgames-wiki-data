@@ -62,6 +62,27 @@ test("extractPageImagesFromUrls matches numbered pokemon forms", () => {
 	});
 });
 
+test("extractPageImagesFromUrls treats S-prefix files as shiny variants", () => {
+	const images = extractPageImagesFromUrls([
+		"https://wiki.pokexgames.com/images/6/68/S.klinklang.png",
+		"https://wiki.pokexgames.com/images/0/00/Klinklang.gif",
+	], "shiny-klinklang");
+
+	assert.deepEqual(images, {
+		sprite: { url: "https://wiki.pokexgames.com/images/6/68/S.klinklang.png" },
+		hero: { url: "https://wiki.pokexgames.com/images/6/68/S.klinklang.png" },
+	});
+});
+
+test("discoverPageImages uses shiny showdown fallback sprites for shiny variants", async () => {
+	const images = await discoverPageImages("shiny-klinklang", async () => ({ query: { pages: {} } }));
+
+	assert.deepEqual(images, {
+		sprite: { url: "https://play.pokemonshowdown.com/sprites/gen5-shiny/klinklang.png" },
+		hero: { url: "https://play.pokemonshowdown.com/sprites/gen5-shiny/klinklang.png" },
+	});
+});
+
 test("discoverPageImages falls back to generated pokemon showdown sprite urls", async () => {
 	const images = await discoverPageImages("smeargle-7", async () => ({ query: { pages: {} } }));
 

@@ -160,6 +160,7 @@ test("parsePokemonItemText preserves multiple roles in the same PvE or PvP field
 			pvp: "Tank PvP",
 		},
 	);
+	assert.equal(parsePokemonItemText("Klinklang (PvE: Offensive Tank PvE / PvP: Not)")?.pve, "Off Tank PvE");
 });
 
 test("structureSection removes bogus Link role text from pokemon table rows", () => {
@@ -243,7 +244,7 @@ test("structureSection publishes clan technical and NPC pokemon payloads", () =>
 
 	assert.deepEqual(rotation.pokemon[PT_BR].map((entry) => [entry.name, entry.pve, entry.tier ?? ""]), [
 		["Throh", "Tank PvE", "T2"],
-		["Mega Lucario Fighting (TM)", "Offensive Tank PvE", "TM"],
+		["Mega Lucario Fighting (TM)", "Off Tank PvE", "TM"],
 	]);
 
 	const messyRotation = publishSection(structureSection(localizedSection({
@@ -287,6 +288,49 @@ test("structureSection removes raw pokemon sprite reference rows from prose sect
 	}));
 
 	assert.deepEqual(section.items[PT_BR], ["Fale com o NPC Arthur."]);
+});
+
+test("structureSection cleans Embedded Tower intros and abbreviated linked card labels", () => {
+	const intro = publishSection(structureSection(localizedSection({
+		id: "introducao",
+		heading: "Introdução",
+		pageCategory: "embedded-tower",
+		paragraphs: [
+			"Após finalizar a quest, o jogador terá desbloqueado a Tower 1.",
+			"Level necessário: 150 ou superior. Modalidade: Individual. Tempo: 1 hora. Recompensa: A Experiencia e os Tower Points são variáveis. Tower Attempts necessários: O jogador deverá ter no mínimo 2 Tower Attempts.",
+			"Informações importantes: 1. Os quatro primeiros andares têm o mesmo mapa. 2. Neste andar existem três objetivos:",
+			"3. É possível utilizar 12 Revives e 80 Potions/Elixires durante o andar. 4. Os seguintes Held Itens não possuem efeito: X-Return e Y-Regeneration.",
+		],
+		items: [
+			"Shiny Salamence 1º Andar | Liberado",
+			"Shiny Magmortar 2º Andar | 50 Tower Points",
+		],
+	})));
+
+	assert.deepEqual(intro.content[PT_BR].paragraphs, [
+		"Após finalizar a quest, o jogador terá desbloqueado a Tower 1.",
+		"Level necessário: 150 ou superior",
+		"Modalidade: Individual",
+		"Tempo: 1 hora",
+		"Recompensa: A Experiencia e os Tower Points são variáveis",
+		"Tower Attempts necessários: O jogador deverá ter no mínimo 2 Tower Attempts",
+		"Informações importantes:",
+		"1. Os quatro primeiros andares têm o mesmo mapa",
+		"2. Neste andar existem três objetivos",
+		"3. É possível utilizar 12 Revives e 80 Potions/Elixires durante o andar",
+		"4. Os seguintes Held Itens não possuem efeito: X-Return e Y-Regeneration",
+	]);
+	assert.equal(intro.tables, undefined);
+
+	const linked = publishSection(structureSection(localizedSection({
+		id: "bosses",
+		heading: "Bosses",
+		pageCategory: "embedded-tower",
+		paragraphs: ["Veja mais:"],
+		wikiLinks: [{ label: "S.klinklang", slug: "shiny-klinklang" }],
+	})));
+
+	assert.equal(linked.linkedCards[PT_BR].cards[0].label, "Shiny Klinklang");
 });
 
 test("structureSection publishes structured task cards upstream", () => {
@@ -1108,6 +1152,30 @@ test("structureSection emits typed commerce and dungeon support sections without
 		],
 	});
 
+	const workshop = publishSection(localizedSection({
+		id: "anniversary-workshop",
+		heading: "Anniversary Workshop",
+		paragraphs: ["Item Custo  Magician Cosplay Flapple  1500 Anniversary Token  Bulbasaur Balloon  250 Anniversary Token"],
+		items: [
+			"Magician Cosplay Flapple | Anniversary Token 1500 Anniversary Token",
+			"Bulbasaur Balloon | Token 250 Anniversary Token",
+		],
+		tables: { [PT_BR]: [{ rows: [] }] },
+	}));
+
+	assert.equal(workshop.content, undefined);
+	assert.deepEqual(workshop.tables[PT_BR][0].rows, [{
+		cells: [
+			{ text: "Magician Cosplay Flapple" },
+			{ text: "1500 Anniversary Token", raw: "Anniversary Token 1500 Anniversary Token" },
+		],
+	}, {
+		cells: [
+			{ text: "Bulbasaur Balloon" },
+			{ text: "250 Anniversary Token", raw: "Token 250 Anniversary Token" },
+		],
+	}]);
+
 	const secretLab = publishSection(structureSection(localizedSection({
 		id: "dicas",
 		pageCategory: "secret-lab",
@@ -1191,12 +1259,51 @@ test("structureSection broadens profession/event/lab sections into typed payload
 		id: "inimigos",
 		pageCategory: "events",
 		heading: "Inimigos",
+		paragraphs: [
+			"Quantidade:51.",
+			"Pokémon Elemento 613-Cubchoo.png Cubchoo Ice.png Ice 614-Beartic.png Beartic Ice.png Ice",
+		],
 		items: ["025-Pikachu Pikachu | 026-Raichu Raichu"],
 	})));
 
 	assert.equal(eventEnemies.kind, "pokemon-group");
-	assert.equal(eventEnemies.content, undefined);
+	assert.deepEqual(eventEnemies.content[PT_BR].paragraphs, ["Quantidade:51."]);
 	assert.deepEqual(eventEnemies.pokemon[PT_BR].map((entry) => entry.name), ["Pikachu", "Raichu"]);
+
+	const dzInfo = publishSection(structureSection(localizedSection({
+		id: "informacoes-importantes",
+		pageCategory: "dimensional-zone",
+		heading: "Informações Importantes",
+		paragraphs: [
+			"Grupo: 3 Jogadores. Experiência recompensada: 150k (Beginner), 190k (Talented), 250k (Intermediate), 300k (Advanced) e 350k (Expert). Revives: É possível utilizar até 8 Revives. Tempo limite: 1 hora",
+		],
+	})));
+
+	assert.equal(dzInfo.content, undefined);
+	assert.deepEqual(dzInfo.dungeonSupport[PT_BR].bullets, [
+		"Grupo: 3 Jogadores",
+		"Experiência recompensada: 150k (Beginner), 190k (Talented), 250k (Intermediate), 300k (Advanced) e 350k (Expert)",
+		"Revives: É possível utilizar até 8 Revives",
+		"Tempo limite: 1 hora",
+	]);
+
+	const bronzeOverview = publishSection(structureSection(localizedSection({
+		id: "bronze-dungeons",
+		pageCategory: "dimensional-zone",
+		heading: "Bronze Dungeons",
+		paragraphs: [
+			"Estas Dungeons sempre vão estar disponíveis para os jogadores.",
+			"Beartic.png King Raticate.png Shiny Noctowl.png Giant Tentacruel New.png",
+		],
+		items: [
+			"Emolga.png Probopass.png Darmanitan.png",
+		],
+	})));
+
+	assert.deepEqual(bronzeOverview.dungeonSupport[PT_BR].intro, [
+		"Estas Dungeons sempre vão estar disponíveis para os jogadores",
+	]);
+	assert.deepEqual(bronzeOverview.dungeonSupport[PT_BR].bullets, []);
 
 	const labLoot = publishSection(structureSection(localizedSection({
 		id: "loots",
@@ -1217,6 +1324,10 @@ test("structureSection emits embedded tower progression, unlocks, and linked car
 		heading: "Funcionamento geral da Embedded Tower",
 		paragraphs: [
 			"A Tower possui regras gerais.",
+			"Andar Tower Attempts necessários Tower Attempts devolvidos 1° ao 5º Andar 2 Tower Attempts 1 Tower Attempts",
+			"Andar Nível necessário Experiência obtida Pontos 1° Andar 150 ao 424 150.000 de XP Tower Points.png 40 Tower Points",
+			"Dentro dos andares há um limite de recursos",
+			"Andar Poções e Elixirs Revive Medicine Penalidades por mortes Berries 1° Andar 80 12 Comvip.png Semvip.png Semvip.png",
 		],
 		items: [
 			"1º ao 5º Andar | 2 Tower Attempts | 1 Tower Attempts",
@@ -1226,6 +1337,10 @@ test("structureSection emits embedded tower progression, unlocks, and linked car
 	})));
 
 	assert.equal(progression.content, undefined);
+	assert.deepEqual(progression.embeddedTowerProgression[PT_BR].intro, [
+		"A Tower possui regras gerais",
+		"Dentro dos andares há um limite de recursos",
+	]);
 	assert.equal(progression.embeddedTowerProgression[PT_BR].attempts[0].requiredAttempts, 2);
 	assert.deepEqual(progression.embeddedTowerProgression[PT_BR].rewards[0].levelRanges, ["150 ao 424", "425 ao 449", "450 ao 600"]);
 	assert.deepEqual(progression.embeddedTowerProgression[PT_BR].rewards[0].pointValues, [40]);
@@ -1247,6 +1362,19 @@ test("structureSection emits embedded tower progression, unlocks, and linked car
 	assert.equal(unlocks.embeddedTowerUnlocks[PT_BR].entries[0].bossLabel, "Shiny Magmortar");
 	assert.equal(unlocks.embeddedTowerUnlocks[PT_BR].entries[0].floorLabel, "2º Andar");
 	assert.equal(unlocks.embeddedTowerUnlocks[PT_BR].entries[0].requiredPoints, 50);
+
+	const unlockMirror = publishSection(structureSection(localizedSection({
+		id: "como-liberar-os-andares",
+		pageCategory: "embedded-tower",
+		heading: "Como liberar os andares",
+		paragraphs: [
+			"Tower Points são usados para desbloquear.",
+			"Item Pontos necessários Shiny Salamence 1º Andar Liberado Shiny Magmortar 2º Andar 50 Tower Points",
+		],
+		items: ["Shiny Salamence 1º Andar | Liberado"],
+	})));
+
+	assert.deepEqual(unlockMirror.embeddedTowerUnlocks[PT_BR].intro, ["Tower Points são usados para desbloquear"]);
 
 	const floorStructure = publishSection(structureSection(localizedSection({
 		id: "primeiro-ao-quarto-andar",
@@ -1274,21 +1402,39 @@ test("structureSection emits embedded tower progression, unlocks, and linked car
 		id: "fragmentos",
 		pageCategory: "embedded-tower",
 		heading: "Fragmentos",
-		paragraphs: ["Durante o andar é possível encontrar fragmentos escondidos."],
+		paragraphs: [
+			"Durante o andar é possível encontrar fragmentos escondidos.",
+			"Andar Boss Item Fragmento Experiência Obtida Pontos Tablet 1º Shiny Salamence Shiny Salamence Blue Wings JJYlsjR.png 1.000.000 de XP 1000 Tower Points IVH6wXz.png",
+		],
+		items: [
+			"1º Andar | Shiny Salamence | Blue Wings | JJYlsjR.png | 1.000.000 de XP | 1000 Tower Points | IVH6wXz.png",
+		],
 		media: [{ type: "image", url: "https://wiki.pokexgames.com/images/a/aa/Fragmento.png", alt: "Fragmento.png" }],
 	})));
 
 	assert.equal(fragments.embeddedTowerSupport[PT_BR].type, "fragments");
 	assert.equal(fragments.content, undefined);
+	assert.deepEqual(fragments.embeddedTowerSupport[PT_BR].intro, ["Durante o andar é possível encontrar fragmentos escondidos"]);
+	assert.equal(fragments.embeddedTowerSupport[PT_BR].rows.length, 1);
 
 	const mediaOnlyHazards = publishSection(structureSection(localizedSection({
 		id: "armadilhas",
 		pageCategory: "embedded-tower",
 		heading: "Armadilhas",
+		paragraphs: [
+			"Armadilhas: Dano Causado: Redemoinhos Trap1.gif 20% da vida máxima por hit",
+			"Andar 14.png",
+		],
+		items: [
+			"Redemoinhos Espere eles baterem. Trap1.gif | 20% da vida máxima por hit",
+		],
 		media: [{ type: "image", url: "https://wiki.pokexgames.com/images/b/bb/Trap.gif", alt: "Trap.gif" }],
 	})));
 
-	assert.deepEqual(mediaOnlyHazards.hazards[PT_BR], { description: [], bullets: [] });
+	assert.deepEqual(mediaOnlyHazards.hazards[PT_BR], {
+		description: [],
+		bullets: ["Redemoinhos Espere eles baterem. Trap1.gif | 20% da vida máxima por hit"],
+	});
 
 	const mechanics = publishSection(structureSection(localizedSection({
 		id: "mecanicas-do-boss",

@@ -736,6 +736,80 @@ function isPossibleCapturesHeading(value) {
 		.includes("possiveis capturas");
 }
 
+function isRewardHeading(value) {
+	const slug = buildSlug(value, "");
+	return slug === "recompensas" || slug === "recompensa" || slug === "rewards";
+}
+
+function appendRewardSubheadings(html, headings) {
+	const existingStarts = new Set(headings.map((entry) => entry.start));
+	for (const match of String(html ?? "").matchAll(/<h3[^>]*>(.*?)<\/h3>/gis)) {
+		const fullMatch = match[0];
+		const headingText = stripHtml(match[1] ?? "");
+		const start = match.index ?? -1;
+		if (start < 0 || existingStarts.has(start) || !isRewardHeading(headingText)) continue;
+		headings.push({
+			start,
+			end: start + fullMatch.length,
+			heading: headingText,
+		});
+	}
+	headings.sort((left, right) => left.start - right.start);
+}
+
+function extractPokeparkScoreRows(html) {
+	const source = String(html ?? "");
+	const marker = source.search(/\bconst\s+pokemonByPoints\s*=/);
+	if (marker < 0) return [];
+	const objectStart = source.indexOf("{", marker);
+	if (objectStart < 0) return [];
+	let depth = 0;
+	let inString = false;
+	let quote = "";
+	let escaped = false;
+	let objectEnd = -1;
+	for (let index = objectStart; index < source.length; index += 1) {
+		const char = source[index];
+		if (inString) {
+			if (escaped) escaped = false;
+			else if (char === "\\") escaped = true;
+			else if (char === quote) {
+				inString = false;
+				quote = "";
+			}
+			continue;
+		}
+		if (char === "\"" || char === "'") {
+			inString = true;
+			quote = char;
+			continue;
+		}
+		if (char === "{") depth += 1;
+		if (char === "}") {
+			depth -= 1;
+			if (depth === 0) {
+				objectEnd = index;
+				break;
+			}
+		}
+	}
+	if (objectEnd < 0) return [];
+	const body = source.slice(objectStart + 1, objectEnd);
+	const rows = [];
+	for (const group of body.matchAll(/(\d+)\s*:\s*\[([\s\S]*?)\]\s*,?/g)) {
+		const points = group[1];
+		const entries = group[2] ?? "";
+		for (const item of entries.matchAll(/\{([\s\S]*?)\}/g)) {
+			const object = item[1] ?? "";
+			const name = object.match(/\bname\s*:\s*"([^"]+)"/)?.[1] ?? "";
+			const image = object.match(/\bimage\s*:\s*"([^"]+)"/)?.[1] ?? "";
+			const special = /\bspecial\s*:\s*true\b/.test(object) ? "true" : "false";
+			if (name) rows.push(`* __POKEPARK_SCORE__ | ${name} | ${points} | ${special} | ${image}`);
+		}
+	}
+	return rows;
+}
+
 export function extractSections(html, title, pageUrl = "") {
 	let headingRegex = /<h1[^>]*>(.*?)<\/h1>|<h2[^>]*>(.*?)<\/h2>/gis;
 	const headings = [];
@@ -778,6 +852,10 @@ export function extractSections(html, title, pageUrl = "") {
 		headings.length = 0;
 	}
 
+	if (headings.length > 0) {
+		appendRewardSubheadings(html, headings);
+	}
+
 	if (headings.length === 0) {
 		headingRegex = /<h3[^>]*>(.*?)<\/h3>/gis;
 		for (const match of String(html ?? "").matchAll(headingRegex)) {
@@ -817,10 +895,11 @@ export function extractSections(html, title, pageUrl = "") {
 	return headings.map((entry, index) => {
 		const nextStart = headings[index + 1]?.start ?? html.length;
 		const slice = html.slice(entry.end, nextStart);
-		const isRewardSection = buildSlug(entry.heading, "") === "recompensas" || buildSlug(entry.heading, "") === "recompensa" || buildSlug(entry.heading, "") === "rewards";
+		const isRewardSection = isRewardHeading(entry.heading);
 		const tabberLines = isRewardSection ? extractRewardTabberLines(slice) : extractTabberPanelLines(slice);
 		const trailingLines = tabberLines.length ? extractLines(stripTabberPanels(slice)) : [];
-		const lines = tabberLines.length ? [...tabberLines, ...trailingLines] : extractLines(slice);
+		const scoreRows = buildSlug(entry.heading, "") === "pontuacao" ? extractPokeparkScoreRows(slice) : [];
+		const lines = tabberLines.length ? [...tabberLines, ...trailingLines, ...scoreRows] : [...extractLines(slice), ...scoreRows];
 		const paragraphs = lines.filter((line) => !line.startsWith("* "));
 		const items = lines
 			.filter((line) => line.startsWith("* "))

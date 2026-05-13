@@ -15,13 +15,13 @@ function textBeforeSeeMoreMarker(value = "") {
 
 function deriveCardLabel(entry) {
 	const directLabel = cleanStructuredText(entry?.label ?? "");
-	if (directLabel) return directLabel;
+	if (directLabel) return normalizeLinkedCardLabel(directLabel);
 
 	const title = cleanStructuredText(entry?.title ?? "");
-	if (title) return title;
+	if (title) return normalizeLinkedCardLabel(title);
 
 	const alt = cleanStructuredText(String(entry?.alt ?? "").replace(/\.(gif|png|jpg|jpeg|webp|svg)$/i, ""));
-	if (alt) return alt;
+	if (alt) return normalizeLinkedCardLabel(alt);
 
 	const slug = String(entry?.slug ?? "").trim();
 	if (!slug) return "";
@@ -29,6 +29,10 @@ function deriveCardLabel(entry) {
 		.split("-")
 		.map((part) => part ? `${part[0].toUpperCase()}${part.slice(1)}` : part)
 		.join(" ");
+}
+
+function normalizeLinkedCardLabel(value = "") {
+	return cleanStructuredText(value).replace(/^S\.?\s*Klinklang$/i, "Shiny Klinklang");
 }
 
 function normalizeCardSlug(entry) {

@@ -7,6 +7,7 @@ import {
 	parseEffectivenessGroupsText,
 	parseFactRows,
 	parseMoveGroupsText,
+	normalizePokemonRoleText,
 	parsePokemonItemText,
 	parsePokemonProfileText,
 	parseVariantEntryText,
@@ -255,6 +256,7 @@ export function structureSection(section) {
 		const abilities = {};
 		for (const locale of Object.keys(section.paragraphs ?? {})) {
 			const entries = parseHeadingGroupedEntries(section.paragraphs?.[locale] ?? [], "description")
+				.map(cleanAbilityEntryMediaOnlyLines)
 				.filter((entry) => entry.name && entry.description?.length);
 			if (entries.length) abilities[locale] = entries;
 		}
@@ -271,7 +273,7 @@ export function structureSection(section) {
 		const inferredAbilities = {};
 		for (const locale of Object.keys(section.paragraphs ?? {})) {
 			const entries = parseHeadingGroupedEntries(section.paragraphs?.[locale] ?? [], "description");
-			const withContent = entries.filter((e) => e.name && e.description?.length);
+			const withContent = entries.map(cleanAbilityEntryMediaOnlyLines).filter((e) => e.name && e.description?.length);
 			if (entries.length >= 2 && withContent.length >= 2) inferredAbilities[locale] = withContent;
 		}
 
@@ -615,7 +617,32 @@ export function structureSection(section) {
 		result.items = cleanLocalizedStringLists(result.items, cleanBossText);
 	}
 
+	if (pageCategory === "embedded tower") {
+		result.paragraphs = splitLocalizedStringLists(result.paragraphs, splitEmbeddedTowerDenseText);
+		if (normalizedId === "introducao" || normalizedHeading === "introducao") {
+			result.items = filterLocalizedStringLists(result.items, (item) => !isEmbeddedTowerIntroUnlockRow(item));
+		}
+	}
+
 	return result;
+}
+
+function cleanAbilityEntryMediaOnlyLines(entry) {
+	return {
+		...entry,
+		description: (entry.description ?? []).filter((value) => !isMediaOnlyText(value)),
+	};
+}
+
+function isMediaOnlyText(value = "") {
+	const source = String(value ?? "").trim();
+	if (!source || !/\.(?:gif|png|jpe?g|webp|svg|mp4)\b/i.test(source)) return false;
+	const withoutMedia = source
+		.replace(/[\p{L}\p{N}_%()' .,&-]+?\.(?:gif|png|jpe?g|webp|svg|mp4)\b/giu, " ")
+		.replace(/[|,;:()[\]\-–—]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	return !withoutMedia;
 }
 
 function isClanPokemonPayloadSection(normalizedId, normalizedHeading) {
@@ -757,13 +784,12 @@ function stripClanCellMediaText(value) {
 function cleanClanPokemonNameText(value) {
 	return cleanStructuredText(String(value ?? "")
 		.replace(/^#?\d{1,4}(?:\s*[-_.]\s*|\s+)/u, "")
-		.replace(/^[-_.]\s*/u, ""));
+		.replace(/^[-_.]\s*/u, ""))
+		.replace(/^S\.?\s*Klinklang$/i, "Shiny Klinklang");
 }
 
 function normalizeClanRoleText(value) {
-	return cleanStructuredText(value)
-		.replace(/\bOffensiveTanker\b/gi, "Offensive Tank")
-		.replace(/\bOFF-Tank\b/gi, "Offensive Tank");
+	return normalizePokemonRoleText(value);
 }
 
 function parseClanEffectivenessGroups(paragraphs = []) {
@@ -812,4 +838,60 @@ function cleanLocalizedStringLists(values, cleaner) {
 		locale,
 		(entries ?? []).map(cleaner).filter(Boolean),
 	]));
+}
+
+function splitLocalizedStringLists(values, splitter) {
+	if (!values) return values;
+	return Object.fromEntries(Object.entries(values).map(([locale, entries]) => [
+		locale,
+		(entries ?? []).flatMap(splitter).filter(Boolean),
+	]));
+}
+
+function filterLocalizedStringLists(values, predicate) {
+	if (!values) return values;
+	return Object.fromEntries(Object.entries(values).map(([locale, entries]) => [
+		locale,
+		(entries ?? []).filter(predicate),
+	]));
+}
+
+function splitEmbeddedTowerDenseText(value = "") {
+	const raw = String(value ?? "").trim();
+	const text = cleanStructuredText(value);
+	if (!text) return [];
+	const numbered = splitEmbeddedTowerNumberedText(text);
+	if (numbered.length > 1) return numbered;
+	const labelRe = /\b(Level necess[aá]rio|Modalidade|Tempo|Recompensa|Tower Attempts? necess[aá]rios?|Revives?|Po[cç][oõ]es e Elixirs?|Held Itens?|Observa[cç][aã]o)\s*:/giu;
+	const matches = [...text.matchAll(labelRe)];
+	if (matches.length < 2) return raw ? [raw] : [];
+	const prefix = cleanStructuredText(text.slice(0, matches[0].index ?? 0));
+	return [
+		prefix,
+		...matches.map((match, index) => {
+			const start = match.index ?? 0;
+			const end = matches[index + 1]?.index ?? text.length;
+			return cleanStructuredText(text.slice(start, end));
+		}),
+	].filter(Boolean);
+}
+
+function splitEmbeddedTowerNumberedText(text = "") {
+	const cleaned = cleanStructuredText(text);
+	if (!/\b\d+\.\s+/.test(cleaned)) return [cleaned].filter(Boolean);
+	const introMatch = cleaned.match(/^(Informa[cç][oõ]es importantes)\s*:\s*/i);
+	const source = introMatch ? cleaned.slice(introMatch[0].length) : cleaned;
+	const parts = source
+		.split(/\s+(?=\d+\.\s+)/)
+		.map(cleanStructuredText)
+		.filter(Boolean);
+	if (parts.length < 2) return [cleaned].filter(Boolean);
+	return introMatch ? [`${introMatch[1]}:`, ...parts] : parts;
+}
+
+function isEmbeddedTowerIntroUnlockRow(value = "") {
+	const text = cleanStructuredText(value);
+	if (!text.includes("|")) return false;
+	const token = normalizeIdToken(text);
+	return /\bandar\b/.test(token) && /\b(?:liberado|tower points|wish points)\b/.test(token);
 }

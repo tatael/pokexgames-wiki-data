@@ -198,6 +198,10 @@ export function resolveCategory(category, slug, profile, entry = {}) {
 		return "pokemon";
 	}
 
+	if (/^dz-/.test(String(slug ?? ""))) {
+		return "dimensional-zone";
+	}
+
 	if (slug === "wes-quest") {
 		return "quests";
 	}
@@ -417,6 +421,7 @@ export function resolveDisplayInList({ category, slug, title, pageKind, navigati
 	}
 
 	if (category === "dimensional-zone" && slug !== "dimensional-zone") {
+		if (/^dz-/.test(String(slug ?? ""))) return true;
 		return DIMENSIONAL_DIFFICULTY_SLUGS.has(slug);
 	}
 
@@ -627,6 +632,7 @@ export function normalizeSections(sectionsBase, pageContext = {}) {
 		const normalizedSectionId = normalizeCategoryText(sectionId);
 		const normalizedHeading = normalizeCategoryText(section.heading?.[PT_BR] ?? "");
 		if (normalizedSectionId === "indice" || normalizedHeading === "indice") return [];
+		if (isNavigationMenuSection(normalizedSectionId, normalizedHeading)) return [];
 
 		const paragraphs = section.paragraphs?.[PT_BR] || [];
 		const items = section.items?.[PT_BR] || [];
@@ -659,9 +665,12 @@ export function normalizeSections(sectionsBase, pageContext = {}) {
 			});
 		};
 
-		const normalizedParagraphs = uniqueText(paragraphs);
-		const normalizedItems = uniqueText(items);
 		const normalizedMedia = uniqueMedia(media);
+		const shouldNormalizeCaptures = isDimensionalZonePage(pageContext) && isPossibleCapturesSection(normalizedSectionId, normalizedHeading);
+		const normalizedParagraphs = shouldNormalizeCaptures ? [] : uniqueText(paragraphs);
+		const normalizedItems = shouldNormalizeCaptures
+			? captureItemsFromMedia(normalizedMedia)
+			: uniqueText(items);
 		const trapItems = normalizedItems.filter(isTrapItemText);
 		const trapMedia = normalizedMedia.filter(isTrapMedia);
 		const shouldSplitTraps = normalizedSectionId !== "armadilhas" && (trapItems.length || trapMedia.length);
@@ -672,7 +681,8 @@ export function normalizeSections(sectionsBase, pageContext = {}) {
 			pageCategory: pageContext.category,
 			pageSlug: pageContext.slug,
 			pageKind: pageContext.pageKind,
-			heading: mirrorLocalizedText(section.heading?.[PT_BR] || ""),
+			id: shouldNormalizeCaptures ? "possiveis-capturas" : section.id,
+			heading: mirrorLocalizedText(shouldNormalizeCaptures ? "Possíveis Capturas" : (section.heading?.[PT_BR] || "")),
 			paragraphs: {
 				[PT_BR]: normalizedParagraphs,
 				en: normalizedParagraphs,
@@ -741,4 +751,68 @@ function findIntroductionSummary(sections = []) {
 function cleanSummaryText(value) {
 	return cleanStructuredText(cleanDisplayText(value)
 		.replace(/\b(?:\d{1,4}[-_][\p{L}\p{N}_%()'-]+\s+)?[\p{L}\p{N}_%()'-]+\.(?:png|gif|webp|jpe?g|svg)\s*/giu, ""));
+}
+
+function isPossibleCapturesSection(normalizedId, normalizedHeading) {
+	return normalizedId === "possiveis capturas"
+		|| normalizedHeading === "possiveis capturas"
+		|| normalizedId === "possiveis catches"
+		|| normalizedHeading === "possiveis catches"
+		|| normalizedId === "possible captures"
+		|| normalizedHeading === "possible captures"
+		|| normalizedId === "possible catches"
+		|| normalizedHeading === "possible catches";
+}
+
+function isPokeballMedia(item) {
+	const text = normalizeCategoryText(`${item?.slug ?? ""} ${item?.alt ?? ""} ${item?.url ?? ""}`).replace(/[_-]+/g, " ");
+	return /\b(?:poke|pokeball|ball|premier|ultra|sora|tinker|heavy|yume|janguru|net|dusk|great|super|fast|quick|repeat|timer|moon|friend|love|level|lure|luxury|sport|safari)\s*ball\b/.test(text)
+		|| /\bball(?:\s|\d|$)/.test(text);
+}
+
+function captureNameFromMedia(item) {
+	const source = hasVariantSlug(item?.slug) || isNumericMediaName(item?.alt) ? item.slug : (item?.alt ?? item?.slug ?? "");
+	const text = cleanDisplayText(source)
+		.replace(/\.(?:gif|png|jpe?g|webp|svg)$/i, "")
+		.replace(/^\d{1,4}\s*[-_.]\s*/u, "")
+		.replace(/[-_]+/g, " ")
+		.replace(/^(?:s\.|sh\s+)/i, "Shiny ")
+		.replace(/^g\s+/i, "Giant ")
+		.trim();
+	if (!text) return "";
+	return text.split(/\s+/).map((part) => part ? `${part[0].toUpperCase()}${part.slice(1)}` : part).join(" ");
+}
+
+function hasVariantSlug(slug = "") {
+	return /^(?:shiny|giant|mega|alolan|galarian|hisuian|champion)-/.test(String(slug ?? ""));
+}
+
+function isNumericMediaName(value = "") {
+	return /^\d{1,4}(?:\.(?:gif|png|jpe?g|webp|svg))?$/i.test(String(value ?? "").trim());
+}
+
+function captureItemsFromMedia(media = []) {
+	const seen = new Set();
+	const captures = [];
+	for (const item of media ?? []) {
+		if (!item?.url || isPokeballMedia(item)) continue;
+		const name = captureNameFromMedia(item);
+		const key = normalizeCategoryText(name);
+		if (!name || seen.has(key)) continue;
+		seen.add(key);
+		captures.push(name);
+	}
+
+	return captures;
+}
+
+function isDimensionalZonePage(pageContext = {}) {
+	return pageContext.category === "dimensional-zone" && /^dz-/.test(String(pageContext.slug ?? ""));
+}
+
+function isNavigationMenuSection(normalizedId, normalizedHeading) {
+	return normalizedId === "menu de navegacao"
+		|| normalizedHeading === "menu de navegacao"
+		|| normalizedId === "navigation menu"
+		|| normalizedHeading === "navigation menu";
 }

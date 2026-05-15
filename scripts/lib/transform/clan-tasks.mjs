@@ -2,7 +2,7 @@ import { cleanStructuredText, stripImageRefFromText } from "./text.mjs";
 import { parseSimpleRewardText } from "./rewards.mjs";
 
 const RANK_HEADING_RE = /^#\s*(Rank\s+\d+\s+ao\s+\d+|Rank\s+\d+\s+to\s+\d+)/i;
-const STAGE_RE = /Etapa\s+(\d+)\s*-\s*([\s\S]*?)(?=Etapa\s+\d+\s*-|Danger Room Team|Ap[oó]s concluir|Apos concluir|$)/gi;
+const STAGE_RE = /Etapa\s+(\d+)\s*-\s*([\s\S]*?)(?=Etapa\s+\d+\s*-|Danger Room Team|Ap\S*s concluir|Apos concluir|$)/giu;
 
 function normalizeLine(value) {
 	return String(value ?? "")
@@ -12,20 +12,43 @@ function normalizeLine(value) {
 
 function splitSentences(value) {
 	return String(value ?? "")
-		.split(/(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9])/)
+		.split(/(?<=[.!?])\s+(?=[\p{Lu}0-9])/u)
 		.map((item) => cleanStructuredText(item))
 		.filter(Boolean);
 }
 
+function stripInlineImageArtifacts(value) {
+	return cleanStructuredText(String(value ?? "")
+		.replace(/\b([\p{L}\p{N}_%().' -]+?)\.(?:gif|png|jpe?g|webp|svg)\b\s+\1\b/giu, "$1")
+		.replace(/\s+\d{1,4}[-_.][^\s]+?\.(?:gif|png|jpe?g|webp|svg)\b/giu, " ")
+		.replace(/^\d{1,4}[-_.][^\s]+?\.(?:gif|png|jpe?g|webp|svg)\b\s*/iu, " "));
+}
+
+function stripLeadingImageReference(value) {
+	return String(value ?? "").replace(/^[\p{L}\p{N}_%().' -]+?\.(?:gif|png|jpe?g|webp|svg)\b\s+/iu, "");
+}
+
+function cleanTaskEntityName(value) {
+	return cleanStructuredText(stripImageRefFromText(stripLeadingImageReference(stripInlineImageArtifacts(value))))
+		.replace(/^\d{1,4}[-_.\s]+(?=\p{Lu})/u, "")
+		.replace(/[.;:,]$/, "")
+		.trim();
+}
+
+function splitTaskDetails(value) {
+	return splitSentences(stripInlineImageArtifacts(value)
+		.replace(/\b\d{1,4}[-_.\s]+([\p{Lu}][\p{L}0-9'(). -]*?)(?=\s|$|[.,;:])/gu, "$1"));
+}
+
 function parseCollectRows(text) {
 	if (!/^Coletar\b/i.test(normalizeLine(text))) return [];
-	const body = normalizeLine(text)
+	const body = stripInlineImageArtifacts(normalizeLine(text)
 		.replace(/^Coletar\s+(?:Quantidade\s+Item\s+)?/i, "")
-		.trim();
-	const rows = [...body.matchAll(/(\d[\d.]*)\s+([A-ZÀ-Ý][A-Za-zÀ-ÿ0-9'(). -]+?)(?=\s+\d[\d.]*\s+[A-ZÀ-Ý]|$)/g)]
+		.trim());
+	const rows = [...body.matchAll(/(\d[\d.]*)\s+(\p{Lu}[\p{L}0-9'(). -]+?)(?=\s+\d[\d.]*\s+\p{Lu}|$)/gu)]
 		.map((match) => ({
 			amount: match[1],
-			item: cleanStructuredText(stripImageRefFromText(match[2])),
+			item: cleanTaskEntityName(match[2]),
 		}))
 		.filter((row) => row.item);
 	return rows;
@@ -33,14 +56,14 @@ function parseCollectRows(text) {
 
 function parseDefeatTargets(text) {
 	if (!/^Derrotar\b/i.test(normalizeLine(text))) return [];
-	const body = normalizeLine(text)
+	const body = stripInlineImageArtifacts(normalizeLine(text)
 		.replace(/^Derrotar\s*(?:\(([^)]+)\))?/i, "")
 		.replace(/\bDepois dessas etapas[\s\S]*$/i, "")
-		.trim();
-	const targets = [...body.matchAll(/(\d[\d.]*)\s+([A-ZÀ-Ý][A-Za-zÀ-ÿ0-9'(). -]+?)(?=\s+\d[\d.]*\s+[A-ZÀ-Ý]|$)/g)]
+		.trim());
+	const targets = [...body.matchAll(/(\d[\d.]*)\s+(?:\d{1,4}[-_.\s]+)?(\p{Lu}[\p{L}0-9'(). -]+?)(?=\s+\d[\d.]*\s+(?:\d{1,4}[-_.\s]+)?\p{Lu}|$)/gu)]
 		.map((match) => ({
 			amount: match[1],
-			name: cleanStructuredText(stripImageRefFromText(match[2])),
+			name: cleanTaskEntityName(match[2]),
 		}))
 		.filter((target) => target.name);
 	return targets;
@@ -54,12 +77,12 @@ function parseStage(number, rawText) {
 			.replace(/\bEm\s+\d{1,2}\/\d{1,2}\/\d{4}[\s\S]*$/i, "")
 			.replace(/\bJogadores que[\s\S]*$/i, "")
 			.trim();
-		const targetName = cleanStructuredText(stripImageRefFromText(targetText)).replace(/[.;:,]$/, "").trim();
+		const targetName = cleanTaskEntityName(targetText);
 		return {
 			number: Number(number),
 			label: "Capturar",
 			...(targetName ? { targets: [{ amount: "1", name: targetName }] } : {}),
-			details: splitSentences(captureMatch[1]),
+			details: splitTaskDetails(captureMatch[1]),
 		};
 	}
 
@@ -70,7 +93,7 @@ function parseStage(number, rawText) {
 			number: Number(number),
 			label: cleanStructuredText(`Derrotar ${defeatLabel}`.trim()),
 			targets: defeatTargets,
-			details: splitSentences(text.replace(/^Derrotar\s*(?:\([^)]+\))?/i, "")),
+			details: splitTaskDetails(text.replace(/^Derrotar\s*(?:\([^)]+\))?/i, "")),
 		};
 	}
 
@@ -92,22 +115,40 @@ function parseStage(number, rawText) {
 }
 
 function splitRewardText(value) {
-	const rewardBody = normalizeLine(value).match(/receber[aá]\s+(.+)$/i)?.[1] ?? "";
+	const rewardBody = stripInlineImageArtifacts(normalizeLine(value).match(/receber[aá]\s+(.+)$/i)?.[1] ?? "");
 	return rewardBody
 		.split(/\s*,\s*|\s+e\s+/i)
-		.map((item) => cleanStructuredText(item))
+		.map((item) => cleanStructuredText(stripInlineImageArtifacts(item)))
 		.filter(Boolean);
+}
+
+function normalizeRewardPart(value) {
+	return String(value ?? "")
+		.replace(/^(?:um|uma)\s+/i, "1 ")
+		.replace(/^duas?\s+/i, "2 ")
+		.replace(/^tr[eê]s\s+/i, "3 ")
+		.trim();
+}
+
+function parseClanRewardItems(rewardItems = []) {
+	return rewardItems.flatMap((item) => parseSimpleRewardText(normalizeRewardPart(item)));
+}
+
+function cleanClanRewardText(value) {
+	const text = normalizeLine(value);
+	const stop = text.search(/\b(?:Para progredir|Dicas?|Task\s*\||N[íi]vel\s*\|)\b/i);
+	return cleanStructuredText(stop >= 0 ? text.slice(0, stop) : text);
 }
 
 function parseRankBody(body) {
 	const text = normalizeLine(body);
 	const introText = text.split(/Etapa\s+1\s*-/i)[0] ?? "";
 	const stages = [...text.matchAll(STAGE_RE)].map((match) => parseStage(match[1], match[2]));
-	const dangerRoomTeamText = normalizeLine(text.match(/Danger Room Team\s+([\s\S]*?)(?=Ap[oóàa]?s concluir|Apos concluir|$)/i)?.[1] ?? "");
-	const rewardText = normalizeLine(text.match(/(Ap[oóàa]?s concluir[\s\S]*)$/i)?.[1] ?? "");
+	const dangerRoomTeamText = normalizeLine(text.match(/Danger Room Team\s+([\s\S]*?)(?=Ap\S*s concluir|Apos concluir|$)/i)?.[1] ?? "");
+	const rewardText = cleanClanRewardText(text.match(/(Ap\S*s concluir[\s\S]*)$/i)?.[1] ?? "");
 
 	const rewardItems = splitRewardText(rewardText);
-	const rewards = rewardText ? parseSimpleRewardText(rewardText) : [];
+	const rewards = parseClanRewardItems(rewardItems);
 
 	return {
 		intro: splitSentences(introText),

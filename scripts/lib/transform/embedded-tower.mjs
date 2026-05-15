@@ -107,6 +107,73 @@ function isUnlockMirrorParagraph(value = "") {
 		|| /^item required points/.test(token);
 }
 
+function getMediaOnlyReferences(value = "") {
+	return [...String(value ?? "").matchAll(/[\p{L}\p{N}_%()' .,&-]+?\.(?:gif|png|jpe?g|webp|svg)\b/giu)]
+		.map((match) => cleanStructuredText(match[0]))
+		.filter(Boolean);
+}
+
+function firstParagraphContainingMedia(paragraphs = [], pattern) {
+	for (const paragraph of paragraphs ?? []) {
+		const refs = getMediaOnlyReferences(paragraph);
+		const match = refs.find((ref) => pattern.test(normalizeIdToken(ref)));
+		if (match) return match;
+	}
+	return "";
+}
+
+function mediaReferencesMatching(paragraphs = [], pattern) {
+	const seen = new Set();
+	const matches = [];
+	for (const paragraph of paragraphs ?? []) {
+		for (const ref of getMediaOnlyReferences(paragraph)) {
+			const token = normalizeIdToken(ref);
+			if (!pattern.test(token) || seen.has(token)) continue;
+			seen.add(token);
+			matches.push(ref);
+		}
+	}
+	return matches;
+}
+
+function mediaReferenceFromMedia(media = [], pattern) {
+	const entry = (media ?? []).find((item) => {
+		const source = `${item?.alt ?? ""} ${String(item?.url ?? "").split("/").pop() ?? ""} ${item?.slug ?? ""}`;
+		return pattern.test(normalizeIdToken(source));
+	});
+	return cleanStructuredText(entry?.alt ?? "");
+}
+
+function mediaReferencesFromMedia(media = [], pattern) {
+	const seen = new Set();
+	const matches = [];
+	for (const item of media ?? []) {
+		const ref = cleanStructuredText(item?.alt ?? "");
+		const token = normalizeIdToken(`${ref} ${String(item?.url ?? "").split("/").pop() ?? ""} ${item?.slug ?? ""}`);
+		if (!ref || !pattern.test(token) || seen.has(token)) continue;
+		seen.add(token);
+		matches.push(ref);
+	}
+	return matches;
+}
+
+function textItemStartingWith(items = [], pattern) {
+	return (items ?? [])
+		.map(cleanStructuredText)
+		.find((item) => item && pattern.test(normalizeIdToken(item))) ?? "";
+}
+
+function firstNonMediaParagraph(paragraphs = []) {
+	return (paragraphs ?? [])
+		.map(cleanStructuredText)
+		.find((paragraph) => paragraph && !getMediaOnlyReferences(paragraph).length) ?? "";
+}
+
+function buildAccessStep(title, body) {
+	const cleanedBody = (body ?? []).map(cleanStructuredText).filter(Boolean);
+	return cleanedBody.length ? { title, body: cleanedBody } : null;
+}
+
 function getEmbeddedTowerSupportType(normalizedId, normalizedHeading) {
 	const token = `${normalizedId} ${normalizedHeading}`;
 	if (/\b(fragmentos?|fragments?|esferas?|spheres?|orbs?)\b/.test(token)) return 'fragments';
@@ -144,6 +211,48 @@ export function isEmbeddedTowerProgressionSection(normalizedId, normalizedHeadin
 			normalizedId === "funcionamento geral da embedded tower"
 			|| normalizedHeading === "funcionamento geral da embedded tower"
 		);
+}
+
+export function isEmbeddedTowerAccessSection(normalizedId, normalizedHeading, pageCategory) {
+	const id = normalizedId.replace(/\bacesso embedded tower\b/g, "acesso a embedded tower");
+	const heading = normalizedHeading.replace(/\bacesso embedded tower\b/g, "acesso a embedded tower");
+	return pageCategory === "embedded tower"
+		&& (
+			id === "como conseguir acesso a embedded tower"
+			|| heading === "como conseguir acesso a embedded tower"
+		);
+}
+
+export function parseEmbeddedTowerAccessSteps(paragraphs = [], items = [], media = []) {
+	const intro = firstNonMediaParagraph(paragraphs);
+	const sycamoreImage = firstParagraphContainingMedia(paragraphs, /syncamore|sycamore/)
+		|| mediaReferenceFromMedia(media, /syncamore|sycamore/);
+	const barryText = textItemStartingWith(items, /^apos isso\b|^after that\b/);
+	const barryImage = firstParagraphContainingMedia(paragraphs, /^barry\b/)
+		|| mediaReferenceFromMedia(media, /\bbarry\b/);
+	const bagText = textItemStartingWith(items, /^barry dira\b|^barry will\b/);
+	const bagImages = mediaReferencesMatching(paragraphs, /^possivel \d+\b|^possible \d+\b/);
+	if (!bagImages.length) bagImages.push(...mediaReferencesFromMedia(media, /^possivel \d+\b|^possible \d+\b/));
+	const emblemText = textItemStartingWith(items, /^depois disto\b|^after this\b/);
+	const emblemImage = firstParagraphContainingMedia(paragraphs, /sky pillar emblem/)
+		|| mediaReferenceFromMedia(media, /sky pillar emblem/);
+	const releaseText = textItemStartingWith(items, /^conversando com o npc professor sycamore\b|^talking to npc professor sycamore\b/);
+	const steps = [
+		buildAccessStep("Professor Sycamore", [intro, sycamoreImage]),
+		buildAccessStep("Barry", [barryText, barryImage]),
+		buildAccessStep("Mochila perdida", [bagText, ...bagImages]),
+		buildAccessStep("Sky Pillar emblem", [emblemText, emblemImage]),
+		buildAccessStep("Liberação da Tower", [releaseText]),
+	].filter(Boolean);
+
+	if (steps.length) return steps.map((step, index) => ({ index: index + 1, ...step }));
+
+	return [
+		buildAccessStep("", [
+			...(paragraphs ?? []),
+			...(items ?? []).filter((item) => !String(item ?? "").includes("|")),
+		]),
+	].filter(Boolean).map((step, index) => ({ index: index + 1, ...step }));
 }
 
 export function parseEmbeddedTowerProgression(paragraphs = [], items = []) {

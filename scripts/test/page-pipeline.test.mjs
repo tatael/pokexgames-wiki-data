@@ -13,7 +13,7 @@ import {
 	resolveSortRank,
 } from "../lib/page-pipeline.mjs";
 import { extractSections } from "../lib/extract.mjs";
-import { PT_BR, buildLocalizedText, decodeHtmlEntities } from "../lib/shared.mjs";
+import { PT_BR, buildLocalizedText, buildPagePath, decodeHtmlEntities } from "../lib/shared.mjs";
 
 test("resolveCategory routes normalized wiki pages to their source categories", () => {
 	assert.equal(resolveCategory("items", "daily-kill", null, {
@@ -32,6 +32,12 @@ test("resolveCategory routes normalized wiki pages to their source categories", 
 		title: buildLocalizedText("DZ Giant Onix"),
 		navigationPath: ["Itens", "Mochilas"],
 		pageKind: "item",
+	}), "dimensional-zone");
+
+	assert.equal(resolveCategory("ultra-lab", "dz-shiny-giant-magikarp", null, {
+		title: buildLocalizedText("DZ Shiny Giant Magikarp"),
+		navigationPath: ["Ultra Lab", "Sarkies Quest", "O Traidor", "DZ Shiny Giant Magikarp"],
+		pageKind: "lab",
 	}), "dimensional-zone");
 
 	assert.equal(resolveCategory("items", "aggron", { [PT_BR]: { name: "Aggron" } }, {
@@ -98,7 +104,7 @@ test("resolveDisplayInList hides aliases and non-card pages from category lists"
 		slug: "dz-ambipom",
 		title: buildLocalizedText("DZ Ambipom"),
 		pageKind: "zone",
-	}), false);
+	}), true);
 
 	assert.equal(resolveDisplayInList({
 		category: "dimensional-zone",
@@ -307,6 +313,127 @@ test("normalizeSections preserves repeated capture-ball media in possible captur
 	assert.equal(section.media[PT_BR].length, 3);
 });
 
+test("normalizeSections cleans Dimensional Zone capture table dumps from possible captures", () => {
+	const [section] = normalizeSections([{
+		id: "possiveis-capturas",
+		heading: { [PT_BR]: "Possíveis Capturas" },
+		paragraphs: {
+			[PT_BR]: ["Pokémon Pokébolas Indicadas 599-Klink.png Klink Ultra-ball(1).png S.klinklang.png Shiny Klinklang Tinker-ball.png"],
+			en: [],
+			es: [],
+		},
+		items: { [PT_BR]: ["S.klinklang"], en: [], es: [] },
+		media: {
+			[PT_BR]: [
+				{ type: "image", url: "https://wiki.pokexgames.com/images/a/a1/599-Klink.png", alt: "599-Klink.png" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/a/a1/Ultra-ball.png", alt: "Ultra-ball.png" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/b/b1/S.klinklang.png", alt: "S.klinklang.png" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/c/c1/Tinker-ball.png", alt: "Tinker-ball.png" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/d/d1/470-Sh_Leafeon.png", alt: "470-Sh Leafeon.png" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/e/e1/Janguru-ball.png", alt: "Janguru-ball.png" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/f/f1/596-G_Galvantula.png", alt: "596-G Galvantula.png" },
+			],
+			en: [],
+			es: [],
+		},
+	}], {
+		category: "dimensional-zone",
+		slug: "dz-shiny-klinklang",
+		pageKind: "zone",
+	});
+
+	assert.equal(section.content[PT_BR].paragraphs, undefined);
+	assert.deepEqual(section.content[PT_BR].bullets, ["Klink", "Shiny Klinklang", "Shiny Leafeon", "Giant Galvantula"]);
+	assert.equal(section.media[PT_BR].length, 7);
+});
+
+test("normalizeSections does not rewrite full Shiny capture names", () => {
+	const [section] = normalizeSections([{
+		id: "possiveis-capturas",
+		heading: { [PT_BR]: "Possíveis Capturas" },
+		paragraphs: {
+			[PT_BR]: ["Pokémon Pokébolas Indicadas 129-GiantMagikarp.png Shiny Giant Magikarp Net-ball.png"],
+			en: [],
+			es: [],
+		},
+		items: { [PT_BR]: [], en: [], es: [] },
+		media: {
+			[PT_BR]: [
+				{ type: "image", url: "https://wiki.pokexgames.com/images/2/23/129-GiantMagikarp.png", alt: "129-GiantMagikarp.png", slug: "shiny-giant-magikarp" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/a/a1/Net-ball.png", alt: "Net-ball.png" },
+			],
+			en: [],
+			es: [],
+		},
+	}], {
+		category: "dimensional-zone",
+		slug: "dz-shiny-giant-magikarp",
+		pageKind: "zone",
+	});
+
+	assert.deepEqual(section.content[PT_BR].bullets, ["Shiny Giant Magikarp"]);
+	assert.doesNotMatch(section.content[PT_BR].bullets.join(" "), /Shiny Iny/);
+});
+
+test("normalizeSections canonicalizes Dimensional Zone possible catches sections", () => {
+	const [section] = normalizeSections([{
+		id: "possiveis-catches",
+		heading: { [PT_BR]: "Possíveis Catches" },
+		paragraphs: {
+			[PT_BR]: ["431-Glameow.png Glameow 432-Purugly.png Purugly 563.png Cofagrigus"],
+			en: [],
+			es: [],
+		},
+		items: { [PT_BR]: [], en: [], es: [] },
+		media: {
+			[PT_BR]: [
+				{ type: "image", url: "https://wiki.pokexgames.com/images/d/d8/431-Glameow.png", alt: "431-Glameow.png", slug: "glameow" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/3/32/432-Purugly.png", alt: "432-Purugly.png", slug: "purugly" },
+				{ type: "image", url: "https://wiki.pokexgames.com/images/e/ea/563.png", alt: "563.png", slug: "cofagrigus" },
+			],
+			en: [],
+			es: [],
+		},
+	}], {
+		category: "dimensional-zone",
+		slug: "dz-halloween-2020",
+		pageKind: "zone",
+	});
+
+	assert.equal(section.id, "possiveis-capturas");
+	assert.equal(section.title[PT_BR], "Possíveis Capturas");
+	assert.equal(section.content[PT_BR].paragraphs, undefined);
+	assert.deepEqual(section.content[PT_BR].bullets, ["Glameow", "Purugly", "Cofagrigus"]);
+});
+
+test("normalizeSections removes MediaWiki navigation menu sections", () => {
+	const sections = normalizeSections([{
+		id: "menu-de-navegacao",
+		heading: { [PT_BR]: "Menu de navegação" },
+		paragraphs: { [PT_BR]: ["# Ferramentas pessoais"], en: [], es: [] },
+		items: { [PT_BR]: ["Entrar", "Página Inicial"], en: [], es: [] },
+		media: { [PT_BR]: [], en: [], es: [] },
+	}, {
+		id: "inimigos",
+		heading: { [PT_BR]: "Inimigos" },
+		paragraphs: { [PT_BR]: ["Quantidade: 72."], en: [], es: [] },
+		items: { [PT_BR]: ["129-Magikarp"], en: [], es: [] },
+		media: { [PT_BR]: [], en: [], es: [] },
+	}]);
+
+	assert.deepEqual(sections.map((section) => section.id), ["inimigos"]);
+});
+
+test("buildPagePath publishes DZ pages at canonical dimensional-zone root", () => {
+	assert.equal(buildPagePath({
+		category: "dimensional-zone",
+		slug: "dz-galvantula",
+		title: buildLocalizedText("DZ Galvantula"),
+		navigationPath: ["Dimensional Zone", "Missões", "Joey Quest", "Informações", "DZ Galvantula"],
+		pageKind: "zone",
+	}), "dimensional-zone/dz-galvantula.json");
+});
+
 test("resolveDisplayInList hides boss-fight discovery roots but keeps discovered bosses", () => {
 	assert.equal(resolveDisplayInList({
 		category: "boss-fight",
@@ -322,6 +449,14 @@ test("resolveDisplayInList hides boss-fight discovery roots but keeps discovered
 		title: buildLocalizedText("Lavender's Curse"),
 		pageKind: "boss",
 		navigationPath: ["Boss Fight", "Eventos"],
+	}), true);
+
+	assert.equal(resolveDisplayInList({
+		category: "dimensional-zone",
+		slug: "dz-shiny-giant-magikarp",
+		title: buildLocalizedText("DZ Shiny Giant Magikarp"),
+		pageKind: "lab",
+		navigationPath: ["Ultra Lab", "Sarkies Quest", "O Traidor", "DZ Shiny Giant Magikarp"],
 	}), true);
 });
 
@@ -346,17 +481,26 @@ test("normalizeSections splits embedded tower trap rows into an Armadilhas secti
 	assert.equal(sections[1].media[PT_BR][0].alt, "Trap1.gif");
 });
 
-test("normalizeSections keeps embedded tower access sections as prose tables with media", () => {
+test("normalizeSections publishes embedded tower access as ordered steps with media", () => {
 	const sections = normalizeSections(extractSections(`
 		<h2>Como conseguir acesso à Embedded Tower</h2>
-		<p>Fale com o NPC responsável para iniciar o acesso.</p>
+		<p>Primeiramente o jogador deve ir até Phenac e falar com o Professor Sycamore.</p>
 		<table border="1" style="text-align: center; border-collapse: collapse">
 			<tr><td width="100%"><a href="/index.php/Embedded_Tower" title="Embedded Tower"><img alt="Syncamore12.jpg" src="/images/4/44/Syncamore12.jpg" width="475" height="493" /></a></td></tr>
 		</table>
-		<table class="wikitable" width="50%">
-			<tr><th>Andar</th><th>Pontos</th></tr>
-			<tr><td>1º Andar</td><td>40 Tower Points</td></tr>
+		<ul><li>Após isso, o Professor irá pedir para que fale com Barry.</li></ul>
+		<table border="1" style="text-align: center; border-collapse: collapse">
+			<tr><td width="100%"><img alt="Barry.png" src="/images/9/90/Barry.png" width="475" height="493" /></td></tr>
 		</table>
+		<ul><li>Barry dirá que perdeu sua mochila e irá pedir que procure, ela se encontra em um destes locais:</li></ul>
+		<table class="wikitable">
+			<tr><td><img alt="Possivel 1.png" src="/images/f/fe/Possivel_1.png" width="360" height="440" /></td><td><img alt="Possivel 2.png" src="/images/3/3e/Possivel_2.png" width="361" height="430" /></td></tr>
+		</table>
+		<ul><li>Depois disto, retorne ao Barry para entregar a sua mochila e ele lhe entregará o Sky Pillar emblem:</li></ul>
+		<table border="1" style="text-align: center; border-collapse: collapse">
+			<tr><td width="100%"><img alt="Sky Pillar emblem1.png" src="/images/5/50/Sky_Pillar_emblem1.png" width="385" height="334" /></td></tr>
+		</table>
+		<ul><li>Conversando com o NPC Professor Sycamore, ele irá continuar a história da Embedded Tower.</li></ul>
 	`, "Como Funciona", "https://wiki.pokexgames.com/index.php/Funcionamento_da_Embedded_Tower"), {
 		category: "embedded-tower",
 		slug: "funcionamento-da-embedded-tower",
@@ -364,17 +508,24 @@ test("normalizeSections keeps embedded tower access sections as prose tables wit
 	});
 
 	assert.equal(sections[0].id, "como-conseguir-acesso-a-embedded-tower");
-	assert.equal(sections[0].steps, undefined);
-	assert.deepEqual(sections[0].content[PT_BR].paragraphs, [
-		"Fale com o NPC responsável para iniciar o acesso.",
+	assert.equal(sections[0].content, undefined);
+	assert.equal(sections[0].tables, undefined);
+	assert.deepEqual(sections[0].steps[PT_BR].map((step) => step.title), [
+		"Professor Sycamore",
+		"Barry",
+		"Mochila perdida",
+		"Sky Pillar emblem",
+		"Liberação da Tower",
 	]);
-	assert.deepEqual(sections[0].tables[PT_BR][0].rows[0], {
-		cells: [
-			{ text: "1º Andar" },
-			{ text: "Tower Points", raw: "40 Tower Points" },
-		],
-	});
+	assert.deepEqual(sections[0].steps[PT_BR].map((step) => step.body), [
+		["Primeiramente o jogador deve ir até Phenac e falar com o Professor Sycamore", "Syncamore12.jpg"],
+		["Após isso, o Professor irá pedir para que fale com Barry", "Barry.png"],
+		["Barry dirá que perdeu sua mochila e irá pedir que procure, ela se encontra em um destes locais", "Possivel 1.png", "Possivel 2.png"],
+		["Depois disto, retorne ao Barry para entregar a sua mochila e ele lhe entregará o Sky Pillar emblem", "Sky Pillar emblem1.png"],
+		["Conversando com o NPC Professor Sycamore, ele irá continuar a história da Embedded Tower"],
+	]);
 	assert.equal(sections[0].media[PT_BR][0].slug, "embedded-tower");
+	assert.equal(JSON.stringify(sections[0]).includes("Possivel | Possivel"), false);
 });
 
 test("normalizeSections keeps mystery dungeon abilities typed and preserves ability videos", () => {

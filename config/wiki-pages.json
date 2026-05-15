@@ -343,6 +343,166 @@
 		}
 	},
 	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "rubber-ball",
+		"url": "https://wiki.pokexgames.com/index.php/Rubber_Ball",
+		"title": {
+			"pt-BR": "Rubber Ball",
+			"en": "Rubber Ball",
+			"es": "Rubber Ball"
+		},
+		"navigationPath": [
+			"Itens",
+			"Itens de task de clã"
+		],
+		"pageKind": "item"
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "enchanted-gem",
+		"url": "https://wiki.pokexgames.com/index.php/Enchanted_Gem",
+		"title": {
+			"pt-BR": "Enchanted Gem",
+			"en": "Enchanted Gem",
+			"es": "Enchanted Gem"
+		},
+		"navigationPath": [
+			"Itens",
+			"Itens de task de clã"
+		],
+		"pageKind": "item"
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "linearly-guided-hypnosis",
+		"url": "https://wiki.pokexgames.com/index.php/Linearly_Guided_Hypnosis",
+		"title": {
+			"pt-BR": "Linearly Guided Hypnosis",
+			"en": "Linearly Guided Hypnosis",
+			"es": "Linearly Guided Hypnosis"
+		},
+		"navigationPath": [
+			"Itens",
+			"Itens de task de clã"
+		],
+		"pageKind": "item"
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "band-aid",
+		"url": "https://wiki.pokexgames.com/index.php/Band_Aid",
+		"title": {
+			"pt-BR": "Band Aid",
+			"en": "Band Aid",
+			"es": "Band Aid"
+		},
+		"navigationPath": [
+			"Itens",
+			"Itens de task de clã"
+		],
+		"pageKind": "item"
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "topknot",
+		"url": "https://wiki.pokexgames.com/index.php/Topknot",
+		"title": {
+			"pt-BR": "Topknot",
+			"en": "Topknot",
+			"es": "Topknot"
+		},
+		"navigationPath": [
+			"Itens",
+			"Itens de task de clã"
+		],
+		"pageKind": "item"
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "microphone",
+		"url": "https://wiki.pokexgames.com/index.php/Microphone",
+		"title": {
+			"pt-BR": "Microphone",
+			"en": "Microphone",
+			"es": "Microphone"
+		},
+		"navigationPath": [
+			"Itens",
+			"Itens de task de clã"
+		],
+		"pageKind": "item"
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "belt-of-champion",
+		"url": "https://wiki.pokexgames.com/index.php/Belt_of_Champion",
+		"title": {
+			"pt-BR": "Belt of Champion",
+			"en": "Belt of Champion",
+			"es": "Belt of Champion"
+		},
+		"navigationPath": [
+			"Itens",
+			"Itens de task de clã"
+		],
+		"pageKind": "item"
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "iron-bracelet",
+		"url": "https://wiki.pokexgames.com/index.php/Iron_Bracelet",
+		"title": {
+			"pt-BR": "Iron Bracelet",
+			"en": "Iron Bracelet",
+			"es": "Iron Bracelet"
+		},
+		"navigationPath": [
+			"Itens",
+			"Itens de task de clã"
+		],
+		"pageKind": "item"
+	},
+	{
 		"category": "held-items",
 		"categoryLabel": {
 			"pt-BR": "Held Itens",

@@ -51,10 +51,12 @@ import {
 	parseHazardEntries as parseDungeonHazardEntries,
 } from "./transform/dungeons.mjs";
 import {
+	isEmbeddedTowerAccessSection,
 	isEmbeddedTowerLinkedCardsSection,
 	isEmbeddedTowerProgressionSection,
 	isEmbeddedTowerSupportSection,
 	isEmbeddedTowerUnlockSection,
+	parseEmbeddedTowerAccessSteps,
 	parseEmbeddedTowerProgression,
 	parseEmbeddedTowerSupport,
 	parseEmbeddedTowerUnlocks,
@@ -300,6 +302,24 @@ export function structureSection(section) {
 	const hasStructuredRowItems = Object.values(section.items ?? {}).some((values) =>
 		(values ?? []).some((item) => String(item ?? "").includes("|"))
 	);
+
+	if (!result.steps && isEmbeddedTowerAccessSection(normalizedId, normalizedHeading, pageCategory)) {
+		const steps = {};
+		for (const locale of new Set([
+			...Object.keys(section.paragraphs ?? {}),
+			...Object.keys(section.items ?? {}),
+		])) {
+			const entries = parseEmbeddedTowerAccessSteps(
+				section.paragraphs?.[locale] ?? [],
+				section.items?.[locale] ?? [],
+				section.media?.[locale] ?? [],
+			);
+
+			if (entries.length) steps[locale] = entries;
+		}
+
+		if (Object.keys(steps).length) result.steps = steps;
+	}
 
 	if (!result.steps && isStepSection(normalizedId, normalizedHeading) && !(pageCategory !== "quests" && hasStructuredRowItems)) {
 		const steps = {};

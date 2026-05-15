@@ -729,11 +729,13 @@ function extractRewardTabberLines(html) {
 }
 
 function isPossibleCapturesHeading(value) {
-	return String(value ?? "")
+	const text = String(value ?? "")
 		.normalize("NFD")
 		.replace(/[\u0300-\u036f]/g, "")
-		.toLowerCase()
-		.includes("possiveis capturas");
+		.toLowerCase();
+	return text.includes("possiveis capturas")
+		|| text.includes("possiveis catches")
+		|| text.includes("possible catches");
 }
 
 function isRewardHeading(value) {

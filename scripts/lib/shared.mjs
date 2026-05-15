@@ -320,6 +320,10 @@ export function buildPagePath(entry) {
 	if (entry.category === "boss-fight" && entry.pageGroup) {
 		const sub = resolvePageGroupSubdir(entry.pageGroup);
 		if (sub && sub !== "other" && sub !== "outros") directories.push(sub);
+	} else if (entry.category === "dimensional-zone" && entry.slug?.startsWith("dz-")) {
+		// DZ pages are real dungeon pages. Discovery often reaches them through
+		// nested quest or rotation headings, but the published path must stay
+		// canonical so links/cards cannot inherit unrelated branch context.
 	} else {
 		for (const part of navigationPath.slice(1, -1)) {
 			const slug = buildSlug(part, "");

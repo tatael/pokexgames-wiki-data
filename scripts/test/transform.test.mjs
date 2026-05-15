@@ -538,6 +538,30 @@ test("publishSection compacts identical locale payloads and emits clan task rank
 	assert.match(section.clanTasks[PT_BR].ranks[0].dangerRoomTeamText, /Tauros/);
 });
 
+test("clan task ranks strip inline image filenames from targets, items, and rewards", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "tasks",
+		pageCategory: "clans",
+		pageSlug: "gardestrike-tasks",
+		heading: "Tasks",
+		paragraphs: [
+			"# Rank 1 ao 2",
+			"Etapa 1 - Coletar Quantidade Item 1.500 Rubber Ball.png Rubber Ball 1.500 Band-aid.png Band-aid 5 Iron Bracelet.png Iron Bracelet Etapa 2 - Capturar Primeape 057-Primeape.png Etapa 3 - Derrotar (1 Lista) 50 Onix 128-Tauros.png 50 Tauros 215-Sneasel.png 25 Sneasel 234-Stantler.png 25 Stantler Danger Room Team Tauros Farfetch'd Stantler Primeape Loudred Fearow Apos concluir duas salas da Danger Room, o jogador recebera 100.000 de experiencia e uma Punch Stone. Para progredir para o proximo rank, fale com o Grandmaster. Dicas Task | Nivel | Recompensa",
+		],
+	})));
+
+	const rank = section.clanTasks[PT_BR].ranks[0];
+	assert.deepEqual(rank.stages[0].rows.map((row) => row.item), ["Rubber Ball", "Band-aid", "Iron Bracelet"]);
+	assert.deepEqual(rank.stages[1].targets, [{ amount: "1", name: "Primeape" }]);
+	assert.deepEqual(rank.stages[2].targets.map((target) => target.name), ["Onix", "Tauros", "Sneasel", "Stantler"]);
+	assert.deepEqual(rank.rewardItems, ["100.000 de experiencia", "uma Punch Stone"]);
+	assert.deepEqual(rank.rewards.map((reward) => [reward.name, reward.qty]), [
+		["Experiência", "100.000"],
+		["Punch Stone", "1"],
+	]);
+	assert.doesNotMatch(JSON.stringify(rank), /\d{3}[-_][^"]+\.png|Ball\.png|Bracelet\.png|Task \|/);
+});
+
 test("clan task capture targets ignore update notes and defeat targets stop before prose", () => {
 	const section = publishSection(structureSection(localizedSection({
 		id: "tasks",
@@ -552,6 +576,43 @@ test("clan task capture targets ignore update notes and defeat targets stop befo
 
 	assert.deepEqual(section.clanTasks[PT_BR].ranks[0].stages[0].targets, [{ amount: "1", name: "Miltank" }]);
 	assert.deepEqual(section.clanTasks[PT_BR].ranks[0].stages[1].targets.map((target) => target.name), ["Golduck", "Victreebel", "Politoed", "Sandslash"]);
+});
+
+test("clan task target names strip leading dex numbers", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "tasks",
+		pageCategory: "clans",
+		pageSlug: "gardestrike-tasks",
+		heading: "Tasks",
+		paragraphs: [
+			"# Rank 1 ao 2",
+			"Etapa 1 - Capturar 057 Primeape Etapa 2 - Capturar 097-Hypno.png 097 Hypno Etapa 3 - Capturar 122-Mr.Mime.png 122 Mr.Mime Etapa 4 - Derrotar 50 128 Tauros 25 215 Sneasel",
+		],
+	})));
+
+	assert.deepEqual(section.clanTasks[PT_BR].ranks[0].stages[0].targets, [{ amount: "1", name: "Primeape" }]);
+	assert.deepEqual(section.clanTasks[PT_BR].ranks[0].stages[1].targets, [{ amount: "1", name: "Hypno" }]);
+	assert.deepEqual(section.clanTasks[PT_BR].ranks[0].stages[2].targets, [{ amount: "1", name: "Mr.Mime" }]);
+	assert.deepEqual(section.clanTasks[PT_BR].ranks[0].stages[3].targets.map((target) => target.name), ["Tauros", "Sneasel"]);
+	assert.doesNotMatch(JSON.stringify(section.clanTasks[PT_BR].ranks[0].stages), /\b\d{3}[-\s]/);
+});
+
+test("clan task collection item names strip image filenames", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "tasks",
+		pageCategory: "clans",
+		pageSlug: "gardestrike-tasks",
+		heading: "Tasks",
+		paragraphs: [
+			"# Rank 4 ao 5",
+			"Etapa 1 - Coletar 5 Linearly Guided Hypnose.png Linearly Guided Hypnosis 2 Enchanted Gem.png Enchanted Gem",
+		],
+	})));
+
+	assert.deepEqual(section.clanTasks[PT_BR].ranks[0].stages[0].rows, [
+		{ amount: "5", item: "Linearly Guided Hypnosis" },
+		{ amount: "2", item: "Enchanted Gem" },
+	]);
 });
 
 test("publishSection emits structured tables and bullets instead of raw pipe lists", () => {

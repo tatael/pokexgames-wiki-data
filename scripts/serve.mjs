@@ -22,7 +22,9 @@ const server = createServer(async (req, res) => {
 	const filePath = path.join(DIST_DIR, ...urlPath.split("/").filter(Boolean));
 
 	// Prevent path traversal outside dist/
-	if (!filePath.startsWith(DIST_DIR + path.sep) && filePath !== DIST_DIR) {
+	const resolvedFilePath = path.resolve(filePath);
+	const resolvedDistDir = path.resolve(DIST_DIR);
+	if (!resolvedFilePath.startsWith(resolvedDistDir + path.sep) && resolvedFilePath !== resolvedDistDir) {
 		res.writeHead(403).end();
 		return;
 	}

@@ -1,13 +1,9 @@
 import { PT_BR, decodeHtmlEntities, normalizeWhitespace } from "./shared.mjs";
 import { publishSection, structureSection } from "./transform.mjs";
-import { cleanStructuredText } from "./transform/text.mjs";
+import { cleanStructuredText, repairMojibake } from "./transform/text.mjs";
 
 export function cleanDisplayText(value) {
-	let text = String(value ?? "");
-	if (/[ÃÂâ]/.test(text)) {
-		const repaired = Buffer.from(text, "latin1").toString("utf8");
-		if (!repaired.includes("�")) text = repaired;
-	}
+	const text = repairMojibake(String(value ?? ""));
 
 	return normalizeWhitespace(decodeHtmlEntities(text))
 		.replace(/\s+([,.;:!?])/g, "$1")

@@ -10,6 +10,7 @@ import {
 	WIKI_FETCH_MODE,
 	WIKI_FETCH_RETRY_ATTEMPTS,
 	WIKI_FETCH_TIMEOUT_MS,
+	WIKI_SOURCE_ORIGIN,
 } from "./shared.mjs";
 
 const USER_AGENT = "pokexgames-wiki-data/0.1 (+https://github.com/tatael/pokexgames-wiki-data)";
@@ -255,7 +256,7 @@ export function fetchJson(url) {
 }
 
 export function buildWikiApiUrl(params) {
-	const url = new URL("https://wiki.pokexgames.com/api.php");
+	const url = new URL(`${WIKI_SOURCE_ORIGIN}/api.php`);
 	for (const [key, value] of Object.entries(params)) {
 		if (value !== undefined && value !== null && value !== "") {
 			url.searchParams.set(key, value);

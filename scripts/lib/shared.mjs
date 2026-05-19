@@ -1,5 +1,37 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
+
+export const WIKI_SOURCE_ORIGIN = "https://wiki.pokexgames.com";
+
+function loadDotEnv() {
+	const envPath = path.join(process.cwd(), ".env");
+	let raw = "";
+	try {
+		raw = readFileSync(envPath, "utf8");
+	} catch {
+		return;
+	}
+
+	for (const line of raw.split(/\r?\n/)) {
+		const trimmed = line.trim();
+		if (!trimmed || trimmed.startsWith("#")) continue;
+		const withoutExport = trimmed.startsWith("export ") ? trimmed.slice("export ".length).trim() : trimmed;
+		const separatorIndex = withoutExport.indexOf("=");
+		if (separatorIndex <= 0) continue;
+
+		const name = withoutExport.slice(0, separatorIndex).trim();
+		if (!name || process.env[name] != null) continue;
+
+		let value = withoutExport.slice(separatorIndex + 1).trim();
+		if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
+			value = value.slice(1, -1);
+		}
+		process.env[name] = value;
+	}
+}
+
+loadDotEnv();
 
 export const SCHEMA_VERSION = 2;
 export const PT_BR = "pt-BR";

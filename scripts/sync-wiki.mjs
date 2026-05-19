@@ -5,6 +5,7 @@ import {
 	DIST_BUILD_DIR,
 	PAGES_BUILD_DIR,
 	PT_BR,
+	ROOT_DIR,
 	SCHEMA_VERSION,
 	SOURCE_NAME,
 	WIKI_REFRESH,
@@ -14,6 +15,7 @@ import {
 	WIKI_SYNC_ONLY,
 	buildPagePath,
 	nowRfc3339,
+	readJson,
 	writeJson,
 } from "./lib/shared.mjs";
 import { compactLocalizedValueMap } from "./lib/localized.mjs";
@@ -49,17 +51,8 @@ import {
 } from "./lib/page-pipeline.mjs";
 import { validateBundle } from "./lib/validation.mjs";
 
-const TERRITORY_GUARDIAN_BANNERS = {
-	dorabelle: "https://wiki.pokexgames.com/images/thumb/7/7f/Banner_Bolinha_MD_-_Dorabelle%27s_Wrath.webp/308px-Banner_Bolinha_MD_-_Dorabelle%27s_Wrath.webp.png",
-	"giant-tyranitar": "https://wiki.pokexgames.com/images/thumb/1/1f/Banner_Bolinha_MD_-_The_Darkness.webp/308px-Banner_Bolinha_MD_-_The_Darkness.webp.png",
-	"giant-dragonair": "https://wiki.pokexgames.com/images/thumb/a/ab/Banner_Bolinha_MD_-_The_Celestial_Serpent.webp/308px-Banner_Bolinha_MD_-_The_Celestial_Serpent.webp.png",
-	"giant-mamoswine": "https://wiki.pokexgames.com/images/thumb/9/92/Banner_Bolinha_MD_-_Below_Zero.webp/308px-Banner_Bolinha_MD_-_Below_Zero.webp.png",
-	"giant-magcargo": "https://wiki.pokexgames.com/images/thumb/9/98/Banner_Bolinha_MD_-_The_Magma_Insurgency.webp/308px-Banner_Bolinha_MD_-_The_Magma_Insurgency.webp.png",
-};
-
-const PAGE_IMAGE_OVERRIDES = {
-	"king-charizard-dungeon": "https://wiki.pokexgames.com/images/thumb/9/90/Banner_Bolinha_King_Charizard.png/250px-Banner_Bolinha_King_Charizard.png",
-};
+const { pageImageOverrides: PAGE_IMAGE_OVERRIDES, territoryGuardianBanners: TERRITORY_GUARDIAN_BANNERS } =
+	await readJson(path.join(ROOT_DIR, "config", "image-overrides.json"));
 
 function buildSearchText(page) {
 	const pieces = [

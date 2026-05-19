@@ -1,10 +1,13 @@
 ﻿import {
 	PT_BR,
+	WIKI_SOURCE_ORIGIN,
 	buildSlug,
 	decodeHtmlEntities,
 	normalizeWhitespace,
 	stripHtml,
 } from "./shared.mjs";
+
+const WIKI_SOURCE_HOST = new URL(WIKI_SOURCE_ORIGIN).hostname;
 
 export { extractArticleHtml, extractTitle } from "./shared.mjs";
 
@@ -73,7 +76,7 @@ export function extractArticleFragmentHtml(html, fragment) {
 
 export function decodeWikiTitleFromUrl(url) {
 	const parsed = new URL(url);
-	if (parsed.hostname !== "wiki.pokexgames.com" || !parsed.pathname.startsWith("/index.php/")) {
+	if (parsed.hostname !== WIKI_SOURCE_HOST || !parsed.pathname.startsWith("/index.php/")) {
 		return null;
 	}
 
@@ -86,7 +89,7 @@ export function decodeWikiTitleFromUrl(url) {
 }
 
 export function buildWikiUrlFromTitle(title) {
-	return `https://wiki.pokexgames.com/index.php/${encodeURIComponent(title.replaceAll(" ", "_"))}`;
+	return `${WIKI_SOURCE_ORIGIN}/index.php/${encodeURIComponent(title.replaceAll(" ", "_"))}`;
 }
 
 export function extractArticleWikiLinks(html, pageUrl) {
@@ -138,7 +141,7 @@ export function extractArticleWikiLinks(html, pageUrl) {
 			continue;
 		}
 
-		if (resolved.hostname !== "wiki.pokexgames.com" || !resolved.pathname.startsWith("/index.php/")) {
+		if (resolved.hostname !== WIKI_SOURCE_HOST || !resolved.pathname.startsWith("/index.php/")) {
 			continue;
 		}
 
@@ -183,7 +186,7 @@ export function extractArticleWikiLinks(html, pageUrl) {
 					continue;
 				}
 
-				if (resolved.hostname !== "wiki.pokexgames.com" || !resolved.pathname.startsWith("/index.php/")) continue;
+				if (resolved.hostname !== WIKI_SOURCE_HOST || !resolved.pathname.startsWith("/index.php/")) continue;
 				const title = decodeWikiTitleFromUrl(resolved.toString()) ?? name;
 				results.push({
 					url: resolved.toString(),
@@ -254,7 +257,7 @@ export function extractSeeMoreWikiLinks(html, pageUrl) {
 			continue;
 		}
 
-		if (resolved.hostname !== "wiki.pokexgames.com" || !resolved.pathname.startsWith("/index.php/")) continue;
+		if (resolved.hostname !== WIKI_SOURCE_HOST || !resolved.pathname.startsWith("/index.php/")) continue;
 		if (resolved.searchParams.has("action") || resolved.searchParams.has("redlink")) continue;
 
 		const title = decodeWikiTitleFromUrl(resolved.toString());
@@ -502,7 +505,7 @@ function absolutizeWikiAssetUrl(pageUrl, rawSrc) {
 	if (!source) return null;
 	try {
 		const url = new URL(source, pageUrl);
-		if (url.hostname !== "wiki.pokexgames.com" || !url.pathname.includes("/images/")) return null;
+		if (url.hostname !== WIKI_SOURCE_HOST || !url.pathname.includes("/images/")) return null;
 		const thumbMatch = url.pathname.match(/^\/images\/thumb\/([a-f0-9]\/[a-f0-9]+\/[^/]+)\/\d+px-[^/]+$/i);
 		if (thumbMatch) {
 			return `${url.origin}/images/${thumbMatch[1]}`;
@@ -570,7 +573,7 @@ function extractMedia(html, pageUrl = "", options = {}) {
 	const inferWikiLinkSlug = (href) => {
 		try {
 			const target = new URL(href, pageUrl);
-			if (target.hostname !== "wiki.pokexgames.com" || !target.pathname.startsWith("/index.php/")) return null;
+			if (target.hostname !== WIKI_SOURCE_HOST || !target.pathname.startsWith("/index.php/")) return null;
 			const title = decodeURIComponent(target.pathname.slice("/index.php/".length)).replaceAll("_", " ");
 			if (!title || title.includes(":")) return null;
 			return buildSlug(title, "");

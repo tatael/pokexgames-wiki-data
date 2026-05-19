@@ -1,4 +1,5 @@
 import { fetchWikiApiJson } from "./transport.mjs";
+import { WIKI_SOURCE_ORIGIN } from "./shared.mjs";
 import { isNoiseMediaAsset } from "./extract.mjs";
 
 const VARIANT_MARKERS = [
@@ -224,7 +225,7 @@ function absolutizeWikiImageUrl(pageUrl, rawSrc) {
 	if (!source) return null;
 	if (/^https?:\/\//i.test(source)) return source;
 	if (source.startsWith("//")) return `https:${source}`;
-	if (source.startsWith("/")) return `https://wiki.pokexgames.com${source}`;
+	if (source.startsWith("/")) return `${WIKI_SOURCE_ORIGIN}${source}`;
 	const prefix = String(pageUrl ?? "").split("/").slice(0, -1).join("/");
 	return `${prefix}/${source}`;
 }
@@ -384,16 +385,22 @@ export async function discoverWikiFileImageUrls(slug, fetchApiJson = fetchWikiAp
 	const seen = new Set();
 
 	for (const term of fileSearchTermsForSlug(slug)) {
-		const payload = await fetchApiJson({
-			action: "query",
-			generator: "search",
-			gsrnamespace: "6",
-			gsrlimit: "20",
-			gsrsearch: term,
-			prop: "imageinfo",
-			iiprop: "url",
-			format: "json",
-		});
+		let payload;
+		try {
+			payload = await fetchApiJson({
+				action: "query",
+				generator: "search",
+				gsrnamespace: "6",
+				gsrlimit: "20",
+				gsrsearch: term,
+				prop: "imageinfo",
+				iiprop: "url",
+				format: "json",
+			});
+		} catch (error) {
+			console.warn(`[images] discoverWikiFileImageUrls: API call failed for slug "${slug}", term "${term}": ${error instanceof Error ? error.message : error}`);
+			continue;
+		}
 
 		for (const page of Object.values(payload?.query?.pages ?? {})) {
 			for (const imageInfo of page?.imageinfo ?? []) {

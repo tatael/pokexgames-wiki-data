@@ -8,6 +8,7 @@ import {
 	WIKI_DISCOVERY_CACHE_HOURS,
 	WIKI_DISCOVERY_CONCURRENCY,
 	WIKI_DISCOVERY_FORCE,
+	WIKI_SOURCE_ORIGIN,
 	buildLocalizedText,
 	buildPagePath,
 	buildSlug,
@@ -76,8 +77,9 @@ export function validateConfig(config) {
 
 		seenSlugs.add(entry.slug);
 
-		if (typeof entry.url !== "string" || !/^https:\/\/wiki\.pokexgames\.com\/index\.php\//.test(entry.url)) {
-			throw new Error(`config entry "${entry.slug}" must use a wiki.pokexgames.com page URL`);
+		const expectedPrefix = `${WIKI_SOURCE_ORIGIN}/index.php/`;
+		if (typeof entry.url !== "string" || !entry.url.startsWith(expectedPrefix)) {
+			throw new Error(`config entry "${entry.slug}" must use a ${WIKI_SOURCE_ORIGIN} page URL`);
 		}
 
 		validateLocalizedMap(entry.categoryLabel, `config.${entry.slug}.categoryLabel`);
@@ -317,7 +319,7 @@ async function discoverPokemonEntries(rootEntry) {
 				category: "pokemon",
 				categoryLabel: POKEMON_CATEGORY_LABEL,
 				slug,
-				url: `https://wiki.pokexgames.com/index.php/${encodeURIComponent(title.replaceAll(" ", "_"))}`,
+				url: `${WIKI_SOURCE_ORIGIN}/index.php/${encodeURIComponent(title.replaceAll(" ", "_"))}`,
 				title: buildLocalizedText(title),
 				pageKind: "pokemon",
 				navigationPath: ["Pokémon", title],

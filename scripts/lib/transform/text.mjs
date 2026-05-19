@@ -19,7 +19,7 @@ export function cleanStructuredText(value) {
 		.trim();
 }
 
-function repairMojibake(value) {
+export function repairMojibake(value) {
 	let text = value;
 	text = text.replace(/[\u00C2\u00C3][\u0080-\u00BF]/g, (match) =>
 		Buffer.from([...match].map((char) => char.charCodeAt(0))).toString("utf8")

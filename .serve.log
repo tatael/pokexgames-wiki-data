@@ -1,0 +1,5 @@
+
+> pokexgames-wiki-data@0.1.0 serve
+> node scripts/serve.mjs
+
+wiki-data dev server running at http://127.0.0.1:8787

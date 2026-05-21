@@ -32,7 +32,9 @@ function deriveCardLabel(entry) {
 }
 
 function normalizeLinkedCardLabel(value = "") {
-	return cleanStructuredText(value).replace(/^S\.?\s*Klinklang$/i, "Shiny Klinklang");
+	return cleanStructuredText(value)
+		.replace(/^\d{1,4}[-_\s]+/, "")
+		.replace(/^S\.?\s*Klinklang$/i, "Shiny Klinklang");
 }
 
 function normalizeCardSlug(entry) {

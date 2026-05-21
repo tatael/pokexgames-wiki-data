@@ -30,6 +30,11 @@ import {
 	extractTitle,
 } from "./lib/extract.mjs";
 import {
+	buildFlexTaskSections,
+	extractFlexTasksData,
+	isFlexTasksPage,
+} from "./lib/extract-flex-tasks.mjs";
+import {
 	discoverPageImages,
 	extractPageImages,
 	extractLeadWikiImageUrl,
@@ -53,6 +58,17 @@ import { validateBundle } from "./lib/validation.mjs";
 
 const { pageImageOverrides: PAGE_IMAGE_OVERRIDES, territoryGuardianBanners: TERRITORY_GUARDIAN_BANNERS } =
 	await readJson(path.join(ROOT_DIR, "config", "image-overrides.json"));
+
+function mergeFlexTaskSections(baseSections, articleHtml, { slug }) {
+	const rawTasks = extractFlexTasksData(articleHtml);
+	const flexSections = buildFlexTaskSections(rawTasks, { slug });
+	if (!flexSections.length) return baseSections;
+	const introSections = (baseSections ?? []).filter((section) => {
+		const id = String(section?.id ?? "").toLowerCase();
+		return id === "introducao" || id.startsWith("introdu");
+	});
+	return [...introSections, ...flexSections];
+}
 
 function buildSearchText(page) {
 	const pieces = [
@@ -171,7 +187,10 @@ async function syncEntry(entry) {
 	const articleHtml = extractArticleFragmentHtml(extractArticleHtml(html), sourceFragment);
 	const fallbackTitle = entry.title?.[PT_BR] || entry.slug;
 	const resolvedTitle = fallbackTitle || extractTitle(html, entry.slug);
-	const sectionsBase = extractSections(articleHtml, resolvedTitle, sourceUrl.toString());
+	const baseSections = extractSections(articleHtml, resolvedTitle, sourceUrl.toString());
+	const sectionsBase = isFlexTasksPage(articleHtml, { category: entry.category })
+		? mergeFlexTaskSections(baseSections, articleHtml, { slug: entry.slug })
+		: baseSections;
 	const provisionalSections = normalizeSections(sectionsBase, {
 		category: entry.category,
 		slug: entry.slug,

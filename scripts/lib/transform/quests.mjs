@@ -1,5 +1,9 @@
 import { dedupeRewards, parseSimpleRewardText } from "./rewards.mjs";
-import { cleanStructuredText, normalizeIdToken, stripImageRefFromText } from "./text.mjs";
+import { cleanStructuredText, normalizeIdToken, stripImageRefFromText, stripInlineMediaRefs } from "./text.mjs";
+
+function cleanQuestText(value) {
+	return stripInlineMediaRefs(cleanStructuredText(value));
+}
 
 const QUEST_MEDIA_EXCLUDE_PATTERN = /localiza|mapa|map|banner|screen|screenshot|npc/i;
 const QUEST_OBJECTIVE_PATTERNS = [
@@ -37,20 +41,20 @@ export function isQuestLocationSection(normalizedId, normalizedHeading) {
 }
 
 export function parseQuestSupport(paragraphs = [], items = [], media = []) {
-	const intro = paragraphs.map(cleanStructuredText).filter(Boolean);
+	const intro = paragraphs.map(cleanQuestText).filter(Boolean);
 	const bullets = items
 		.filter((item) => !String(item ?? "").includes("|"))
-		.map(cleanStructuredText)
+		.map(cleanQuestText)
 		.filter(Boolean);
 	const cards = collectQuestSupportCards(items, media);
 	return { intro, bullets, cards };
 }
 
 export function parseQuestPhase(paragraphs = [], items = [], media = []) {
-	const body = paragraphs.map(cleanStructuredText).filter(Boolean);
+	const body = paragraphs.map(cleanQuestText).filter(Boolean);
 	const bullets = items
 		.filter((item) => !String(item ?? "").includes("|"))
-		.map(cleanStructuredText)
+		.map(cleanQuestText)
 		.filter(Boolean);
 	const rows = items
 		.filter((item) => String(item ?? "").includes("|"))
@@ -113,7 +117,7 @@ function collectQuestSupportCards(items = [], media = []) {
 	for (const item of items) {
 		if (!String(item ?? "").includes("|")) continue;
 		for (const part of String(item ?? "").split(/\s*\|\s*/)) {
-			const label = cleanStructuredText(part);
+			const label = stripQuestLabelPrefix(cleanStructuredText(part));
 			if (!label) continue;
 			const token = normalizeIdToken(label);
 			if (seen.has(token)) continue;
@@ -233,14 +237,21 @@ function dedupeStrings(values = []) {
 }
 
 function cleanQuestCardLabel(item) {
-	const alt = cleanStructuredText(String(item?.alt ?? "").replace(/\.(gif|png|jpe?g|webp|svg)$/i, ""));
-	if (alt) return alt;
+	const altRaw = cleanStructuredText(String(item?.alt ?? "").replace(/\.(gif|png|jpe?g|webp|svg)$/i, ""));
+	const altClean = stripQuestLabelPrefix(altRaw);
+	if (altClean) return altClean;
 	if (item?.slug) {
-		return cleanStructuredText(
-			String(item.slug)
-				.replace(/[-_]+/g, " ")
-		);
+		return stripQuestLabelPrefix(cleanStructuredText(
+			String(item.slug).replace(/[-_]+/g, " ")
+		));
 	}
 
 	return "";
+}
+
+function stripQuestLabelPrefix(value) {
+	return String(value ?? "")
+		.replace(/^\d{1,4}[-_\s]+/, "")
+		.replace(/\s{2,}/g, " ")
+		.trim();
 }

@@ -19,6 +19,26 @@ export function cleanStructuredText(value) {
 		.trim();
 }
 
+const MEDIA_EXT_RE = /(?:png|gif|webp|jpe?g|svg)/i;
+
+export function stripInlineMediaRefs(value) {
+	let text = String(value ?? "");
+	if (!text) return "";
+	const namePartClass = "[\\p{L}\\p{N}_'-]";
+	const namePartGroup = `${namePartClass}+(?:\\s+${namePartClass}+){0,5}`;
+	const ext = "(?:png|gif|webp|jpe?g|svg)";
+	const dupRe = new RegExp(`(${namePartGroup})\\.${ext}\\s+\\1(?=\\b|\\s|$|[,.;:!?])`, "giu");
+	let prev;
+	do { prev = text; text = text.replace(dupRe, "$1"); } while (text !== prev);
+	const lonelyRe = new RegExp(`(^|\\s|[(\\[])${namePartGroup}\\.${ext}(?=\\s|$|[,.;:!?)\\]])`, "giu");
+	text = text.replace(lonelyRe, (match, lead) => lead || "");
+	text = text.replace(/\b(\d{1,4})-([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'-]+)/g, "$2");
+	text = text.replace(/\s{2,}/g, " ").trim();
+	return text;
+}
+
+export { MEDIA_EXT_RE };
+
 export function repairMojibake(value) {
 	let text = value;
 	text = text.replace(/[\u00C2\u00C3][\u0080-\u00BF]/g, (match) =>

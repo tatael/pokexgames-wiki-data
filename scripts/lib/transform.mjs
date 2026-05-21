@@ -86,7 +86,9 @@ export function structureSection(section) {
 		(values ?? []).some((item) => /\b(?:NPC\s+.+?\s+)?(?:derrotar|entregar|coletar|capturar|trocar|encontrar|pegar|devolver)\b/i.test(String(item ?? "")))
 	);
 
-	const kind = pageCategory === "tasks" && hasTaskRows ? "tasks" : classifySectionKind(id, headingText);
+	const kind = section.kind
+		? section.kind
+		: (pageCategory === "tasks" && hasTaskRows ? "tasks" : classifySectionKind(id, headingText));
 	const result = { ...section, kind };
 	const normalizedId = normalizeIdToken(id);
 	const normalizedHeading = normalizeIdToken(headingText);
@@ -174,7 +176,7 @@ export function structureSection(section) {
 		if (Object.keys(bossRecommendations).length) result.bossRecommendations = bossRecommendations;
 	}
 
-	if (kind === "tasks") {
+	if (kind === "tasks" && !section.tasks && !section.taskGroups) {
 		Object.assign(result, parseTaskSectionPayloads(section));
 	}
 

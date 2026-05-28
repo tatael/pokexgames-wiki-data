@@ -20,7 +20,7 @@ import {
 	propagateDifficulty,
 } from "./transform/rewards.mjs";
 import { parseTaskSectionPayloads } from "./transform/tasks.mjs";
-import { isQuestLocationSection, isQuestStepSection, isQuestSupportSection, parseQuestPhase, parseQuestSupport } from "./transform/quests.mjs";
+import { isQuestLocationSection, isQuestStepSection, isQuestSupportSection, parseCombatPokemonTable, parseQuestPhase, parseQuestSupport } from "./transform/quests.mjs";
 import { parseClanTaskRanks } from "./transform/clan-tasks.mjs";
 import { isCommerceSection, parseCommerceEntries, parseCraftEntries } from "./transform/commerce.mjs";
 import {
@@ -591,6 +591,7 @@ export function structureSection(section) {
 				section.paragraphs?.[locale] ?? [],
 				section.items?.[locale] ?? [],
 				section.media?.[locale] ?? [],
+				section.pageSlug ?? "",
 			);
 			if (parsed.intro.length || parsed.bullets.length || parsed.cards.length) {
 				questSupport[locale] = parsed;
@@ -598,6 +599,19 @@ export function structureSection(section) {
 		}
 
 		if (Object.keys(questSupport).length) result.questSupport = questSupport;
+	}
+
+	if (pageCategory === "quests" && !["rewards", "tasks", "pokemon-group", "tier"].includes(kind)) {
+		const combatPokemon = {};
+		for (const locale of Object.keys(section.items ?? {})) {
+			const parsed = parseCombatPokemonTable(
+				section.items?.[locale] ?? [],
+				section.media?.[locale] ?? [],
+			);
+			if (parsed?.entries?.length) combatPokemon[locale] = parsed;
+		}
+
+		if (Object.keys(combatPokemon).length) result.combatPokemon = combatPokemon;
 	}
 
 	if (!result.rewards && isCommerceSection(normalizedId, normalizedHeading, section.pageKind ?? "")) {

@@ -51,13 +51,35 @@ import {
 	resolveDisplayInList,
 	resolvePageGroup,
 	resolvePokemonProfile,
+	resolvePokemonForms,
 	resolveSortRank,
 	resolveTitleOverride,
 } from "./lib/page-pipeline.mjs";
 import { validateBundle } from "./lib/validation.mjs";
+import { extractQuestMetadata } from "./lib/transform/quest-metadata.mjs";
 
 const { pageImageOverrides: PAGE_IMAGE_OVERRIDES, territoryGuardianBanners: TERRITORY_GUARDIAN_BANNERS } =
 	await readJson(path.join(ROOT_DIR, "config", "image-overrides.json"));
+
+// Shiny/Mega Pokémon pages often expose only the base name in their profile (e.g. Shiny Abra's
+// profile says "Nome: Abra"), which would render a duplicate base-name card in the Pokémon list.
+// Prefix the variant word from the slug/url when the resolved title lacks it.
+function applyPokemonVariantTitle(title, { slug = "", url = "", profile = null } = {}) {
+	if (!title || !profile) return title;
+	const hint = `${slug} ${url}`.toLowerCase().replace(/[-_]+/g, " ");
+	let prefix = "";
+	if (/\bshiny\b/.test(hint)) prefix = "Shiny";
+	else if (/\bmega\b/.test(hint)) prefix = "Mega";
+	if (!prefix) return title;
+	const has = new RegExp(`\\b${prefix}\\b`, "i");
+	return Object.fromEntries(
+		Object.entries(title).map(([locale, value]) => {
+			const text = String(value ?? "").trim();
+			if (!text || has.test(text)) return [locale, value];
+			return [locale, `${prefix} ${text}`];
+		})
+	);
+}
 
 function mergeFlexTaskSections(baseSections, articleHtml, { slug }) {
 	const rawTasks = extractFlexTasksData(articleHtml);
@@ -212,9 +234,12 @@ async function syncEntry(entry) {
 	const profileTitle = profile
 		? Object.fromEntries(Object.entries(profile).map(([locale, value]) => [locale, value?.name]).filter(([, value]) => value))
 		: null;
-	const displayTitle = profileTitle
-		?? resolveTitleOverride({ category: resolvedCategory, slug: entry.slug })
-		?? resolveDisplayTitle(entry.title, resolvedCategoryLabel);
+	const displayTitle = applyPokemonVariantTitle(
+		profileTitle
+			?? resolveTitleOverride({ category: resolvedCategory, slug: entry.slug })
+			?? resolveDisplayTitle(entry.title, resolvedCategoryLabel),
+		{ slug: entry.slug, url: entry.url, profile },
+	);
 	const fallbackSummary = displayTitle?.[PT_BR] || entry.title?.[PT_BR] || resolvedTitle || entry.slug;
 	const summary = buildLocalizedPageSummary(rawSummary, fallbackSummary, sections);
 	const images = await resolvePageImages({
@@ -259,6 +284,16 @@ async function syncEntry(entry) {
 		pageGroup,
 	});
 
+	const questMetadata = resolvedCategory === "quests"
+		? extractQuestMetadata({ sections, navigationPath: entry.navigationPath ?? [] })
+		: null;
+	const pokemonForms = resolvePokemonForms({
+		slug: entry.slug,
+		title: displayTitle,
+		profile,
+		pageKind,
+	});
+
 	const page = {
 		category: resolvedCategory,
 		slug: entry.slug,
@@ -272,7 +307,9 @@ async function syncEntry(entry) {
 		...(displayInList === false ? { displayInList } : {}),
 		...(pageGroup ? { pageGroup: compactLocalizedValueMap(pageGroup) } : {}),
 		...(profile ? { profile: compactLocalizedValueMap(profile) } : {}),
+		...(pokemonForms ? { pokemonForms } : {}),
 		...(images ? { images } : {}),
+		...(questMetadata ? { questMetadata } : {}),
 		sections,
 		metadata: {
 			sourceType: "wiki-sync",
@@ -299,7 +336,9 @@ async function syncEntry(entry) {
 			...(displayInList === false ? { displayInList } : {}),
 			...(pageGroup ? { pageGroup: compactLocalizedValueMap(pageGroup) } : {}),
 			...(profile ? { profile: compactLocalizedValueMap(profile) } : {}),
+			...(pokemonForms ? { pokemonForms } : {}),
 			...(images ? { images } : {}),
+			...(questMetadata ? { questMetadata } : {}),
 			...(navigationPath.length ? { navigationPath } : {}),
 			fetchedAt,
 			pagePath,

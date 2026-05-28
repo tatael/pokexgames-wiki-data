@@ -247,6 +247,27 @@ export function resolveCategory(category, slug, profile, entry = {}) {
 	return category;
 }
 
+function hasPokemonFormToken(source, token) {
+	return new RegExp(`(?:^|\\s)${token}(?:\\s|$)`).test(source);
+}
+
+export function resolvePokemonForms({ slug, title, profile, pageKind }) {
+	if (pageKind !== "pokemon" && !profile) return null;
+
+	const profileNames = Object.values(profile ?? {})
+		.map((entry) => entry?.name)
+		.filter(Boolean);
+	const source = normalizeCategoryText([
+		slug,
+		...Object.values(title ?? {}),
+		...profileNames,
+	].join(" ")).replace(/[-_]+/g, " ");
+	const forms = [];
+	if (hasPokemonFormToken(source, "shiny")) forms.push("shiny");
+	if (hasPokemonFormToken(source, "mega")) forms.push("mega");
+	return forms.length ? forms : ["regular"];
+}
+
 export function resolveCategoryLabel(categoryId, fallbackLabel) {
 	if (categoryId === "territory-guardians") {
 		return {
@@ -369,6 +390,15 @@ export function resolveDisplayTitle(titleMap, categoryLabelMap) {
 		);
 	}
 
+	if (cleanDisplayText(categoryLabel) === "Quests") {
+		return Object.fromEntries(
+			Object.entries(title).map(([locale, value]) => [
+				locale,
+				cleanDisplayText(value).replace(/^Banner\s+/i, ""),
+			])
+		);
+	}
+
 	return title;
 }
 
@@ -450,6 +480,7 @@ export function resolveDisplayInList({ category, slug, title, pageKind, navigati
 
 	if (category === "quests" && slug !== "quests") {
 		if (slug === "wes-quest") return true;
+		if (Array.isArray(navigationPath) && navigationPath.length > 3) return false;
 		return pageKind === "quest" || looksLikeActualQuestSpoiler(titleText, navigationPath, pageKind);
 	}
 
@@ -622,8 +653,102 @@ function withBossShinyGiantTentacruelLeadSections(sectionsBase, pageContext) {
 	return [section, ...sections];
 }
 
+const QUEST_ENCOUNTER_HEADING_RE = /^(?:primeiro|segundo|terceiro|quarto|quinto|sexto|s[eé]timo|oitavo|nono|d[eé]cimo)\s+encontro\b/i;
+const QUEST_FIRST_CHALLENGE_HINT_RE = /(?:no\s+primeiro\s+desafio|primeiro\s+desafio|primeiro\s+encontro|n[ií]vel\s+necess[áa]rio\s*:?)/i;
+const QUEST_REWARD_ROW_RE = /^\s*(?:exp\s+icon(?:\s+nw)?|[^|]+?\.(?:png|gif|webp|jpe?g|svg))\s*\|/i;
+const QUEST_FLAT_REWARD_LINE_RE = /^(?:\d{1,3}(?:[.,]\d{3})+|\d+)\s*[kKmM]?\s+[A-Za-zÀ-ÿ]/;
+
+function isQuestRewardRowItem(item) {
+	return typeof item === "string" && QUEST_REWARD_ROW_RE.test(item);
+}
+
+function isQuestFlatRewardLine(text) {
+	const value = String(text ?? "").trim();
+	if (!value) return false;
+	return QUEST_FLAT_REWARD_LINE_RE.test(value);
+}
+
+function synthesizePrimeiroEncontroSection(sections = [], pageContext = {}) {
+	if (pageContext?.category !== "quests") return sections;
+	if (!Array.isArray(sections) || sections.length < 2) return sections;
+
+	const introIdx = sections.findIndex((section) => normalizeCategoryText(section?.id ?? "") === "introducao");
+	if (introIdx < 0) return sections;
+	const intro = sections[introIdx];
+	if (!intro) return sections;
+
+	const hasEncounterSibling = sections.some((section, idx) => {
+		if (idx === introIdx) return false;
+		return QUEST_ENCOUNTER_HEADING_RE.test(String(section?.heading?.[PT_BR] ?? "").trim());
+	});
+	if (!hasEncounterSibling) return sections;
+
+	const alreadyHasPrimeiro = sections.some((section) => {
+		if (normalizeCategoryText(section?.id ?? "") === "primeiro-encontro") return true;
+		return /^primeiro\s+encontro\b/i.test(String(section?.heading?.[PT_BR] ?? "").trim());
+	});
+	if (alreadyHasPrimeiro) return sections;
+
+	const introParagraphs = intro.paragraphs?.[PT_BR] ?? [];
+	const introItems = intro.items?.[PT_BR] ?? [];
+	const challengeStartIdx = introParagraphs.findIndex((line) => QUEST_FIRST_CHALLENGE_HINT_RE.test(String(line ?? "")));
+	const hasRewardRow = introItems.some(isQuestRewardRowItem);
+	if (challengeStartIdx < 0 && !hasRewardRow) return sections;
+
+	const stayParagraphs = challengeStartIdx >= 0 ? introParagraphs.slice(0, challengeStartIdx) : introParagraphs;
+	const moveParagraphsRaw = challengeStartIdx >= 0 ? introParagraphs.slice(challengeStartIdx) : [];
+	const moveParagraphs = moveParagraphsRaw.filter((line) => !isQuestFlatRewardLine(line));
+	const stayItems = introItems.filter((item) => !isQuestRewardRowItem(item));
+	const moveItems = introItems.filter((item) => isQuestRewardRowItem(item));
+
+	if (!moveParagraphs.length && !moveItems.length) return sections;
+
+	const updatedIntro = {
+		...intro,
+		paragraphs: { [PT_BR]: stayParagraphs, en: stayParagraphs, es: stayParagraphs },
+		items: { [PT_BR]: stayItems, en: stayItems, es: stayItems },
+	};
+
+	const primeiroEncontro = {
+		id: "primeiro-encontro",
+		heading: { [PT_BR]: "Primeiro encontro", en: "Primeiro encontro", es: "Primeiro encontro" },
+		paragraphs: { [PT_BR]: moveParagraphs, en: moveParagraphs, es: moveParagraphs },
+		items: { [PT_BR]: moveItems, en: moveItems, es: moveItems },
+		media: { [PT_BR]: [], en: [], es: [] },
+	};
+
+	const next = [...sections];
+	next[introIdx] = updatedIntro;
+	next.splice(introIdx + 1, 0, primeiroEncontro);
+	return next;
+}
+
+const PUBLISHED_TYPED_SECTION_KEYS = [
+	"facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness",
+	"variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations",
+	"heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails",
+	"questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression",
+	"embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries",
+];
+
+function hasLocalizedEntries(map) {
+	return Boolean(map && typeof map === "object" && Object.keys(map).length);
+}
+
+// A published section with no content, tables, media, or typed payload renders as an empty card
+// and (for quests) trips the "generic-only" validation. Drop it.
+function isEmptyPublishedSection(section) {
+	if (!section) return true;
+	if (hasLocalizedEntries(section.content)) return false;
+	if (hasLocalizedEntries(section.tables)) return false;
+	if (hasLocalizedEntries(section.media)) return false;
+	if (hasLocalizedEntries(section.mediaRefs)) return false;
+	return !PUBLISHED_TYPED_SECTION_KEYS.some((key) => hasLocalizedEntries(section[key]));
+}
+
 export function normalizeSections(sectionsBase, pageContext = {}) {
-	return withBossShinyGiantTentacruelLeadSections(sectionsBase, pageContext).flatMap((section) => {
+	const baseSections = synthesizePrimeiroEncontroSection(sectionsBase, pageContext);
+	return withBossShinyGiantTentacruelLeadSections(baseSections, pageContext).flatMap((section) => {
 		const sectionId = cleanDisplayText(section.id ?? "");
 		const normalizedSectionId = normalizeCategoryText(sectionId);
 		const normalizedHeading = normalizeCategoryText(section.heading?.[PT_BR] ?? "");
@@ -697,7 +822,7 @@ export function normalizeSections(sectionsBase, pageContext = {}) {
 		}));
 
 		if (!shouldSplitTraps) {
-			return [normalizedSection];
+			return isEmptyPublishedSection(normalizedSection) ? [] : [normalizedSection];
 		}
 
 		return [
@@ -712,7 +837,7 @@ export function normalizeSections(sectionsBase, pageContext = {}) {
 				items: { [PT_BR]: trapItems, en: trapItems, es: trapItems },
 				media: { [PT_BR]: trapMedia, en: trapMedia, es: trapMedia },
 			})),
-		];
+		].filter((entry) => !isEmptyPublishedSection(entry));
 	});
 }
 

@@ -903,8 +903,12 @@ test("structureSection emits boss difficulties, held enhancement, hazards, and q
 		"Fale com o NPC Goh",
 		"Após 2 horas, entregue a carta e receberá 500.000 de experiência",
 	]);
-	assert.deepEqual(questPhase.questPhases[PT_BR].npcs, ["Goh"]);
-	assert.deepEqual(questPhase.questPhases[PT_BR].waits, ["2 horas"]);
+	assert.equal(questPhase.questPhases[PT_BR].npcs, undefined, "npcs regex extraction must be dropped");
+	assert.equal(questPhase.questPhases[PT_BR].waits, undefined, "waits regex extraction must be dropped");
+	assert.equal(questPhase.questPhases[PT_BR].objectives, undefined, "objectives regex extraction must be dropped");
+	assert.equal(questPhase.questPhases[PT_BR].requirements, undefined, "requirements regex extraction must be dropped");
+	assert.equal(questPhase.questPhases[PT_BR].hints, undefined, "hints regex extraction must be dropped");
+	assert.equal(questPhase.questPhases[PT_BR].locations, undefined, "locations regex extraction must be dropped");
 	assert.deepEqual(questPhase.questPhases[PT_BR].rows[0], {
 		cells: [
 			{ text: "Item" },
@@ -912,6 +916,59 @@ test("structureSection emits boss difficulties, held enhancement, hazards, and q
 		],
 	});
 	assert.equal(questPhase.questPhases[PT_BR].rewards[0].name, "Experiência");
+});
+
+test("stripInlineMediaRefs keeps label preceding IMG alt with same name (Label Label.png)", async () => {
+	const { stripInlineMediaRefs } = await import("../lib/transform/text.mjs");
+	assert.equal(
+		stripInlineMediaRefs("Você deverá coletar 3 Shadow Blossom Shadow Blossom.png que se encontram nos seguintes respawns"),
+		"Você deverá coletar 3 Shadow Blossom que se encontram nos seguintes respawns",
+	);
+	assert.equal(
+		stripInlineMediaRefs("Use a poção Shadow Blossom Potion Shadow_Blossom_Potion.png no NPC"),
+		"Use a poção Shadow Blossom Potion no NPC",
+	);
+	assert.equal(
+		stripInlineMediaRefs("Banner Brock-Quest.png"),
+		"",
+	);
+});
+
+test("structureSection emits typed combat Pokémon table for quest Pokémon|types|counters rows", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "segunda-parte",
+		pageCategory: "quests",
+		heading: "Segunda Parte",
+		paragraphs: ["Nessa parte, duele com Forrest."],
+		items: [
+			"Geodude | Rock Ground | Water Grass Ice Fighting Ground Steel",
+			"Alolan Golem | Rock Electric | Ground Water Grass Fighting",
+			"Crystal Onix | Crystal | Fire Grass Fighting Poison Ground Steel",
+		],
+		media: [
+			{ type: "image", url: "https://wiki.pokexgames.com/images/0/0a/074-Geodude.png", alt: "074-Geodude.png", slug: "geodude" },
+			{ type: "image", url: "https://wiki.pokexgames.com/images/0/0b/076-AlolanGolem.png", alt: "076-AlolanGolem.png", slug: "alolan-golem" },
+		],
+	})));
+
+	const combat = section.combatPokemon?.[PT_BR];
+	assert.ok(combat, "combatPokemon payload should be emitted");
+	assert.equal(combat.entries.length, 3);
+	assert.deepEqual(combat.entries[0], {
+		name: "Geodude",
+		slug: "geodude",
+		types: ["Rock", "Ground"],
+		counters: ["Water", "Grass", "Ice", "Fighting", "Ground", "Steel"],
+		spriteUrl: "https://wiki.pokexgames.com/images/0/0a/074-Geodude.png",
+	});
+	assert.equal(combat.entries[1].name, "Alolan Golem");
+	assert.deepEqual(combat.entries[2].types, ["Crystal"]);
+
+	assert.equal(section.questPhases?.[PT_BR]?.rows, undefined, "combat rows must not duplicate into questPhases.rows");
+	const cardLabels = (section.questSupport?.[PT_BR]?.cards ?? []).map((card) => card.label.toLowerCase());
+	for (const label of ["rock ground", "rock electric", "crystal", "water grass ice fighting ground steel"]) {
+		assert.ok(!cardLabels.includes(label), `combat-cell label "${label}" must not become a nav card`);
+	}
 });
 
 test("structureSection emits held item categories and x-boost groups without raw prose mirrors", () => {
@@ -1703,4 +1760,38 @@ test("boss recommendation rows follow tank damage support table shape", () => {
 	assert.ok(groups[1].pokemon.includes("Alolan Golem"));
 	assert.ok(!groups[0].pokemon.includes("Alolan Golem"));
 	assert.deepEqual(groups[2].pokemon, ["Unown Legion"]);
+});
+
+test("quest parser strips parenthesized image refs, trailing asterisks, and dedupes bullets vs body", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "segunda-parte",
+		pageCategory: "quests",
+		heading: "Segunda Parte",
+		paragraphs: [
+			"Rampardos(1).png Rhyperior *",
+			"Para iniciar fale com o NPC Brock",
+		],
+		items: [
+			"Para iniciar fale com o NPC Brock",
+			"Rock Electric | Ground Water Grass | Geodude",
+			"Observação: leve berries.",
+		],
+	})));
+
+	const phase = section.questPhases[PT_BR];
+	const support = section.questSupport[PT_BR];
+
+	assert.ok(!phase.body.some((line) => /\.png/.test(line)), "mirror image refs must be stripped");
+	assert.ok(!phase.body.some((line) => /\s\*\s*$/.test(line)), "trailing footnote asterisks must be stripped");
+	assert.ok(phase.body.some((line) => line.includes("Rhyperior")), "Pokemon name kept after stripping ref");
+
+	const bodyTokens = new Set(phase.body.map((line) => line.toLowerCase()));
+	for (const bullet of phase.bullets ?? []) {
+		assert.ok(!bodyTokens.has(bullet.toLowerCase()), `bullet ${bullet} duplicates body`);
+	}
+
+	const cardLabels = (support.cards ?? []).map((card) => card.label.toLowerCase());
+	assert.ok(!cardLabels.includes("rock electric"), "type-effectiveness label must be filtered");
+	assert.ok(!cardLabels.includes("ground water grass"), "type-effectiveness label must be filtered");
+	assert.ok(cardLabels.includes("geodude"), "real pokemon labels remain");
 });

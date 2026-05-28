@@ -32,6 +32,7 @@ Each page summary inside `manifest.json` contains:
 - `url`
 - `title`
 - `summary`
+- `pokemonForms` on Pokémon pages, containing `regular`, `shiny`, and/or `mega`
 - `images`
 - `fetchedAt`
 - `pagePath`
@@ -44,6 +45,7 @@ Each `pages/<slug>.json` contains:
 - `fetchedAt`
 - `title`
 - `summary`
+- `pokemonForms` on Pokémon pages, matching the manifest summary
 - `images`
 - `sections`
 - `metadata`

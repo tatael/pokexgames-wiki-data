@@ -9,6 +9,7 @@ import {
 	resolveDisplayTitle,
 	resolveDisplayInList,
 	resolvePageGroup,
+	resolvePokemonForms,
 	resolveTitleOverride,
 	resolveSortRank,
 } from "../lib/page-pipeline.mjs";
@@ -161,6 +162,41 @@ test("resolveDisplayInList hides aliases and non-card pages from category lists"
 		title: buildLocalizedText("PokÃ©park: PontuaÃ§Ã£o"),
 		pageKind: "system",
 	}), false);
+
+	assert.equal(resolveDisplayInList({
+		category: "quests",
+		slug: "bone",
+		title: buildLocalizedText("Bone"),
+		pageKind: "quest",
+		navigationPath: ["Quests", "Johto", "Union Cave Expedition Quest", "Josh", "Bone"],
+	}), false, "deep nav quest sub-page must be hidden");
+
+	assert.equal(resolveDisplayInList({
+		category: "quests",
+		slug: "big-screw",
+		title: buildLocalizedText("Big Screw"),
+		pageKind: "quest",
+		navigationPath: ["Quests", "Kanto", "Eevee e a Fábrica de Sorvetes", "Big Screw"],
+	}), false, "4-segment quest sub-page must be hidden");
+
+	assert.equal(resolveDisplayInList({
+		category: "quests",
+		slug: "brock-quest",
+		title: buildLocalizedText("Brock Quest"),
+		pageKind: "quest",
+		navigationPath: ["Quests", "Kanto", "Brock Quest"],
+	}), true, "real 3-segment quest must stay visible");
+});
+
+test("resolveDisplayTitle strips Banner prefix from quest titles", () => {
+	assert.deepEqual(
+		resolveDisplayTitle(buildLocalizedText("Banner Electric Ruin Challenges"), buildLocalizedText("Quests")),
+		buildLocalizedText("Electric Ruin Challenges"),
+	);
+	assert.deepEqual(
+		resolveDisplayTitle(buildLocalizedText("Brock Quest"), buildLocalizedText("Quests")),
+		buildLocalizedText("Brock Quest"),
+	);
 });
 
 test("resolveDisplayTitle and title overrides remove redundant category prefixes", () => {
@@ -176,6 +212,32 @@ test("resolveDisplayTitle and title overrides remove redundant category prefixes
 		resolveTitleOverride({ category: "tasks", slug: "tasks" }),
 		buildLocalizedText("Kanto Tasks"),
 	);
+});
+
+test("resolvePokemonForms classifies regular, shiny, and mega pokemon pages", () => {
+	assert.deepEqual(resolvePokemonForms({
+		slug: "meganium",
+		title: buildLocalizedText("Meganium"),
+		pageKind: "pokemon",
+	}), ["regular"]);
+
+	assert.deepEqual(resolvePokemonForms({
+		slug: "shiny-mega-aggron",
+		title: buildLocalizedText("Shiny Mega Aggron"),
+		pageKind: "pokemon",
+	}), ["shiny", "mega"]);
+
+	assert.deepEqual(resolvePokemonForms({
+		slug: "mega-absol",
+		title: buildLocalizedText("Mega Absol"),
+		pageKind: "pokemon",
+	}), ["mega"]);
+
+	assert.equal(resolvePokemonForms({
+		slug: "shiny-stone",
+		title: buildLocalizedText("Shiny Stone"),
+		pageKind: "item",
+	}), null);
 });
 
 test("resolveDisplayInList filters event and Nightmare Rift category noise", () => {

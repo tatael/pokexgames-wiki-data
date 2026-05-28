@@ -1,6 +1,16 @@
 import { compactLocalizedValueMap } from "../localized.mjs";
 import { parseTableCell } from "./generic-sections.mjs";
 
+// "Tabber requires Javascript to function" / "Tabber requer Javascript para funcionar" is a
+// MediaWiki placeholder the scraper sees when tabber content needs JS. It is never real content.
+const TABBER_NOISE_RE = /^\s*tabber\s+requ(?:er| er|ire|ires)\b[^\n]*$/i;
+
+function isNoiseParagraph(value) {
+	const text = String(value ?? "").trim();
+	if (!text) return true;
+	return TABBER_NOISE_RE.test(text);
+}
+
 export function publishSection(section) {
 	const output = {
 		id: section.id ?? "",
@@ -12,7 +22,7 @@ export function publishSection(section) {
 	if (Object.keys(content).length) output.content = content;
 	if (Object.keys(tables).length) output.tables = tables;
 	if (section.media) output.media = compactLocalizedValueMap(section.media);
-	for (const key of ["facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness", "variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations", "heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails", "questSupport", "questPhases", "clanTasks", "embeddedTowerProgression", "embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries"]) {
+	for (const key of ["facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness", "variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations", "heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails", "questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression", "embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries"]) {
 		if (section[key]) output[key] = compactLocalizedValueMap(section[key]);
 	}
 
@@ -34,15 +44,16 @@ function buildPublicSectionContent(section) {
 			if (section.kind === "pokemon-group" && section.pokemon) {
 				paragraphs = paragraphs.filter((paragraph) => !isRawPokemonGroupMirrorParagraph(paragraph));
 			}
+			paragraphs = paragraphs.filter((paragraph) => !isNoiseParagraph(paragraph));
 		}
 
-		const bullets = section.kind === "pokemon-group" && !section.bossRecommendations && !section.pokemon
+		const bullets = (section.kind === "pokemon-group" && !section.bossRecommendations && !section.pokemon
 			? (section.items?.[locale] ?? [])
 			: (shouldPublishListContent(section)
 				? filterLinkedCardMarkerLines(section, section.items?.[locale] ?? [])
 					.filter((item) => !String(item ?? "").includes("|"))
 					.filter((item) => !isMediaOnlyMirrorLine(item))
-				: []);
+				: [])).filter((item) => !isNoiseParagraph(item));
 		const value = {};
 		if (paragraphs.length) value.paragraphs = paragraphs;
 		if (bullets.length) value.bullets = bullets;

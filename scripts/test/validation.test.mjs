@@ -32,6 +32,7 @@ function buildBundle({ title = "Absol", includeProfile = true, pageKind = "pokem
 
 	if (includeProfile) {
 		page.profile = { "pt-BR": { name: "Absol" }, en: { name: "Absol" }, es: { name: "Absol" } };
+		page.pokemonForms = ["regular"];
 	}
 
 	const manifest = {
@@ -50,6 +51,7 @@ function buildBundle({ title = "Absol", includeProfile = true, pageKind = "pokem
 			images,
 			fetchedAt: "2026-04-15T00:00:00.000Z",
 			...(includeProfile ? { profile: { "pt-BR": { name: "Absol" }, en: { name: "Absol" }, es: { name: "Absol" } } } : {}),
+			...(includeProfile ? { pokemonForms: ["regular"] } : {}),
 			pagePath: "pokemon/absol.json",
 		}],
 	};

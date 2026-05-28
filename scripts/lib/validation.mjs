@@ -36,6 +36,7 @@ const TYPED_SECTION_KEYS = [
 	"heldDetails",
 	"questSupport",
 	"questPhases",
+	"combatPokemon",
 	"clanTasks",
 	"embeddedTowerProgression",
 	"embeddedTowerUnlocks",
@@ -64,6 +65,8 @@ const CATEGORY_GENERIC_ONLY_BUDGETS = {
 	"mystery-dungeons": 0.55,
 };
 
+const POKEMON_FORM_VALUES = new Set(["regular", "shiny", "mega"]);
+
 function validateLocalizedMap(value, fieldName) {
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
 		throw new Error(`${fieldName} must be an object`);
@@ -82,6 +85,27 @@ function validateLocalizedMap(value, fieldName) {
 	}
 
 	if (presentLocales === 0) throw new Error(`${fieldName} must contain at least one locale`);
+}
+
+function validatePokemonForms(value, fieldName) {
+	if (!Array.isArray(value) || value.length === 0) {
+		throw new Error(`${fieldName} must be a non-empty array`);
+	}
+
+	const seen = new Set();
+	for (const [index, form] of value.entries()) {
+		if (!POKEMON_FORM_VALUES.has(form)) {
+			throw new Error(`${fieldName}.${index} must be one of regular, shiny, mega`);
+		}
+		if (seen.has(form)) {
+			throw new Error(`${fieldName}.${index} duplicates "${form}"`);
+		}
+		seen.add(form);
+	}
+
+	if (seen.has("regular") && seen.size > 1) {
+		throw new Error(`${fieldName} cannot combine regular with variant forms`);
+	}
 }
 
 function assertRfc3339(value, fieldName) {
@@ -417,6 +441,23 @@ function validateQuestSupportPayload(entry, fieldName) {
 	}
 }
 
+function validateCombatPokemonPayload(entry, fieldName) {
+	if (!Array.isArray(entry.entries)) throw new Error(`${fieldName}.entries must be an array`);
+	for (const [index, item] of entry.entries.entries()) {
+		if (!isPlainObject(item)) throw new Error(`${fieldName}.entries.${index} must be an object`);
+		validateString(item.name, `${fieldName}.entries.${index}.name`);
+		validateString(item.slug, `${fieldName}.entries.${index}.slug`);
+		validateStringArray(item.types, `${fieldName}.entries.${index}.types`);
+		validateStringArray(item.counters, `${fieldName}.entries.${index}.counters`);
+		if (item.spriteUrl !== undefined) {
+			validateString(item.spriteUrl, `${fieldName}.entries.${index}.spriteUrl`);
+			if (!String(item.spriteUrl).startsWith("https://")) {
+				throw new Error(`${fieldName}.entries.${index}.spriteUrl must use https`);
+			}
+		}
+	}
+}
+
 function validateQuestPhasePayload(entry, fieldName) {
 	if (entry.body !== undefined) validateStringArray(entry.body, `${fieldName}.body`);
 	for (const key of ["requirements", "objectives", "npcs", "waits", "hints", "locations", "bullets"]) {
@@ -695,6 +736,7 @@ function validateSection(section, fieldName) {
 	validateStructuredObjectMap(section.heldBoosts, `${fieldName}.heldBoosts`, ["ranges", "utilities"], validateHeldBoostsPayload);
 	validateStructuredObjectMap(section.heldDetails, `${fieldName}.heldDetails`, ["intro", "entries"], validateHeldDetailsPayload);
 	validateStructuredObjectMap(section.questSupport, `${fieldName}.questSupport`, ["intro", "bullets", "cards"], validateQuestSupportPayload);
+	validateStructuredObjectMap(section.combatPokemon, `${fieldName}.combatPokemon`, ["entries"], validateCombatPokemonPayload);
 	validateStructuredObjectMap(section.clanTasks, `${fieldName}.clanTasks`, ["ranks"], validateClanTasksPayload);
 	validateStructuredObjectMap(section.embeddedTowerProgression, `${fieldName}.embeddedTowerProgression`, ["intro", "attempts", "rewards", "resources"], validateEmbeddedTowerProgressionPayload);
 	validateStructuredObjectMap(section.embeddedTowerUnlocks, `${fieldName}.embeddedTowerUnlocks`, ["intro", "bullets", "entries"], validateEmbeddedTowerUnlocksPayload);
@@ -827,6 +869,7 @@ export async function validateBundle(distDir = DIST_DIR) {
 		validateLocalizedMap(summary.title, `manifest.pages.${summary.slug}.title`);
 		validateLocalizedMap(summary.summary, `manifest.pages.${summary.slug}.summary`);
 		if (summary.pageGroup !== undefined) validateLocalizedMap(summary.pageGroup, `manifest.pages.${summary.slug}.pageGroup`);
+		if (summary.pokemonForms !== undefined) validatePokemonForms(summary.pokemonForms, `manifest.pages.${summary.slug}.pokemonForms`);
 		if (summary.displayInList !== undefined && typeof summary.displayInList !== "boolean") {
 			throw new Error(`manifest page "${summary.slug}".displayInList must be a boolean when present`);
 		}
@@ -864,6 +907,7 @@ export async function validateBundle(distDir = DIST_DIR) {
 		validateLocalizedMap(page.title, `pages.${summary.slug}.title`);
 		validateLocalizedMap(page.summary, `pages.${summary.slug}.summary`);
 		if (page.pageGroup !== undefined) validateLocalizedMap(page.pageGroup, `pages.${summary.slug}.pageGroup`);
+		if (page.pokemonForms !== undefined) validatePokemonForms(page.pokemonForms, `pages.${summary.slug}.pokemonForms`);
 		if (page.displayInList !== summary.displayInList) {
 			throw new Error(`page file "${summary.slug}.json" has mismatched displayInList`);
 		}
@@ -876,6 +920,10 @@ export async function validateBundle(distDir = DIST_DIR) {
 
 		if (JSON.stringify(page.images ?? null) !== JSON.stringify(summary.images ?? null)) {
 			throw new Error(`page file "${summary.slug}.json" has mismatched images`);
+		}
+
+		if (JSON.stringify(page.pokemonForms ?? null) !== JSON.stringify(summary.pokemonForms ?? null)) {
+			throw new Error(`page file "${summary.slug}.json" has mismatched pokemonForms`);
 		}
 
 		if (!Array.isArray(page.sections) || page.sections.length === 0) {
@@ -904,6 +952,12 @@ export async function validateBundle(distDir = DIST_DIR) {
 
 		if (summary.pageKind === "pokemon" && (!page.profile || typeof page.profile !== "object")) {
 			throw new Error(`pokemon page "${summary.slug}" must contain a profile`);
+		}
+		if (summary.pageKind === "pokemon" && !summary.pokemonForms) {
+			throw new Error(`pokemon page "${summary.slug}" must contain pokemonForms`);
+		}
+		if (summary.pageKind !== "pokemon" && summary.pokemonForms !== undefined) {
+			throw new Error(`non-pokemon page "${summary.slug}" must not contain pokemonForms`);
 		}
 	}
 

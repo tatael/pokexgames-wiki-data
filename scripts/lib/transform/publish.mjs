@@ -11,6 +11,65 @@ function isNoiseParagraph(value) {
 	return TABBER_NOISE_RE.test(text);
 }
 
+// Filename tokens in visible prose are extraction junk when no matching media exists.
+// When the section has a matching media entry, leave the token in place so the overlay's
+// inline-media renderer turns it into an icon; otherwise strip it.
+const PROSE_FILENAME_RE = /[\p{L}\p{N}()'._,&\- ]+?\.(?:png|gif|webp|jpe?g|svg)\b/giu;
+
+function normalizeFilenameStem(value) {
+	return String(value ?? "")
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.replace(/\.(?:png|gif|webp|jpe?g|svg)\b/gi, "")
+		.replace(/^\d{1,4}[-_. ]+/, "")
+		.replace(/[_\-]+/g, " ")
+		.replace(/[^A-Za-z0-9]+/g, " ")
+		.trim()
+		.toLowerCase();
+}
+
+function buildSectionMediaStems(section, locale) {
+	const stems = new Set();
+	const items = section?.media?.[locale] ?? section?.media?.["pt-BR"] ?? [];
+	for (const item of items) {
+		if (item?.alt) {
+			const stem = normalizeFilenameStem(item.alt);
+			if (stem) stems.add(stem);
+		}
+		if (item?.url) {
+			try {
+				const file = decodeURIComponent(String(item.url).split("/").pop() ?? "");
+				const stem = normalizeFilenameStem(file);
+				if (stem) stems.add(stem);
+			} catch {}
+		}
+	}
+	return stems;
+}
+
+function stripUnmatchedFilenames(text, mediaStems) {
+	const source = String(text ?? "");
+	if (!source) return "";
+	if (!/\.(?:png|gif|webp|jpe?g|svg)\b/i.test(source)) return source;
+	const cleaned = source.replace(PROSE_FILENAME_RE, (match) => {
+		// Trim leading whitespace artifacts the multi-word regex may pull in.
+		const stem = normalizeFilenameStem(match.replace(/^[^A-Za-zÀ-ÿ0-9]+/, ""));
+		if (stem && mediaStems.has(stem)) return match;
+		return " ";
+	});
+	return cleaned.replace(/[ \t]{2,}/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim();
+}
+
+function stripContentFilenames(values, mediaStems) {
+	if (!mediaStems?.size && !Array.isArray(values)) return values;
+	const out = [];
+	for (const value of values ?? []) {
+		const cleaned = stripUnmatchedFilenames(value, mediaStems ?? new Set());
+		if (cleaned) out.push(cleaned);
+	}
+	return out;
+}
+
 export function publishSection(section) {
 	const output = {
 		id: section.id ?? "",
@@ -36,6 +95,8 @@ function buildPublicSectionContent(section) {
 		...Object.keys(section.items ?? {}),
 	]);
 	for (const locale of locales) {
+		const mediaStems = buildSectionMediaStems(section, locale);
+
 		let paragraphs = [];
 		if (shouldPublishParagraphContent(section)) {
 			paragraphs = section.kind === "tasks"
@@ -45,15 +106,19 @@ function buildPublicSectionContent(section) {
 				paragraphs = paragraphs.filter((paragraph) => !isRawPokemonGroupMirrorParagraph(paragraph));
 			}
 			paragraphs = paragraphs.filter((paragraph) => !isNoiseParagraph(paragraph));
+			paragraphs = stripContentFilenames(paragraphs, mediaStems);
 		}
 
-		const bullets = (section.kind === "pokemon-group" && !section.bossRecommendations && !section.pokemon
-			? (section.items?.[locale] ?? [])
-			: (shouldPublishListContent(section)
-				? filterLinkedCardMarkerLines(section, section.items?.[locale] ?? [])
-					.filter((item) => !String(item ?? "").includes("|"))
-					.filter((item) => !isMediaOnlyMirrorLine(item))
-				: [])).filter((item) => !isNoiseParagraph(item));
+		const bullets = stripContentFilenames(
+			(section.kind === "pokemon-group" && !section.bossRecommendations && !section.pokemon
+				? (section.items?.[locale] ?? [])
+				: (shouldPublishListContent(section)
+					? filterLinkedCardMarkerLines(section, section.items?.[locale] ?? [])
+						.filter((item) => !String(item ?? "").includes("|"))
+						.filter((item) => !isMediaOnlyMirrorLine(item))
+					: [])).filter((item) => !isNoiseParagraph(item)),
+			mediaStems,
+		);
 		const value = {};
 		if (paragraphs.length) value.paragraphs = paragraphs;
 		if (bullets.length) value.bullets = bullets;

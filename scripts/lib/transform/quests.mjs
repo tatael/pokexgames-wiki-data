@@ -147,13 +147,20 @@ export function isQuestLocationSection(normalizedId, normalizedHeading) {
 }
 
 export function parseQuestSupport(paragraphs = [], items = [], media = [], pageSlug = "") {
-	const intro = dedupeStrings(paragraphs.map(cleanQuestText).flatMap(splitDenseQuestLine).filter(isContentLine));
+	const mediaStems = buildQuestMediaStems(media);
+	const intro = stripQuestFilenameList(
+		dedupeStrings(paragraphs.map(cleanQuestText).flatMap(splitDenseQuestLine).filter(isContentLine)),
+		mediaStems,
+	);
 	const introTokens = new Set(intro.map(normalizeIdToken));
-	const bullets = dedupeStrings(items
-		.filter((item) => !String(item ?? "").includes("|"))
-		.map(cleanQuestText)
-		.filter(isContentLine)
-		.filter((value) => !introTokens.has(normalizeIdToken(value))));
+	const bullets = stripQuestFilenameList(
+		dedupeStrings(items
+			.filter((item) => !String(item ?? "").includes("|"))
+			.map(cleanQuestText)
+			.filter(isContentLine)
+			.filter((value) => !introTokens.has(normalizeIdToken(value)))),
+		mediaStems,
+	);
 	const cards = collectQuestSupportCards(items, media, pageSlug);
 	return { intro, bullets, cards };
 }
@@ -244,6 +251,59 @@ function isFlattenedRewardLine(line) {
 	return true;
 }
 
+const QUEST_PROSE_FILENAME_RE = /[\p{L}\p{N}()'._,&\- ]+?\.(?:png|gif|webp|jpe?g|svg)\b/giu;
+
+function normalizeQuestFileStem(value) {
+	return String(value ?? "")
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.replace(/\.(?:png|gif|webp|jpe?g|svg)\b/gi, "")
+		.replace(/^\d{1,4}[-_. ]+/, "")
+		.replace(/[_\-]+/g, " ")
+		.replace(/[^A-Za-z0-9]+/g, " ")
+		.trim()
+		.toLowerCase();
+}
+
+function buildQuestMediaStems(media = []) {
+	const stems = new Set();
+	for (const item of media ?? []) {
+		if (item?.alt) {
+			const stem = normalizeQuestFileStem(item.alt);
+			if (stem) stems.add(stem);
+		}
+		if (item?.url) {
+			try {
+				const file = decodeURIComponent(String(item.url).split("/").pop() ?? "");
+				const stem = normalizeQuestFileStem(file);
+				if (stem) stems.add(stem);
+			} catch {}
+		}
+	}
+	return stems;
+}
+
+function stripQuestFilenames(text, mediaStems) {
+	const source = String(text ?? "");
+	if (!source || !/\.(?:png|gif|webp|jpe?g|svg)\b/i.test(source)) return source;
+	const stems = mediaStems ?? new Set();
+	const cleaned = source.replace(QUEST_PROSE_FILENAME_RE, (match) => {
+		const stem = normalizeQuestFileStem(match.replace(/^[^A-Za-zÀ-ÿ0-9]+/, ""));
+		if (stem && stems.has(stem)) return match;
+		return " ";
+	});
+	return cleaned.replace(/[ \t]{2,}/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim();
+}
+
+function stripQuestFilenameList(values, mediaStems) {
+	const out = [];
+	for (const value of values ?? []) {
+		const cleaned = stripQuestFilenames(value, mediaStems);
+		if (cleaned) out.push(cleaned);
+	}
+	return out;
+}
+
 // Quest source rows often flatten "Nível Necessário: N", a location sentence, and an
 // "Atenção:" note into one paragraph. Split into separate lines so the reader breaks them.
 function splitDenseQuestLine(text) {
@@ -286,15 +346,22 @@ export function parseQuestPhase(paragraphs = [], items = [], media = []) {
 		.map((item) => parseQuestRow(item))
 		.filter((row) => row && row.cells.length >= 2);
 
-	const body = dedupeStrings(paragraphs.map(cleanQuestText).flatMap(splitDenseQuestLine).filter(isContentLine))
-		.filter((line) => !isFlattenedRewardLine(line));
+	const mediaStems = buildQuestMediaStems(media);
+	const body = stripQuestFilenameList(
+		dedupeStrings(paragraphs.map(cleanQuestText).flatMap(splitDenseQuestLine).filter(isContentLine))
+			.filter((line) => !isFlattenedRewardLine(line)),
+		mediaStems,
+	);
 	const bodyTokens = new Set(body.map(normalizeIdToken));
-	const bullets = dedupeStrings(items
-		.filter((item) => !String(item ?? "").includes("|"))
-		.map(cleanQuestText)
-		.filter(isContentLine)
-		.filter((value) => !bodyTokens.has(normalizeIdToken(value)))
-		.filter((value) => !isFlattenedRewardLine(value)));
+	const bullets = stripQuestFilenameList(
+		dedupeStrings(items
+			.filter((item) => !String(item ?? "").includes("|"))
+			.map(cleanQuestText)
+			.filter(isContentLine)
+			.filter((value) => !bodyTokens.has(normalizeIdToken(value)))
+			.filter((value) => !isFlattenedRewardLine(value))),
+		mediaStems,
+	);
 
 	let rewards = rowRewards;
 	if (!rewards.length) {

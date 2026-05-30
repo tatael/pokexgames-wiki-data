@@ -4,11 +4,20 @@ import { parseTableCell } from "./generic-sections.mjs";
 // "Tabber requires Javascript to function" / "Tabber requer Javascript para funcionar" is a
 // MediaWiki placeholder the scraper sees when tabber content needs JS. It is never real content.
 const TABBER_NOISE_RE = /^\s*tabber\s+requ(?:er| er|ire|ires)\b[^\n]*$/i;
+// Internal sentinel inserted by extract.mjs for the PokéPark score tool. Should never reach
+// visible content; it belongs only inside the pokepark-score commerceEntries payload.
+const POKEPARK_SCORE_SENTINEL_RE = /__POKEPARK_SCORE__/;
+// A bare sprite reference like "396-Starly" with no surrounding prose is an extraction artifact
+// from the wiki's sprite list; render-side has nothing useful to do with it.
+const SPRITE_REF_LINE_RE = /^\s*\d{1,4}\s*-\s*[A-Za-zÀ-ÿ][\w'-]*(?:\s+[A-Za-zÀ-ÿ][\w'-]*){0,3}\s*$/;
 
 function isNoiseParagraph(value) {
 	const text = String(value ?? "").trim();
 	if (!text) return true;
-	return TABBER_NOISE_RE.test(text);
+	if (TABBER_NOISE_RE.test(text)) return true;
+	if (POKEPARK_SCORE_SENTINEL_RE.test(text)) return true;
+	if (SPRITE_REF_LINE_RE.test(text)) return true;
+	return false;
 }
 
 // Filename tokens in visible prose are extraction junk when no matching media exists.

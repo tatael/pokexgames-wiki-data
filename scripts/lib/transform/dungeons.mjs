@@ -57,8 +57,10 @@ export function parseHazardEntries(paragraphs = [], items = []) {
 	return {
 		description: paragraphs
 			.map((item) => cleanStructuredText(item))
-			.filter((item) => item && !isHazardMirrorParagraph(item) && !isMediaFilenameDumpLine(item)),
-		bullets: items.map((item) => cleanStructuredText(item)).filter(Boolean),
+			.filter((item) => item && !isHazardMirrorParagraph(item) && !isMediaFilenameDumpLine(item) && !item.includes("__POKEPARK_SCORE__")),
+		bullets: items
+			.map((item) => cleanStructuredText(item))
+			.filter((item) => item && !item.includes("__POKEPARK_SCORE__")),
 	};
 }
 

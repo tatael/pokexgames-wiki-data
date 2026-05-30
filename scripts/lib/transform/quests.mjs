@@ -125,6 +125,8 @@ function isContentLine(value) {
 	if (QUEST_NOISE_LINE_PATTERN.test(text)) return false;
 	if (SHORT_NOISE_TOKEN_PATTERN.test(text)) return false;
 	if (/^\(.{1,40}\)$/.test(text)) return false;
+	if (/__POKEPARK_SCORE__/.test(text)) return false;
+	if (/^\s*\d{1,4}\s*-\s*[A-Za-zÀ-ÿ][\w'-]*(?:\s+[A-Za-zÀ-ÿ][\w'-]*){0,3}\s*$/.test(text)) return false;
 	return true;
 }
 

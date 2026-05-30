@@ -147,7 +147,7 @@ export function isQuestLocationSection(normalizedId, normalizedHeading) {
 }
 
 export function parseQuestSupport(paragraphs = [], items = [], media = [], pageSlug = "") {
-	const intro = dedupeStrings(paragraphs.map(cleanQuestText).filter(isContentLine));
+	const intro = dedupeStrings(paragraphs.map(cleanQuestText).flatMap(splitDenseQuestLine).filter(isContentLine));
 	const introTokens = new Set(intro.map(normalizeIdToken));
 	const bullets = dedupeStrings(items
 		.filter((item) => !String(item ?? "").includes("|"))
@@ -185,9 +185,22 @@ function isQuestRewardRowItem(item) {
 	return QUEST_REWARD_EXP_ICON_RE.test(iconCell) || QUEST_REWARD_IMAGE_RE.test(iconCell);
 }
 
+function findIconCellMediaUrl(iconCell, media = []) {
+	const want = normalizeIdToken(normalizeMediaAlt(iconCell));
+	if (!want) return "";
+	for (const item of media ?? []) {
+		if (!item?.url) continue;
+		const alt = normalizeIdToken(normalizeMediaAlt(item.alt ?? "") || normalizeMediaAlt(decodeURIComponent(String(item.url).split("/").pop() ?? "")));
+		if (alt && alt === want) return item.url;
+	}
+	return "";
+}
+
 // Parse rewards from the raw "icon | label" reward-table rows. Uses the raw cell text
 // (not parseQuestRow, which strips leading numbers as dex prefixes and would drop "50").
-function extractRewardsFromRawRewardRows(rewardItems = []) {
+// Resolves the icon-cell filename to its section media URL so the reward renders the real
+// icon and the overlay can dedupe it out of the trailing media gallery.
+function extractRewardsFromRawRewardRows(rewardItems = [], media = []) {
 	const rewards = [];
 	for (const item of rewardItems) {
 		const cells = String(item ?? "").split(/\s*\|\s*/).map((cell) => cleanStructuredText(cell));
@@ -214,7 +227,8 @@ function extractRewardsFromRawRewardRows(rewardItems = []) {
 		if (QUEST_REWARD_IMAGE_RE.test(iconCell)) {
 			const { qty, name } = parseQuestRewardLabel(labelCell);
 			if (name) {
-				rewards.push({ type: "loot", name, rarity: null, difficulty: null, qty });
+				const image = findIconCellMediaUrl(iconCell, media);
+				rewards.push({ type: "loot", name, rarity: null, difficulty: null, qty, ...(image ? { image } : {}) });
 			}
 		}
 	}
@@ -228,6 +242,25 @@ function isFlattenedRewardLine(line) {
 	if (!QUEST_FLAT_REWARD_PREFIX_RE.test(text)) return false;
 	if (QUEST_NARRATIVE_VERB_RE.test(text)) return false;
 	return true;
+}
+
+// Quest source rows often flatten "Nível Necessário: N", a location sentence, and an
+// "Atenção:" note into one paragraph. Split into separate lines so the reader breaks them.
+function splitDenseQuestLine(text) {
+	let s = String(text ?? "").trim();
+	if (!s) return [];
+	const out = [];
+	const level = s.match(/^(N[ií]vel\s+necess[áa]rio)\s*:?\s*(\d+)\b\s*/i);
+	if (level) {
+		out.push(`Nível Necessário: ${level[2]}`);
+		s = s.slice(level[0].length).trim();
+	}
+	s = s.replace(/\s+(Aten[cç][ãa]o\s*:|Observa[cç][ãa]o\s*:)/g, "\n$1");
+	for (const part of s.split(/\n|(?<=[.!?])\s+(?=[A-ZÀ-Ý])/)) {
+		const piece = part.trim();
+		if (piece) out.push(piece);
+	}
+	return out.length ? out : [s];
 }
 
 // A reward whose name is narrative prose, a raw filename, an element token, or unreasonably long
@@ -248,12 +281,12 @@ export function parseQuestPhase(paragraphs = [], items = [], media = []) {
 	const pipeItems = items.filter((item) => String(item ?? "").includes("|"));
 	const rewardRowItems = pipeItems.filter(isQuestRewardRowItem);
 	const otherPipeItems = pipeItems.filter((item) => !isQuestRewardRowItem(item));
-	const rowRewards = extractRewardsFromRawRewardRows(rewardRowItems);
+	const rowRewards = extractRewardsFromRawRewardRows(rewardRowItems, media);
 	const rows = otherPipeItems
 		.map((item) => parseQuestRow(item))
 		.filter((row) => row && row.cells.length >= 2);
 
-	const body = dedupeStrings(paragraphs.map(cleanQuestText).filter(isContentLine))
+	const body = dedupeStrings(paragraphs.map(cleanQuestText).flatMap(splitDenseQuestLine).filter(isContentLine))
 		.filter((line) => !isFlattenedRewardLine(line));
 	const bodyTokens = new Set(body.map(normalizeIdToken));
 	const bullets = dedupeStrings(items
@@ -343,6 +376,16 @@ function collectQuestSupportCards(items = [], media = [], pageSlug = "") {
 	const cards = [];
 	const ownSlug = String(pageSlug ?? "").trim();
 
+	// Reward-table icon cells (e.g. "Heavy pokemon.gif", "Ultra-ball(1).png") are reward icons,
+	// not navigation targets. Skip the matching media so they don't become duplicate nav cards.
+	const rewardIconTokens = new Set();
+	for (const item of items) {
+		if (!isQuestRewardRowItem(item)) continue;
+		const iconCell = cleanStructuredText(String(item ?? "").split(/\s*\|\s*/)[0] ?? "");
+		const token = normalizeIdToken(normalizeMediaAlt(iconCell));
+		if (token) rewardIconTokens.add(token);
+	}
+
 	for (const item of items) {
 		if (!String(item ?? "").includes("|")) continue;
 		const parts = String(item ?? "").split(/\s*\|\s*/).map((part) => cleanStructuredText(part));
@@ -367,6 +410,8 @@ function collectQuestSupportCards(items = [], media = [], pageSlug = "") {
 		if (!item?.url || item?.type === "video") continue;
 		const source = `${item?.url ?? ""} ${item?.alt ?? ""} ${item?.slug ?? ""}`;
 		if (QUEST_MEDIA_EXCLUDE_PATTERN.test(source)) continue;
+		const altToken = normalizeIdToken(normalizeMediaAlt(item.alt ?? "") || normalizeMediaAlt(decodeURIComponent(String(item.url).split("/").pop() ?? "")));
+		if (altToken && rewardIconTokens.has(altToken)) continue;
 		const label = cleanQuestCardLabel(item);
 		if (!label || isNonCardLabel(label)) continue;
 		if (isNonCardSlug(item?.slug)) continue;

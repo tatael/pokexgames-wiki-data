@@ -194,13 +194,27 @@ function isQuestRewardRowItem(item) {
 	return QUEST_REWARD_EXP_ICON_RE.test(iconCell) || QUEST_REWARD_IMAGE_RE.test(iconCell);
 }
 
+function buildWikiRedirectUrl(filename) {
+	const file = String(filename ?? "").trim();
+	if (!file) return "";
+	return `https://wiki.pokexgames.com/index.php/Especial:Redirecionar/file/${encodeURIComponent(file.replace(/\s+/g, "_"))}`;
+}
+
 function findIconCellMediaUrl(iconCell, media = []) {
 	const want = normalizeIdToken(normalizeMediaAlt(iconCell));
 	if (!want) return "";
 	for (const item of media ?? []) {
 		if (!item?.url) continue;
 		const alt = normalizeIdToken(normalizeMediaAlt(item.alt ?? "") || normalizeMediaAlt(decodeURIComponent(String(item.url).split("/").pop() ?? "")));
-		if (alt && alt === want) return item.url;
+		if (alt && alt === want) {
+			// Prefer the wiki redirect URL over the captured hash path so the icon survives
+			// wiki file replacements (the hash path changes when the wiki re-uploads an image).
+			const filename = (() => {
+				try { return decodeURIComponent(String(item.url).split("/").pop() ?? ""); } catch { return ""; }
+			})() || iconCell;
+			const redirect = buildWikiRedirectUrl(filename);
+			return redirect || item.url;
+		}
 	}
 	return "";
 }

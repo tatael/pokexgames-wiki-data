@@ -53,6 +53,18 @@ export function isHazardSection(normalizedId, normalizedHeading) {
 	return normalizedId === "armadilhas" || normalizedHeading === "armadilhas" || normalizedId === "traps";
 }
 
+// Quest progression text sometimes leaks into the hazards bullet list (e.g. "Ao entregar
+// todos os fragmentos ... o NPC ... pedirá ..."). Drop those specific patterns; keep
+// generic hazard advice like "Fique longe da área vermelha".
+const HAZARD_BULLET_QUEST_LEAK_RE = /\b(?:entregar.*fragmentos?|fragmentos?.*tablet|tablet.*andar|NPC\s+\w+\s+pedir)\b/i;
+
+function isHazardBulletLeak(text) {
+	if (!text) return true;
+	if (text.includes("__POKEPARK_SCORE__")) return true;
+	if (HAZARD_BULLET_QUEST_LEAK_RE.test(text)) return true;
+	return false;
+}
+
 export function parseHazardEntries(paragraphs = [], items = []) {
 	return {
 		description: paragraphs
@@ -60,7 +72,7 @@ export function parseHazardEntries(paragraphs = [], items = []) {
 			.filter((item) => item && !isHazardMirrorParagraph(item) && !isMediaFilenameDumpLine(item) && !item.includes("__POKEPARK_SCORE__")),
 		bullets: items
 			.map((item) => cleanStructuredText(item))
-			.filter((item) => item && !item.includes("__POKEPARK_SCORE__")),
+			.filter((item) => item && !isHazardBulletLeak(item)),
 	};
 }
 

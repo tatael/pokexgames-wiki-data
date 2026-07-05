@@ -794,7 +794,10 @@ export function normalizeSections(sectionsBase, pageContext = {}) {
 			: uniqueText(items);
 		const trapItems = normalizedItems.filter(isTrapItemText);
 		const trapMedia = normalizedMedia.filter(isTrapMedia);
-		const shouldSplitTraps = normalizedSectionId !== "armadilhas" && (trapItems.length || trapMedia.length);
+		// Only split traps into their own "Armadilhas" section when there is actual trap
+		// text (entries with trap gif refs). A lone decorative trap image inside another
+		// section (e.g. a boss battle) stays inline, matching the source wiki layout.
+		const shouldSplitTraps = normalizedSectionId !== "armadilhas" && trapItems.length > 0;
 		const baseItems = shouldSplitTraps ? normalizedItems.filter((item) => !isTrapItemText(item)) : normalizedItems;
 		const baseMedia = shouldSplitTraps ? normalizedMedia.filter((item) => !isTrapMedia(item)) : normalizedMedia;
 		const normalizedSection = publishSection(structureSection({

@@ -74,6 +74,37 @@ export function extractArticleFragmentHtml(html, fragment) {
 	return html.slice(currentHeading.start, end);
 }
 
+// Territory-guardian pages are anchor fragments into the single "Guardiões de Território"
+// page, where each guardian's data lives in TWO tabber panels sharing the guardian's
+// data-title: the first is its location (step screenshots + coordinates), the second its
+// rewards (item/rarity table + special drops). The generic fragment extractor only returns
+// the first match, so guardian pages lost their rewards. Collect every matching panel and
+// wrap each under a synthetic heading so the section pipeline builds proper sections.
+export function extractGuardianBossSectionsHtml(html, guardianTitle) {
+	const target = buildSlug(guardianTitle, "").replace(/-/g, " ").trim();
+	if (!target) return null;
+	const panelRegex = /<article\b[^>]*\bdata-title=(?:"([^"]+)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/article>/gi;
+	const panels = [];
+	for (const match of html.matchAll(panelRegex)) {
+		const title = decodeHtmlEntities(match[1] || match[2] || match[3] || "");
+		if (buildSlug(title, "").replace(/-/g, " ").trim() === target) {
+			// Keep the full <article> wrapper: the section pipeline's tabber-panel handling
+			// captures bare leading text (the intro sentence lives outside any <p>).
+			panels.push({ full: match[0], inner: match[4] });
+		}
+	}
+	if (!panels.length) return null;
+	const labelForPanel = (inner, index) => {
+		const text = stripHtml(inner).toLowerCase();
+		if (/recompensa|item\s+raridade|raridade|drop/.test(text)) return "Recompensas";
+		if (/localiz|coordenada|passo\s*\d/.test(text)) return "Localização";
+		return index === 0 ? "Localização" : "Recompensas";
+	};
+	return panels
+		.map((panel, index) => `<h2>${labelForPanel(panel.inner, index)}</h2>\n${panel.full}`)
+		.join("\n");
+}
+
 export function decodeWikiTitleFromUrl(url) {
 	const parsed = new URL(url);
 	if (parsed.hostname !== WIKI_SOURCE_HOST || !parsed.pathname.startsWith("/index.php/")) {
@@ -434,7 +465,7 @@ function extractTableRows(html) {
 			const cells = [...rowHtml.matchAll(tdRegex)].map((m) => cleanTableCellText(extractCellContent(m[1])));
 			if (cells.every((c) => !c)) continue;
 
-			if (nameCol >= 0 && cells[nameCol]) {
+			if (nameCol >= 0 && cells[nameCol] && (pveCol >= 0 || pvpCol >= 0)) {
 				const name = cells[nameCol];
 				const pve = pveCol >= 0 ? cells[pveCol] : "";
 				const pvp = pvpCol >= 0 ? cells[pvpCol] : "";
@@ -456,23 +487,38 @@ export function extractLines(html) {
 
 	for (const match of html.matchAll(blockRegex)) {
 		const kind = match[1]?.toLowerCase();
-		const raw = stripHtml(preserveMediaText(match[2] ?? ""));
-		if (!kind || !raw) continue;
+		if (!kind) continue;
 
-		const body = raw.replace(TABBER_FALLBACK_PATTERN, "").trim();
-		if (!body) continue;
+		// In <p>/<center> blocks a <br> separates distinct statements (the wiki uses it
+		// instead of multiple <p> tags). Split on it so each statement is its own line;
+		// list items and headings stay whole.
+		const rawBody = match[2] ?? "";
+		const segments = kind === "li" || kind.startsWith("h")
+			? [rawBody]
+			: rawBody.split(/<br\s*\/?>/i);
 
-		if (kind === "li") {
-			lines.push(`* ${body}`);
-			continue;
+		for (const segment of segments) {
+			// A <table> inside a <p>/<center> block is handled by extractTableRows below;
+			// don't also flatten it into a prose line (that dumps the whole table as text).
+			if (/<table\b/i.test(segment)) continue;
+			const raw = stripHtml(preserveMediaText(segment));
+			if (!raw) continue;
+
+			const body = raw.replace(TABBER_FALLBACK_PATTERN, "").trim();
+			if (!body) continue;
+
+			if (kind === "li") {
+				lines.push(`* ${body}`);
+				continue;
+			}
+
+			if (kind.startsWith("h")) {
+				lines.push(`# ${body}`);
+				continue;
+			}
+
+			lines.push(body);
 		}
-
-		if (kind.startsWith("h")) {
-			lines.push(`# ${body}`);
-			continue;
-		}
-
-		lines.push(body);
 	}
 
 	const tableRows = extractTableRows(html);
@@ -488,6 +534,21 @@ export function extractLines(html) {
 	return lines;
 }
 
+const INLINE_ELEMENT_ICON_NAMES = new Set([
+	"normal", "fire", "water", "grass", "electric", "ice", "fighting", "poison",
+	"ground", "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark",
+	"steel", "fairy", "crystal",
+]);
+
+function isInlineElementIconAlt(label) {
+	const base = String(label ?? "")
+		.replace(/\.(?:png|gif|webp|jpe?g|svg)$/i, "")
+		.replace(/\d+$/, "")
+		.trim()
+		.toLowerCase();
+	return INLINE_ELEMENT_ICON_NAMES.has(base);
+}
+
 function preserveMediaText(html) {
 	const readTagAttr = (tag, name) => {
 		const match = String(tag ?? "").match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
@@ -496,6 +557,15 @@ function preserveMediaText(html) {
 
 	return String(html ?? "").replace(/<img\b[^>]*>/gi, (tag) => {
 		const label = readTagAttr(tag, "alt") || readTagAttr(tag, "title");
+		const width = Number.parseInt(readTagAttr(tag, "width"), 10) || 0;
+		const height = Number.parseInt(readTagAttr(tag, "height"), 10) || 0;
+		// Drop decorative inline icons whose filename token corrupts the surrounding
+		// sentence — the readable name is already present as plain text next to them.
+		// Small icons (elements, pokemon sprites, reward/item icons) are detected by their
+		// rendered size; element/dex icons that lack dimensions fall back to name matching.
+		// Larger media (banners, maps, screenshots, totems, traps) is kept.
+		const isSmallIcon = width > 0 && height > 0 && width <= 72 && height <= 72;
+		if (label && (isSmallIcon || isInlineElementIconAlt(label) || /^\s*\d{1,4}\s*-\s*\p{L}/u.test(label))) return " ";
 		return label ? ` ${label} ` : " ";
 	});
 }
@@ -682,10 +752,40 @@ function extractTabberPanelLines(html) {
 }
 
 function stripTabberPanels(html) {
-	return String(html ?? "").replace(/<article\b[^>]*\bdata-title=(?:"[^"]+"|'[^']*'|[^\s>]+)[^>]*>[\s\S]*?<\/article>/gi, " ");
+	return String(html ?? "")
+		// Drop the tabber header (its <noscript> "Tabber requires JavaScript" message would
+		// otherwise leak into the prose) alongside the panels themselves.
+		.replace(/<header\b[^>]*\btabber__header\b[^>]*>[\s\S]*?<\/header>/gi, " ")
+		.replace(/<article\b[^>]*\bdata-title=(?:"[^"]+"|'[^']*'|[^\s>]+)[^>]*>[\s\S]*?<\/article>/gi, " ");
 }
 
-function extractPanelBodyLines(html) {
+// Extract a wikitable's cells as pipe-joined rows (colspan-aware), keeping image cells as
+// their filename (so the renderer can resolve the icon). A leading colspan header cell is
+// expanded with trailing blanks so the header aligns with the data columns.
+function extractPipedTableRows(tableHtml) {
+	const out = [];
+	for (const tr of String(tableHtml ?? "").matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+		const cells = [];
+		for (const cm of tr[1].matchAll(/<(td|th)\b([^>]*)>([\s\S]*?)<\/\1>/gi)) {
+			const isHeader = cm[1].toLowerCase() === "th";
+			const colspan = Math.max(1, Number((cm[2].match(/\bcolspan\s*=\s*"?(\d+)/i) ?? [])[1] ?? 1));
+			const raw = extractCellContent(cm[3]).replace(/\s+/g, " ").trim();
+			// A spanning header (e.g. "Item" over icon+name) is right-aligned to its columns,
+			// so the leading spanned columns (the icon) stay unlabelled.
+			if (isHeader && colspan > 1) {
+				for (let k = 1; k < colspan; k += 1) cells.push("");
+				cells.push(raw);
+			} else {
+				cells.push(raw);
+				for (let k = 1; k < colspan; k += 1) cells.push("");
+			}
+		}
+		if (cells.some(Boolean)) out.push(cells.join(" | "));
+	}
+	return out;
+}
+
+function extractPanelProseLines(html) {
 	const marker = "__PXO_LINE_BREAK__";
 	const normalized = preserveMediaText(html)
 		.replace(/<script\b[\s\S]*?<\/script>/gi, " ")
@@ -703,6 +803,18 @@ function extractPanelBodyLines(html) {
 		.split(marker)
 		.map((line) => line.replace(TABBER_FALLBACK_PATTERN, "").trim())
 		.filter(Boolean);
+}
+
+// A tabber panel may hold prose and/or a table. Walk it in document order, emitting the
+// table as pipe-joined rows (cells preserved) and everything else as prose lines.
+function extractPanelBodyLines(html) {
+	const parts = String(html ?? "").split(/(<table\b[\s\S]*?<\/table>)/i);
+	const lines = [];
+	for (const part of parts) {
+		if (/^<table\b/i.test(part)) lines.push(...extractPipedTableRows(part));
+		else lines.push(...extractPanelProseLines(part));
+	}
+	return lines;
 }
 
 function extractRewardTabberLines(html) {
@@ -878,7 +990,12 @@ export function extractSections(html, title, pageUrl = "") {
 	}
 
 	if (headings.length === 0) {
-		const lines = extractLines(html);
+		// Tabber panels (e.g. boss ability tabs) carry their title via data-title; extract
+		// them as heading-grouped lines so they become structured ability tabs downstream.
+		const tabberLines = extractTabberPanelLines(html);
+		const lines = tabberLines.length
+			? [...extractLines(stripTabberPanels(html)), ...tabberLines]
+			: extractLines(html);
 		const paragraphs = lines.filter((line) => !line.startsWith("* "));
 		const items = lines
 			.filter((line) => line.startsWith("* "))

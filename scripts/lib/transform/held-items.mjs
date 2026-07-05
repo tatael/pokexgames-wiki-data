@@ -255,10 +255,19 @@ function buildHeldCell(value) {
 }
 
 function parseHeldBoostRangeRows(text) {
-	const tokens = String(text ?? "")
-		.replace(/^(?:level range|faixa de n[íi]vel)\s+boost\s+/i, "")
-		.split(/\s+/)
-		.filter(Boolean);
+	const stripped = String(text ?? "")
+		.replace(/^(?:level range|faixa de n[íi]vel)\s+boost\s*\|?\s*/i, "")
+		.trim();
+	// Pipe-separated cells: "0 a 99 | 6 | 100 a 149 | 9 | …" → (range, boost) pairs.
+	if (stripped.includes("|")) {
+		const cells = stripped.split(/\s*\|\s*/).map((cell) => cell.trim()).filter(Boolean);
+		const rows = [];
+		for (let index = 0; index + 1 < cells.length; index += 2) {
+			rows.push({ levelRange: cells[index], boost: cells[index + 1] });
+		}
+		return rows;
+	}
+	const tokens = stripped.split(/\s+/).filter(Boolean);
 	const rows = [];
 	for (let index = 0; index + 3 < tokens.length; index += 4) {
 		rows.push({
@@ -285,25 +294,27 @@ function parseHeldStatEntry(segment, maxValues) {
 	const nameMatch = cleaned.match(/^([XY]-[A-Za-z][A-Za-z-]*(?:\s+[A-Za-z][A-Za-z-]*)?)\s+/);
 	if (!nameMatch) return null;
 	const name = cleanStructuredText(nameMatch[1]);
-	const tokens = cleaned
-		.slice(nameMatch[0].length)
-		.trim()
-		.split(/\s+/)
+	const rest = cleaned.slice(nameMatch[0].length).trim();
+	// Extracted table rows are pipe-separated (name | v1 | v2 | … | description). Split on the
+	// pipes so a "|" separator is never captured as a tier value. Fall back to whitespace when
+	// the segment has no pipes (older space-joined format).
+	const cells = (rest.includes("|") ? rest.split(/\s*\|\s*/) : rest.split(/\s+/))
+		.map((cell) => cell.trim())
 		.filter(Boolean);
 	const values = [];
 	let index = 0;
-	while (index < tokens.length && values.length < maxValues) {
-		if (HELD_DESCRIPTION_START.test(tokens[index])) break;
-		if (tokens[index + 1] === "->" && tokens[index + 2]) {
-			values.push(`${tokens[index]} -> ${tokens[index + 2]}`);
+	while (index < cells.length && values.length < maxValues) {
+		if (HELD_DESCRIPTION_START.test(cells[index])) break;
+		if (cells[index + 1] === "->" && cells[index + 2]) {
+			values.push(`${cells[index]} -> ${cells[index + 2]}`);
 			index += 3;
 			continue;
 		}
-		values.push(tokens[index]);
+		values.push(cells[index]);
 		index += 1;
 	}
 
-	const description = cleanStructuredText(tokens.slice(index).join(" "));
+	const description = cleanStructuredText(cells.slice(index).join(" "));
 	return {
 		name,
 		tiers: values.map((value, tierIndex) => ({

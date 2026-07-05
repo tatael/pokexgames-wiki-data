@@ -6,6 +6,7 @@ import {
 	extractArticleFragmentHtml,
 	extractArticleHtml,
 	extractArticleWikiLinks,
+	extractGuardianBossSectionsHtml,
 	extractSeeMoreWikiLinks,
 	extractSections,
 } from "../lib/extract.mjs";
@@ -45,6 +46,31 @@ test("extractArticleFragmentHtml supports top-level h1 wiki fragments", () => {
 
 	assert.match(fragmentHtml, /Bronze block/);
 	assert.doesNotMatch(fragmentHtml, /Silver block/);
+});
+
+test("extractGuardianBossSectionsHtml collects both tabber panels (location + rewards)", () => {
+	const html = `
+		<div class="tabber"><section class="tabber__section">
+			<article class="tabber__panel" data-title="Giant Tyranitar">Localizado na Dragonstone Island. <table><tr><th>Passo 1</th></tr></table></article>
+			<article class="tabber__panel" data-title="Dorabelle">National Park</article>
+		</section></div>
+		<div class="tabber"><section class="tabber__section">
+			<article class="tabber__panel" data-title="Giant Tyranitar"><table><tr><th>Item</th><th>Raridade</th></tr><tr><td>Rocky Box</td><td>Comum</td></tr></table></article>
+			<article class="tabber__panel" data-title="Dorabelle">Dorabelle rewards</article>
+		</section></div>
+	`;
+	const out = extractGuardianBossSectionsHtml(html, "Giant Tyranitar");
+	assert.ok(out, "expected guardian html");
+	// Both the location panel and the rewards panel are present, each under a heading.
+	assert.match(out, /Localizado na Dragonstone Island/);
+	assert.match(out, /Rocky Box/);
+	assert.match(out, /<h2>Localiza/);
+	assert.match(out, /<h2>Recompensas<\/h2>/);
+	// Other guardians' panels are not pulled in.
+	assert.doesNotMatch(out, /National Park/);
+
+	const secs = extractSections(out, "Giant Tyranitar", "https://x");
+	assert.equal(secs.length, 2);
 });
 
 test("extractSeeMoreWikiLinks captures only links after Veja mais markers", () => {

@@ -195,8 +195,14 @@ function filterLinkedCardMarkerLines(section, values = []) {
 	return (values ?? []).filter((value) => !isLinkedCardMarkerLine(value));
 }
 
+function rewardSectionHasParsedRewards(section) {
+	return Object.values(section.rewards ?? {}).some((list) => (list ?? []).length);
+}
+
 function shouldPublishParagraphContent(section) {
-	if (section.kind === "rewards") return false;
+	// A reward section that parsed no structured rewards (the reward is stated only in prose)
+	// still needs its paragraphs, otherwise it renders as an empty card.
+	if (section.kind === "rewards") return !rewardSectionHasParsedRewards(section);
 	if (section.abilities || section.steps || section.locations) return false;
 	if (section.difficulties || section.bossSupport || section.bossRecommendations || section.heldEnhancement || section.hazards) return false;
 	if (section.dungeonSupport || section.commerceEntries) return false;
@@ -210,7 +216,8 @@ function shouldPublishParagraphContent(section) {
 }
 
 function shouldPublishListContent(section) {
-	if (["tasks", "rewards"].includes(section.kind)) return false;
+	if (section.kind === "rewards") return !rewardSectionHasParsedRewards(section);
+	if (section.kind === "tasks") return false;
 	if (section.kind === "tier" || section.kind === "pokemon-group") return false;
 	if (section.steps || section.locations) return false;
 	if (section.bossSupport || section.bossRecommendations || section.hazards || section.heldCategories || section.heldBoosts || section.heldDetails) return false;

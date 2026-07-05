@@ -1,5 +1,7 @@
 import path from "node:path";
-import { copyFile } from "node:fs/promises";
+import { copyFile, readFile } from "node:fs/promises";
+
+import { synthesizeItemPages } from "./lib/synthesize-item-pages.mjs";
 
 import {
 	DIST_BUILD_DIR,
@@ -26,6 +28,7 @@ import {
 	buildSummary,
 	extractArticleHtml,
 	extractArticleFragmentHtml,
+	extractGuardianBossSectionsHtml,
 	extractSections,
 	extractTitle,
 } from "./lib/extract.mjs";
@@ -206,7 +209,11 @@ async function syncEntry(entry) {
 		return null;
 	}
 
-	const articleHtml = extractArticleFragmentHtml(extractArticleHtml(html), sourceFragment);
+	const fullArticleHtml = extractArticleHtml(html);
+	const guardianHtml = entry.category === "territory-guardians" && entry.pageKind === "guardian-boss"
+		? extractGuardianBossSectionsHtml(fullArticleHtml, entry.title?.[PT_BR] || entry.slug)
+		: null;
+	const articleHtml = guardianHtml ?? extractArticleFragmentHtml(fullArticleHtml, sourceFragment);
 	const fallbackTitle = entry.title?.[PT_BR] || entry.slug;
 	const resolvedTitle = fallbackTitle || extractTitle(html, entry.slug);
 	const baseSections = extractSections(articleHtml, resolvedTitle, sourceUrl.toString());
@@ -400,6 +407,63 @@ async function main() {
 		pages.map((page) => page.pagePath),
 		PAGES_BUILD_DIR
 	);
+
+	// Keep the Itens category to individual items: split index/landing pages (cameras, …) into
+	// per-item pages, then hide the landing/index pages and any dungeon-walkthrough pages that
+	// were miscategorised as items.
+	const { newEntries, recategorized, hideSlugs } = await synthesizeItemPages({
+		pages,
+		pagesDir: PAGES_BUILD_DIR,
+		mediaEntries: mediaRegistry.entries,
+	});
+	for (const entry of newEntries) pages.push(entry);
+	// Pull existing-but-hidden/other-category item pages (e.g. event cameras) into Itens.
+	const pagesBySlug = new Map(pages.map((page) => [page.slug, page]));
+	for (const { slug, group } of recategorized) {
+		const entry = pagesBySlug.get(slug);
+		if (!entry?.pagePath) continue;
+		entry.category = "items";
+		if (group) entry.pageGroup = group;
+		delete entry.displayInList;
+		try {
+			const filePath = path.join(PAGES_BUILD_DIR, ...entry.pagePath.split("/"));
+			const pageJson = JSON.parse(await readFile(filePath, "utf8"));
+			pageJson.category = "items";
+			if (group) pageJson.pageGroup = group;
+			delete pageJson.displayInList;
+			await writeJson(filePath, pageJson);
+		} catch { /* ignore unreadable page */ }
+	}
+	const hiddenItemSlugs = new Set([...hideSlugs, "big-figures", "ancient-temple"]);
+	for (const page of pages) {
+		if (page.category !== "items" || !page.pagePath || hiddenItemSlugs.has(page.slug)) continue;
+		try {
+			const pageJson = JSON.parse(await readFile(path.join(PAGES_BUILD_DIR, ...page.pagePath.split("/")), "utf8"));
+			if ((pageJson.sections ?? []).some((section) => /^boss-|^localizacao-da-rift$|^primeira-etapa$|^acessando-o-calabouco$/.test(String(section.id ?? "")))) {
+				hiddenItemSlugs.add(page.slug);
+			}
+		} catch { /* ignore unreadable page */ }
+	}
+	for (const page of pages) {
+		if (!hiddenItemSlugs.has(page.slug)) continue;
+		page.displayInList = false;
+		// Keep the on-disk page in sync with the manifest entry (the bundle validator checks it).
+		if (!page.pagePath) continue;
+		try {
+			const filePath = path.join(PAGES_BUILD_DIR, ...page.pagePath.split("/"));
+			const pageJson = JSON.parse(await readFile(filePath, "utf8"));
+			pageJson.displayInList = false;
+			await writeJson(filePath, pageJson);
+		} catch { /* ignore unreadable page */ }
+	}
+
+	pages.sort((left, right) => {
+		const leftTitle = left.title?.[PT_BR] || "";
+		const rightTitle = right.title?.[PT_BR] || "";
+		return left.category.localeCompare(right.category) || leftTitle.localeCompare(rightTitle);
+	});
+	manifest.pages = pages;
+
 	await buildCanonicalRegistries(
 		pages.map((page) => page.pagePath),
 		PAGES_BUILD_DIR,

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { publishSection, structureSection, parsePokemonItemText, parseRewardItemText } from "../lib/transform.mjs";
+import { parseHeldCategoryGroups } from "../lib/transform/held-items.mjs";
 import { PT_BR } from "../lib/shared.mjs";
 
 function localizedSection(section) {
@@ -14,6 +15,19 @@ function localizedSection(section) {
 		...(section.wikiLinks ? { wikiLinks: { [PT_BR]: section.wikiLinks, en: section.wikiLinks, es: section.wikiLinks } } : {}),
 	};
 }
+
+test("parseHeldCategoryGroups reads pipe-separated tier values, not the pipes", () => {
+	const groups = parseHeldCategoryGroups([
+		"# Ofensivos",
+		"Attack4.png | X-Attack | 8% | 12% | 16% | 19% | 22% | 25% | 28% | 31% | N/A | Aumenta a força do Pokémon em X% .",
+	]);
+	const entry = groups.groups?.[0]?.entries?.[0];
+	assert.equal(entry.name, "X-Attack");
+	assert.deepEqual(entry.tiers.map((tier) => tier.value), ["8%", "12%", "16%", "19%", "22%", "25%", "28%", "31%", "N/A"]);
+	// No "|" separators leaked in as tier values.
+	assert.ok(!entry.tiers.some((tier) => tier.value === "|"));
+	assert.match(entry.description, /Aumenta a força/);
+});
 
 test("structureSection extracts pokemon profile, moves, effectiveness and variants", () => {
 	const info = structureSection(localizedSection({

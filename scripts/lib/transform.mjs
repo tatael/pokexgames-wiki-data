@@ -268,11 +268,20 @@ export function structureSection(section) {
 		if (Object.keys(abilities).length) result.abilities = abilities;
 	}
 
-	// Detect tabber-style abilities in prose sections not named "Habilidades"
-	// Triggers when paragraphs contain 2+ heading-grouped entries with descriptions
+	// Detect tabber-style abilities in prose sections not named "Habilidades".
+	// Triggers when paragraphs contain 2+ heading-grouped entries with descriptions.
+	// Skip mixed-prose sections: a pre-heading intro paragraph or bullet items would be
+	// silently dropped by the tab grouping (the bullets live in `items`, ungrouped), so
+	// such sections render as faithful prose instead.
+	const hasBulletItems = Object.values(section.items ?? {}).some((list) => (list ?? []).length);
+	const hasPreHeadingIntro = Object.values(section.paragraphs ?? {}).some((list) => {
+		const first = (list ?? []).map((value) => String(value ?? "").trim()).find(Boolean);
+		return first && !/^#+\s+/.test(first);
+	});
 	if (!result.abilities && !result.steps && !result.locations && !result.difficulties
 		&& !result.hazards && !result.heldCategories && !result.heldBoosts
 		&& !result.questSupport && !result.questPhases && !result.clanTasks
+		&& !hasBulletItems && !hasPreHeadingIntro
 		&& !["rewards", "tasks", "pokemon-group", "tier"].includes(kind)) {
 		const inferredAbilities = {};
 		for (const locale of Object.keys(section.paragraphs ?? {})) {

@@ -41,17 +41,21 @@ function splitTaskDetails(value) {
 }
 
 function parseCollectRows(text) {
-	if (!/^Coletar\b/i.test(normalizeLine(text))) return [];
+	// "Coletar" / "Entregar item" stages carry a Quantidade|Item table. Since table rows are
+	// now pipe-joined ("20 | Injection"), accept both the pipe form and the older space form,
+	// and stop before the trailing Observações/notes prose.
+	if (!/^(?:Coletar|Entregar)\b/i.test(normalizeLine(text))) return [];
 	const body = stripInlineImageArtifacts(normalizeLine(text)
-		.replace(/^Coletar\s+(?:Quantidade\s+Item\s+)?/i, "")
+		.replace(/^(?:Coletar|Entregar)\s+(?:item\s+)?(?:Quantidade\s*\|?\s*Item\s*|Item\s*\|?\s*Quantidade\s*)?/i, "")
+		.replace(/\bObserva[çc][õo]es\b[\s\S]*$/i, "")
 		.trim());
-	const rows = [...body.matchAll(/(\d[\d.]*)\s+(\p{Lu}[\p{L}0-9'(). -]+?)(?=\s+\d[\d.]*\s+\p{Lu}|$)/gu)]
-		.map((match) => ({
-			amount: match[1],
-			item: cleanTaskEntityName(match[2]),
-		}))
+	const pipeRows = [...body.matchAll(/(\d[\d.]*)\s*\|\s*([\p{L}][\p{L}0-9'(). -]+?)(?=\s+\d[\d.]*\s*\||$)/gu)]
+		.map((match) => ({ amount: match[1], item: cleanTaskEntityName(match[2]) }))
 		.filter((row) => row.item);
-	return rows;
+	if (pipeRows.length) return pipeRows;
+	return [...body.matchAll(/(\d[\d.]*)\s+(\p{Lu}[\p{L}0-9'(). -]+?)(?=\s+\d[\d.]*\s+\p{Lu}|$)/gu)]
+		.map((match) => ({ amount: match[1], item: cleanTaskEntityName(match[2]) }))
+		.filter((row) => row.item);
 }
 
 function parseDefeatTargets(text) {
@@ -99,9 +103,10 @@ function parseStage(number, rawText) {
 
 	const collectRows = parseCollectRows(text);
 	if (collectRows.length) {
+		const verb = text.match(/^(Coletar|Entregar)\b/i)?.[1] ?? "Coletar";
 		return {
 			number: Number(number),
-			label: "Coletar",
+			label: cleanStructuredText(/entregar/i.test(verb) ? "Entregar" : "Coletar"),
 			rows: collectRows,
 			details: [],
 		};
@@ -160,8 +165,19 @@ function parseRankBody(body) {
 	};
 }
 
+// Tabber-panel tables now extract as pipe-joined rows (" | Etapa 1 - ...", "20 | Injection").
+// The clan-task stage parsers expect the older space-joined prose, so flatten the pipes:
+// drop the leading colspan blank and turn every cell separator into a space.
+function stripTablePipes(line) {
+	return String(line ?? "")
+		.replace(/^\s*\|\s*/, "")
+		.replace(/\s*\|\s*/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
 export function parseClanTaskRanks(paragraphs = [], items = []) {
-	const lines = [...paragraphs, ...items].map(normalizeLine).filter(Boolean);
+	const lines = [...paragraphs, ...items].map(normalizeLine).map(stripTablePipes).filter(Boolean);
 	const ranks = [];
 	let current = null;
 

@@ -217,8 +217,10 @@ async function syncEntry(entry) {
 	const fallbackTitle = entry.title?.[PT_BR] || entry.slug;
 	const resolvedTitle = fallbackTitle || extractTitle(html, entry.slug);
 	const baseSections = extractSections(articleHtml, resolvedTitle, sourceUrl.toString());
-	const sectionsBase = isFlexTasksPage(articleHtml, { category: entry.category })
-		? mergeFlexTaskSections(baseSections, articleHtml, { slug: entry.slug })
+	// The flex-task data lives in a <script> (window.quests.*), which extractArticleHtml
+	// strips — read it from the raw page html instead.
+	const sectionsBase = isFlexTasksPage(html, { category: entry.category })
+		? mergeFlexTaskSections(baseSections, html, { slug: entry.slug })
 		: baseSections;
 	const provisionalSections = normalizeSections(sectionsBase, {
 		category: entry.category,

@@ -44,14 +44,18 @@ const SLUG_REGION_OVERRIDES = new Map([
 	["nightmare-tasks", "Nightmare"],
 ]);
 
+// The CMS wraps the task array with a `/* CMS_DATA_START */` comment between `=` and `[`,
+// so allow an optional block comment there.
+const FLEX_TASKS_ASSIGNMENT = /window\.quests\.[A-Za-z0-9_]+\s*=\s*(?:\/\*[\s\S]*?\*\/\s*)?\[/;
+
 export function isFlexTasksPage(html, pageContext = {}) {
 	if (pageContext?.category !== "tasks") return false;
-	return /window\.quests\.[A-Za-z0-9_]+\s*=\s*\[/.test(String(html ?? ""));
+	return FLEX_TASKS_ASSIGNMENT.test(String(html ?? ""));
 }
 
 export function extractFlexTasksData(html) {
 	const source = String(html ?? "");
-	const startRe = /window\.quests\.[A-Za-z0-9_]+\s*=\s*\[/g;
+	const startRe = new RegExp(FLEX_TASKS_ASSIGNMENT.source, "g");
 	const all = [];
 	let match;
 	while ((match = startRe.exec(source))) {

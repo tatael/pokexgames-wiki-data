@@ -448,6 +448,29 @@ function extractTableRows(html) {
 		const pveCol = headerCells ? findHeaderIndex(headerCells, ["funcao pve", "pve"]) : -1;
 		const pvpCol = headerCells ? findHeaderIndex(headerCells, ["funcao pvp", "pvp"]) : -1;
 
+		// A "reward showcase" table (e.g. Secret Lab floor rewards) puts the item names and
+		// quantities in the <th> header row and their icons in the <td> row(s) below. Here the
+		// header is data, not column labels — emit each header cell as its own line so every
+		// reward is captured with its quantity, instead of dropping the header and keeping only
+		// the flattened icon row.
+		if (headerCells && headerCells.length >= 3 && nameCol < 0 && pveCol < 0 && pvpCol < 0) {
+			const bodyRowsHtml = allRows.slice(dataStart);
+			const isIconRow = (rowHtml) => {
+				const tds = [...rowHtml.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => m[1]);
+				return tds.length >= 2 && tds.filter((td) => /<img\b/i.test(td)).length >= Math.ceil(tds.length * 0.6);
+			};
+			const headerLooksLikeItems = headerCells
+				.map((cell) => cleanTableCellText(cell))
+				.filter((cell) => cell.length >= 10 || /^\d+\s/.test(cell)).length >= Math.ceil(headerCells.length * 0.6);
+			if (bodyRowsHtml.length >= 1 && bodyRowsHtml.every(isIconRow) && headerLooksLikeItems) {
+				for (const cell of headerCells) {
+					const clean = cleanTableCellText(cell);
+					if (clean) rows.push(`* ${clean}`);
+				}
+				continue;
+			}
+		}
+
 		for (let i = dataStart; i < allRows.length; i += 1) {
 			const rowHtml = allRows[i];
 			if (!/<td\b/i.test(rowHtml)) {

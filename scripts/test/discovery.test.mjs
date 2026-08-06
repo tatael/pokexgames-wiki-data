@@ -130,3 +130,34 @@ test("discovery keeps linked image cards under index headings for boss fights an
 		}), false);
 	}
 });
+test("wiki-wide hub pages are not adopted as children of another category", () => {
+	const base = {
+		parentEntry: { slug: "entei" },
+		rootEntry: { slug: "boss-fight", category: "boss-fight" },
+		seenSlugs: new Set(),
+		excludeSlugs: new Set(),
+		excludeTitles: new Set(),
+	};
+
+	// "Pokémon TM" linked from a boss page previously produced a junk boss-fight page.
+	assert.equal(shouldSkipDiscoveredLink({ ...base, link: { title: "Pokémon", label: "Pokémon TM" } }), true);
+	assert.equal(shouldSkipDiscoveredLink({ ...base, link: { title: "Clãs", label: "Clan Tasks" } }), true);
+
+	// A real child link is still discovered.
+	assert.equal(shouldSkipDiscoveredLink({ ...base, link: { title: "Raikou", label: "Raikou" } }), false);
+});
+
+test("a hub page is still discovered when it is the root of its own tree", () => {
+	assert.equal(
+		shouldSkipDiscoveredLink({
+			link: { title: "Clãs", label: "Clãs" },
+			parentEntry: { slug: "wiki-root" },
+			rootEntry: { slug: "clas", category: "clans" },
+			seenSlugs: new Set(),
+			excludeSlugs: new Set(),
+			excludeTitles: new Set(),
+		}),
+		true,
+		"matches rootEntry.slug so it is skipped as a self-link, not adopted twice"
+	);
+});

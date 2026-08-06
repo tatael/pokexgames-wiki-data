@@ -61,15 +61,24 @@ export function parseCommerceEntries(normalizedId, normalizedHeading, pageKind =
 					? "cost"
 					: "generic";
 
+	// A source table sometimes lands in `paragraphs` instead of `items` (craft workshop
+	// pages do this). Left in `intro` it publishes as prose and the overlay prints the
+	// rows as a literal "A | B | C" wall, so the pipe rows are routed to `rows` and only
+	// genuine prose stays in `intro`.
+	const paragraphList = (paragraphs ?? []).map((value) => String(value ?? ""));
+	const isPipeRow = (value) => value.split("|").map((part) => part.trim()).filter(Boolean).length >= 2;
+	const paragraphRows = paragraphList.filter(isPipeRow);
+	const paragraphProse = paragraphList.filter((value) => !isPipeRow(value));
+
 	return {
 		type,
-		intro: (paragraphs ?? []).map(cleanStructuredText).filter(Boolean),
+		intro: paragraphProse.map(cleanStructuredText).filter(Boolean),
 		bullets: (items ?? [])
 			.filter((item) => !String(item ?? "").includes("|"))
 			.filter((item) => !String(item ?? "").startsWith("__POKEPARK_SCORE__"))
 			.map(cleanStructuredText)
 			.filter(Boolean),
-		rows: parsePipeRows(items).map((cells) => ({
+		rows: parsePipeRows([...items ?? [], ...paragraphRows]).map((cells) => ({
 			cells: cells.map((text) => ({ text })),
 		})),
 	};
@@ -163,6 +172,36 @@ function parseCraftIngredients(value) {
 	}
 
 	return entries;
+}
+
+function recipeVocabulary(entries = []) {
+	const words = new Set(["skill", "segundo", "segundos", "minuto", "minutos", "hora", "horas", "dia", "dias"]);
+	for (const entry of entries) {
+		const parts = [entry?.result?.name, entry?.duration, entry?.station, ...(entry?.ingredients ?? []).map((i) => i?.name)];
+		for (const part of parts) {
+			for (const word of String(part ?? "").toLowerCase().split(/[^\p{L}\p{N}']+/u)) {
+				if (word) words.add(word);
+			}
+		}
+	}
+
+	return words;
+}
+
+// When a craft table loses its cell boundaries, every `<br>` segment resurfaces as a
+// loose intro line ("MC Torchic Skill 100 1 Segundo 15 Food Bags", "70 Compressed
+// Fires"). Once the recipes have been parsed properly those lines are pure duplication,
+// so drop any line built entirely out of recipe vocabulary — real prose always carries
+// words the recipes never mention.
+export function pruneCraftIntro(intro = [], entries = []) {
+	if (!entries.length) return intro;
+	const vocabulary = recipeVocabulary(entries);
+	return (intro ?? []).filter((line) => {
+		const words = String(line ?? "").toLowerCase().split(/[^\p{L}\p{N}']+/u).filter(Boolean);
+		const meaningful = words.filter((word) => !/^\d+$/.test(word));
+		if (meaningful.length < 1) return true;
+		return !meaningful.every((word) => vocabulary.has(word));
+	});
 }
 
 export function parseCraftEntries(normalizedHeading, items = []) {

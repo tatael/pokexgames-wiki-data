@@ -1067,6 +1067,15 @@ export function extractSections(html, title, pageUrl = "") {
 	});
 }
 
+// True for lines that are page structure rather than prose: a "# Group" marker or a
+// pipe-delimited table row. They belong in tables and headings, never in a card summary.
+function isStructuralSummaryLine(value) {
+	const text = String(value ?? "").trim();
+	if (!text) return true;
+	if (/^#+\s/.test(text)) return true;
+	return text.split("|").map((part) => part.trim()).filter(Boolean).length >= 2;
+}
+
 export function buildSummary(sections) {
 	let summary = "";
 	const maxLength = 180;
@@ -1076,6 +1085,13 @@ export function buildSummary(sections) {
 		const paragraphs = section.paragraphs?.[PT_BR] ?? [];
 		for (const paragraph of paragraphs) {
 			if (!paragraph) {
+				continue;
+			}
+
+			// A card summary must read as a sentence. Structural lines — a "# Group"
+			// marker or a pipe-delimited table row — otherwise land on the card verbatim
+			// ("# 1-5 1 | 2 | | 4 | # 6-10 …").
+			if (isStructuralSummaryLine(paragraph)) {
 				continue;
 			}
 

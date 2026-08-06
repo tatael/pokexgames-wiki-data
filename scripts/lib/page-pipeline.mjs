@@ -268,70 +268,37 @@ export function resolvePokemonForms({ slug, title, profile, pageKind }) {
 	return forms.length ? forms : ["regular"];
 }
 
+// Every category needs all three languages. The old chain covered a handful and let the
+// rest fall through to `fallbackLabel`, which is the label of whichever page happened to
+// come first in that category — that is how `professions` ended up labelled "Nightmare
+// Rifts". Proper nouns the game does not translate ("Dimensional Zone") repeat on purpose.
+const CATEGORY_LABELS = new Map([
+	["boss-fight", { "pt-BR": "Boss Fight", en: "Boss Fight", es: "Boss Fight" }],
+	["clans", { "pt-BR": "Clãs", en: "Clans", es: "Clanes" }],
+	["daily-missions", { "pt-BR": "Missões Diárias", en: "Daily Missions", es: "Misiones Diarias" }],
+	["dimensional-zone", { "pt-BR": "Dimensional Zone", en: "Dimensional Zone", es: "Dimensional Zone" }],
+	["embedded-tower", { "pt-BR": "Embedded Tower", en: "Embedded Tower", es: "Embedded Tower" }],
+	["events", { "pt-BR": "Eventos", en: "Events", es: "Eventos" }],
+	["held-items", { "pt-BR": "Held Itens", en: "Held Items", es: "Held Items" }],
+	["items", { "pt-BR": "Itens", en: "Items", es: "Objetos" }],
+	["mystery-dungeons", { "pt-BR": "Mystery Dungeons", en: "Mystery Dungeons", es: "Mystery Dungeons" }],
+	["nightmare-rifts", { "pt-BR": "Nightmare Rifts", en: "Nightmare Rifts", es: "Nightmare Rifts" }],
+	["nightmare-world", { "pt-BR": "Nightmare World", en: "Nightmare World", es: "Nightmare World" }],
+	["npcs", { "pt-BR": "NPCs", en: "NPCs", es: "NPCs" }],
+	["pokemon", { "pt-BR": "Pokémon", en: "Pokemon", es: "Pokemon" }],
+	["professions", { "pt-BR": "Profissões", en: "Professions", es: "Profesiones" }],
+	["quests", { "pt-BR": "Quests", en: "Quests", es: "Quests" }],
+	["secret-lab", { "pt-BR": "Secret Lab", en: "Secret Lab", es: "Secret Lab" }],
+	["systems", { "pt-BR": "Sistemas", en: "Systems", es: "Sistemas" }],
+	["tasks", { "pt-BR": "Tasks", en: "Tasks", es: "Tasks" }],
+	["territory-guardians", { "pt-BR": "Guardiões de Território", en: "Territory Guardians", es: "Guardianes de Territorio" }],
+	["tools", { "pt-BR": "Ferramentas", en: "Tools", es: "Herramientas" }],
+	["ultra-lab", { "pt-BR": "Ultra Lab", en: "Ultra Lab", es: "Ultra Lab" }],
+]);
+
 export function resolveCategoryLabel(categoryId, fallbackLabel) {
-	if (categoryId === "territory-guardians") {
-		return {
-			"pt-BR": "Guardiões de Território",
-			en: "Territory Guardians",
-			es: "Guardianes de Territorio",
-		};
-	}
-
-	if (categoryId === "daily-missions") {
-		return {
-			"pt-BR": "Missões Diárias",
-			en: "Daily Missions",
-			es: "Misiones Diarias",
-		};
-	}
-
-	if (categoryId === "dimensional-zone") {
-		return {
-			"pt-BR": "Dimensional Zone",
-			en: "Dimensional Zone",
-			es: "Dimensional Zone",
-		};
-	}
-
-	if (categoryId === "quests") {
-		return {
-			"pt-BR": "Quests",
-			en: "Quests",
-			es: "Quests",
-		};
-	}
-
-	if (categoryId === "held-items") {
-		return {
-			"pt-BR": "Held Itens",
-			en: "Held Items",
-			es: "Held Items",
-		};
-	}
-
-	if (categoryId === "events") {
-		return {
-			"pt-BR": "Eventos",
-			en: "Events",
-			es: "Eventos",
-		};
-	}
-
-	if (categoryId === "systems") {
-		return {
-			"pt-BR": "Sistemas",
-			en: "Systems",
-			es: "Sistemas",
-		};
-	}
-
-	if (categoryId === "pokemon") {
-		return {
-			"pt-BR": "Pokémon",
-			en: "Pokemon",
-			es: "Pokemon",
-		};
-	}
+	const known = CATEGORY_LABELS.get(categoryId);
+	if (known) return { ...known };
 
 	return cleanLocalizedTextMap(fallbackLabel, {
 		"pt-BR": categoryId,
@@ -729,6 +696,7 @@ const PUBLISHED_TYPED_SECTION_KEYS = [
 	"heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails",
 	"questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression",
 	"embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries",
+	"travelNetwork", "boostLookup", "talentTrees", "pokelogEntries",
 ];
 
 function hasLocalizedEntries(map) {
@@ -754,6 +722,7 @@ export function normalizeSections(sectionsBase, pageContext = {}) {
 		const normalizedHeading = normalizeCategoryText(section.heading?.[PT_BR] ?? "");
 		if (normalizedSectionId === "indice" || normalizedHeading === "indice") return [];
 		if (isNavigationMenuSection(normalizedSectionId, normalizedHeading)) return [];
+		if (isTemplatePlaceholderSection(section)) return [];
 
 		const paragraphs = section.paragraphs?.[PT_BR] || [];
 		const items = section.items?.[PT_BR] || [];
@@ -869,12 +838,53 @@ function findIntroductionSummary(sections = []) {
 		?? intro?.content?.en?.paragraphs
 		?? intro?.content?.es?.paragraphs
 		?? [];
-	return cleanSummaryText(paragraphs.find(Boolean) ?? "");
+	const media = intro?.media?.[PT_BR] ?? intro?.media?.en ?? intro?.media?.es ?? [];
+	return stripLeadingMediaCaption(cleanSummaryText(paragraphs.find(Boolean) ?? ""), media);
+}
+
+// An intro paragraph often begins with the banner's caption ("Banner Nightmare Crystal
+// Nos locais de caça…"), because the image alt is flattened into the text ahead of the
+// real sentence. On a category card that caption is all the reader sees, so a leading
+// run matching one of the section's own media names is dropped.
+function stripLeadingMediaCaption(summary, media = []) {
+	let text = String(summary ?? "").trim();
+	if (!text) return text;
+
+	const captions = (media ?? [])
+		.flatMap((item) => [item?.alt, decodeURIComponent(String(item?.url ?? "").split("/").pop() ?? "")])
+		.map((value) => String(value ?? "")
+			.replace(/\.(?:png|gif|webp|jpe?g|svg)$/i, "")
+			.replace(/[_-]+/g, " ")
+			.replace(/\s+/g, " ")
+			.trim())
+		.filter((value) => value.length >= 3)
+		.sort((a, b) => b.length - a.length);
+
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const caption of captions) {
+			// Only a caption sitting at the very front is noise; the same words later in
+			// the sentence are ordinary prose.
+			if (!text.toLowerCase().startsWith(caption.toLowerCase())) continue;
+			const rest = text.slice(caption.length).replace(/^[\s:–—-]+/, "");
+			// Never strip so much that nothing readable is left.
+			if (rest.length < 24) continue;
+			text = rest;
+			changed = true;
+			break;
+		}
+	}
+
+	return text.trim();
 }
 
 function cleanSummaryText(value) {
+	// Wiki file names are multi-word ("Banner Nightmare Crystal.png"). Consuming only the
+	// word immediately before the extension left "Banner Nightmare" stranded at the head
+	// of the card summary, so the whole preceding word run goes with it.
 	return cleanStructuredText(cleanDisplayText(value)
-		.replace(/\b(?:\d{1,4}[-_][\p{L}\p{N}_%()'-]+\s+)?[\p{L}\p{N}_%()'-]+\.(?:png|gif|webp|jpe?g|svg)\s*/giu, ""));
+		.replace(/\b(?:\d{1,4}[-_])?[\p{L}\p{N}_%()'-]+(?:\s+[\p{L}\p{N}_%()'-]+){0,5}\.(?:png|gif|webp|jpe?g|svg)\s*/giu, ""));
 }
 
 function isPossibleCapturesSection(normalizedId, normalizedHeading) {
@@ -932,6 +942,19 @@ function captureItemsFromMedia(media = []) {
 
 function isDimensionalZonePage(pageContext = {}) {
 	return pageContext.category === "dimensional-zone" && /^dz-/.test(String(pageContext.slug ?? ""));
+}
+
+// A widget's unrendered row template can survive scraping as a normal section — the
+// Quests index published a `name` section whose only body was `# {{name}}`, carrying the
+// template's dummy cards ("poke ball 1", "nightmare ball") as if they were real links.
+// Placeholder syntax in the visible text is the tell; no wiki page writes `{{x}}` as prose.
+function isTemplatePlaceholderSection(section) {
+	const text = [
+		...(section.paragraphs?.[PT_BR] ?? []),
+		...(section.items?.[PT_BR] ?? []),
+		section.heading?.[PT_BR] ?? "",
+	].join(" ");
+	return /\{\{\s*[\w.]+\s*\}\}/.test(text);
 }
 
 function isNavigationMenuSection(normalizedId, normalizedHeading) {

@@ -75,8 +75,23 @@ function deriveCardLabel(entry) {
 
 function parseSupportRows(items = []) {
 	return parsePipeRows(items).map((cells) => ({
-		cells: cells.map((text) => ({ text })),
+		cells: stripLeadingCellEcho(cells).map((text) => ({ text })),
 	}));
+}
+
+// The "Bosses e Tablets" table has an Andar cell holding a sprite plus the floor number.
+// The sprite's alt is the boss name, so the flattened cell becomes "1º Shiny Salamence"
+// while the very next cell is "Shiny Salamence" — the same name printed twice per row.
+// Trim the echoed suffix so the Andar column shows just the floor.
+function stripLeadingCellEcho(cells = []) {
+	if (cells.length < 2) return cells;
+	const first = String(cells[0] ?? "").trim();
+	const second = String(cells[1] ?? "").trim();
+	if (!first || !second || first === second) return cells;
+	if (!first.endsWith(second)) return cells;
+	const trimmed = first.slice(0, first.length - second.length).trim();
+	if (!trimmed) return cells;
+	return [trimmed, ...cells.slice(1)];
 }
 
 function isEmbeddedTowerMediaOnlyLine(value = "") {

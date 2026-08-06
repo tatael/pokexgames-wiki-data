@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { publishSection, structureSection, parsePokemonItemText, parseRewardItemText } from "../lib/transform.mjs";
-import { parseHeldCategoryGroups } from "../lib/transform/held-items.mjs";
+import { parseDifficultyEntries } from "../lib/transform/boss-fight.mjs";
+import { parseEmbeddedTowerSupport } from "../lib/transform/embedded-tower.mjs";
+import { parseHeldBoostGroups, parseHeldCategoryGroups } from "../lib/transform/held-items.mjs";
+import { extractParagraphTableGroups } from "../lib/transform/publish.mjs";
 import { PT_BR } from "../lib/shared.mjs";
 
 function localizedSection(section) {
@@ -1808,4 +1811,288 @@ test("quest parser strips parenthesized image refs, trailing asterisks, and dedu
 	assert.ok(!cardLabels.includes("rock electric"), "type-effectiveness label must be filtered");
 	assert.ok(!cardLabels.includes("ground water grass"), "type-effectiveness label must be filtered");
 	assert.ok(cardLabels.includes("geodude"), "real pokemon labels remain");
+});
+
+test("a prose wall of pipe rows is promoted into grouped tables, not published as paragraphs", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "aceitando-um-contrato",
+		heading: "Aceitando um Contrato",
+		paragraphs: [
+			"Escolha um contrato com o NPC para começar.",
+			"# Ironhard",
+			"| Pokémon | Tipagem | Efetivo contra",
+			"395-Empoleon.png | Empoleon | Water",
+			"208-Steelix.png | Steelix | Steel",
+			"# Gardestrike",
+			"062-Poliwrath.png | Poliwrath | Fighting",
+			"065-Alakazam.png | Alakazam | Psychic",
+		],
+	})));
+
+	const paragraphs = section.content?.[PT_BR]?.paragraphs ?? [];
+	assert.deepEqual(paragraphs, ["Escolha um contrato com o NPC para começar."]);
+	assert.ok(!paragraphs.some((line) => line.includes("|")), "no pipe wall may survive in prose");
+
+	const tables = section.tables?.[PT_BR] ?? [];
+	assert.equal(tables.length, 2);
+	assert.equal(tables[0].title, "Ironhard");
+	assert.equal(tables[1].title, "Gardestrike");
+	assert.equal(tables[0].rows.length, 3);
+	assert.equal(tables[1].rows.length, 2);
+	// mergeIconNameCells folds the sprite icon into the name cell.
+	assert.equal(tables[1].rows[0].cells[0].text, "Poliwrath");
+});
+
+test("paragraph tables and item tables coexist without losing either", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "informacoes",
+		heading: "Informações",
+		items: ["Andar acima | Andar abaixo", "400-424 | 60 Gems"],
+		paragraphs: [
+			"# Extra",
+			"Potion.png | Potion | 100",
+			"Elixir.png | Elixir | 250",
+		],
+	})));
+
+	const tables = section.tables?.[PT_BR] ?? [];
+	assert.equal(tables.length, 2);
+	assert.equal(tables[0].title, undefined, "item-derived table stays untitled");
+	assert.equal(tables[1].title, "Extra");
+	assert.equal(tables[1].rows.length, 2);
+});
+
+test("a block of icon+label pairs becomes a list, not a table or a pipe wall", () => {
+	const { groups, listItems, remaining } = extractParagraphTableGroups([
+		"# Icones",
+		"Potion.png | Potion",
+		"Elixir.png | Elixir",
+		"Depois do bloco.",
+	]);
+
+	// Each pair merges down to one cell, so it is a list of items rather than a table.
+	assert.deepEqual(groups, [], "icon+label pairs are not a two-column table");
+	assert.deepEqual(listItems, ["Potion.png Potion", "Elixir.png Elixir"]);
+	// The heading and surrounding prose survive; only the rows moved.
+	assert.deepEqual(remaining, ["# Icones", "Depois do bloco."]);
+	assert.ok(!remaining.some((line) => line.includes("|")), "no pipe row stays in prose");
+});
+
+test("promotion never drops a source line it cannot classify", () => {
+	const paragraphs = [
+		"# Misto",
+		"Um | Dois | Tres",
+		"Potion.png | Potion",
+		"Depois do bloco.",
+	];
+	const { groups, listItems, remaining } = extractParagraphTableGroups(paragraphs);
+
+	// Mixed shapes are ambiguous, so the block is handed back untouched.
+	assert.deepEqual(groups, []);
+	assert.deepEqual(listItems, []);
+	assert.deepEqual(remaining, paragraphs, "every line is handed back verbatim");
+});
+
+test("a lone pipe line in prose is left alone rather than turned into a table", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "introducao",
+		heading: "Introdução",
+		paragraphs: ["Use o comando !status | veja o resultado na tela."],
+	})));
+
+	assert.equal(section.tables, undefined);
+	assert.deepEqual(section.content?.[PT_BR]?.paragraphs, ["Use o comando !status | veja o resultado na tela."]);
+});
+
+test("prose around a promoted table is kept and the table heading is consumed", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "dicas",
+		heading: "Dicas",
+		paragraphs: [
+			"Leve poções extras.",
+			"# Tabela",
+			"Item | Custo",
+			"Potion | 100",
+		],
+	})));
+
+	const paragraphs = section.content?.[PT_BR]?.paragraphs ?? [];
+	assert.deepEqual(paragraphs, ["Leve poções extras."]);
+	assert.ok(!paragraphs.includes("# Tabela"), "heading of a promoted table is consumed");
+	assert.equal(section.tables?.[PT_BR]?.[0]?.title, "Tabela");
+});
+
+test("a block is not promoted when any row would publish fewer than two cells", () => {
+	// The bundle schema rejects one-cell rows, so a block that cannot publish every
+	// row must stay prose instead of shipping a partial table.
+	const paragraphs = [
+		"# Insignias",
+		"League Brock.png | Brock | Insignia Rocha.png | Rocha",
+		"Gym Battle.gif | Duelo",
+		"142-Aerodactyl.png | Aerodactyl | Rock",
+	];
+	const { groups, remaining } = extractParagraphTableGroups(paragraphs);
+	assert.deepEqual(groups, []);
+	assert.deepEqual(remaining, paragraphs);
+});
+
+test("standalone objective and entry-cost lines fold into the difficulty table", () => {
+	const { intro, entries } = parseDifficultyEntries([
+		"Os jogadores podem realizar as Boss Fights em três dificuldades: Fácil, Normal e Difícil",
+		"Os jogadores deverão deixar a vida do Suicune em 65% para concluir",
+		"Para entrar nesta dificuldade, é necessário que o jogador tenha 1 Suicune Charm",
+		"Os jogadores deverão deixar a vida do Suicune em 50% para concluir",
+		"Para entrar nesta dificuldade, é necessário que o jogador tenha 3 Suicune Charm",
+		"Os jogadores deverão deixar a vida do Suicune em 10% para concluir",
+		"Para entrar nesta dificuldade, é necessário que o jogador tenha 6 Suicune Charm",
+		"Fácil: requer no mínimo nível 200; é recomendada para nível 250 ou superior",
+		"Normal: requer no mínimo nível 300; é recomendada para nível 350 ou superior",
+		"Difícil: requer no mínimo nível 400, é recomendada para nível 500 ou superior",
+	], []);
+
+	assert.equal(intro.length, 1, "only the general sentence stays as prose");
+	assert.equal(entries.length, 3);
+	assert.equal(entries[0].entryRequirement.amount, 1);
+	assert.equal(entries[0].entryRequirement.name, "Suicune Charm");
+	assert.match(entries[0].objective, /65%/);
+	assert.equal(entries[2].entryRequirement.amount, 6);
+	assert.match(entries[2].objective, /10%/);
+});
+
+test("loose difficulty lines are left alone when they do not cover every difficulty", () => {
+	const { intro, entries } = parseDifficultyEntries([
+		"Os jogadores deverão deixar a vida do Boss em 65% para concluir",
+		"Fácil: requer no mínimo nível 200",
+		"Normal: requer no mínimo nível 300",
+	], []);
+
+	// One objective for two difficulties would have to be guessed, so nothing moves.
+	assert.equal(intro.length, 1);
+	assert.equal(entries.every((entry) => !entry.objective), true);
+});
+
+test("a commerce table that arrived as paragraphs publishes as rows, not intro prose", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "crafts-de-alquimista",
+		heading: "Crafts de Alquimista",
+		paragraphs: [
+			"# Crafts Workshop",
+			"Item | Habilidade | Tempo de espera",
+			"Kamikaze Elixir (10x) | Skill 103 | 20 Segundos",
+			"Iron Wall Elixir (10x) | Skill 105 | 20 Segundos",
+		],
+	})));
+
+	const commerce = section.commerceEntries?.[PT_BR];
+	assert.ok(commerce, "the section should still publish commerce entries");
+	assert.equal(commerce.rows.length, 3, "header plus both data rows become rows");
+	assert.equal(commerce.rows[1].cells[0].text, "Kamikaze Elixir (10x)");
+	assert.ok(
+		!commerce.intro.some((line) => line.includes("|")),
+		"no pipe row may stay in the prose intro"
+	);
+	assert.ok(commerce.intro.includes("# Crafts Workshop"), "real prose is kept");
+});
+
+test("a header row followed by icon+label rows becomes a titled list", () => {
+	const { groups, listItems, remaining } = extractParagraphTableGroups([
+		"Lorelei Disciple | | Pokémon Utilizados",
+		"087-Dewgong.png | Dewgong",
+		"225-Delibird.png | Delibird",
+	]);
+
+	assert.deepEqual(groups, [], "a one-column roster is not a table");
+	assert.deepEqual(listItems, ["087-Dewgong.png Dewgong", "225-Delibird.png Delibird"]);
+	assert.deepEqual(remaining, ["# Lorelei Disciple — Pokémon Utilizados"]);
+	assert.ok(!remaining.some((line) => line.includes("|")), "the header row must not stay as a pipe row");
+});
+
+test("stacked rosters are left alone rather than split at every multi-cell row", () => {
+	// Splitting here was measured worse: a 3-column roster row is not a header, and
+	// joining its cells leaked raw filenames into visible text.
+	const paragraphs = [
+		"Lorelei Disciple | | Pokémon Utilizados",
+		"087-Dewgong.png | Dewgong",
+		"Bruno | | Pokémon Utilizados | Fraquezas",
+		"068-Machamp.png | Machamp",
+	];
+	const { groups, listItems, remaining } = extractParagraphTableGroups(paragraphs);
+
+	assert.deepEqual(groups, []);
+	assert.deepEqual(listItems, []);
+	assert.deepEqual(remaining, paragraphs, "the mixed block is handed back verbatim");
+});
+
+test("paragraphs that echo a published table cell are dropped", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "exclusividades",
+		heading: "Exclusividades",
+		items: ["Item | Materiais", "Nightmare Pokégear | 40 Black Lucky Charms 40 Green Hairs 25 Diamonds"],
+		paragraphs: [
+			"Os Hackers são responsáveis pela criação de vários itens.",
+			"40 Black Lucky Charms",
+			"40 Green Hairs",
+			"25 Diamonds",
+		],
+	})));
+
+	const paragraphs = section.content?.[PT_BR]?.paragraphs ?? [];
+	// The ingredient lines already render inside the table; printing them again above
+	// and below it is the "wall of text" duplication.
+	assert.deepEqual(paragraphs, ["Os Hackers são responsáveis pela criação de vários itens."]);
+	assert.ok((section.tables?.[PT_BR]?.[0]?.rows ?? []).length >= 2, "the table itself survives");
+});
+
+test("prose is never dropped just because it mentions an item in the table", () => {
+	const section = publishSection(structureSection(localizedSection({
+		id: "exclusividades",
+		heading: "Exclusividades",
+		items: ["Item | Materiais", "Pokégear | 40 Black Lucky Charms"],
+		paragraphs: [
+			"Você precisa de 40 Black Lucky Charms para concluir o craft.",
+			"Guarde os materiais antes de começar.",
+		],
+	})));
+
+	const paragraphs = section.content?.[PT_BR]?.paragraphs ?? [];
+	assert.equal(paragraphs.length, 2, "sentence-like lines survive the echo filter");
+});
+
+test("the Bosses e Tablets Andar column drops the echoed boss name", () => {
+	// The Andar cell holds a sprite plus the floor number, and the sprite alt is the boss
+	// name, so the flattened cell repeats the next column.
+	const parsed = parseEmbeddedTowerSupport("fragmentos", "Fragmentos", [], [
+		"Andar | Boss | Item",
+		"1º Shiny Salamence | Shiny Salamence | Blue Wings",
+		"4º Shiny Scizor | Shiny Scizor | Green scizor claw",
+	]);
+
+	assert.deepEqual(parsed.rows.map((row) => row.cells.map((cell) => cell.text)), [
+		["Andar", "Boss", "Item"],
+		["1º", "Shiny Salamence", "Blue Wings"],
+		["4º", "Shiny Scizor", "Green scizor claw"],
+	]);
+});
+
+test("a cell that merely starts with the next column is left alone", () => {
+	const parsed = parseEmbeddedTowerSupport("fragmentos", "Fragmentos", [], [
+		"Andar | Boss",
+		"Shiny Salamence extra | Shiny Salamence",
+	]);
+	// Only an echoed suffix is trimmed; anything else could be real content.
+	assert.deepEqual(parsed.rows[1].cells.map((cell) => cell.text), ["Shiny Salamence extra", "Shiny Salamence"]);
+});
+
+test("a prose sentence is not published as a utility held item", () => {
+	// The stat parser turns "X-Boost concede um bônus base que escala…" into one word per
+	// tier, which rendered as a held item with a nonsense tier table.
+	const groups = parseHeldBoostGroups([
+		"# Utilitários X",
+		"X-Lucky 10% 20% 35% 40% 45% 50% 55% 60% N/A",
+		"X-Boost concede um bônus base que escala conforme a faixa de nível do jogador",
+	]);
+
+	const names = (groups.utilities ?? []).flatMap((group) => group.entries.map((entry) => entry.name));
+	assert.ok(names.includes("X-Lucky"), "a real held item survives");
+	assert.ok(!names.some((name) => /concede/.test(name)), "the sentence is dropped");
 });

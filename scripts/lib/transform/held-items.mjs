@@ -82,6 +82,20 @@ export function parseHeldDetails(paragraphs = [], items = []) {
 	return { intro, entries };
 }
 
+// A held item's tier values are numbers, percentages or "N/A". A prose sentence fed
+// through the stat parser produces one word per tier ("X-Boost concede | um | bônus |
+// base | que …"), which then renders as a bogus held item with a nonsense table.
+function hasHeldItemTierValues(entry) {
+	const tiers = entry?.tiers ?? [];
+	if (!tiers.length) return false;
+	const valueLike = tiers.filter((tier) => {
+		const value = String(tier?.value ?? "").trim();
+		if (!value) return false;
+		return /\d/.test(value) || /^n\s*\/?\s*a$/i.test(value);
+	});
+	return valueLike.length >= Math.ceil(tiers.length / 2);
+}
+
 export function parseHeldBoostGroups(paragraphs = []) {
 	const ranges = [];
 	const utilities = [];
@@ -107,7 +121,8 @@ export function parseHeldBoostGroups(paragraphs = []) {
 			continue;
 		}
 
-		const entries = parseHeldStatEntries(text, /utility y/i.test(currentTitle) ? 7 : 9);
+		const entries = parseHeldStatEntries(text, /utility y/i.test(currentTitle) ? 7 : 9)
+			.filter(hasHeldItemTierValues);
 		if (entries.length) {
 			utilities.push({
 				name: currentTitle || `Grupo ${utilities.length + 1}`,

@@ -44,6 +44,10 @@ const TYPED_SECTION_KEYS = [
 	"linkedCards",
 	"commerceEntries",
 	"craftEntries",
+	"travelNetwork",
+	"boostLookup",
+	"talentTrees",
+	"pokelogEntries",
 	"facts",
 	"tasks",
 	"taskGroups",
@@ -355,6 +359,113 @@ function validateCraftEntriesPayload(entry, fieldName) {
 			validateString(ingredient.name, `${fieldName}.entries.${entryIndex}.ingredients.${ingredientIndex}.name`);
 			if (typeof ingredient.amount !== "number" || !Number.isFinite(ingredient.amount) || ingredient.amount <= 0) {
 				throw new Error(`${fieldName}.entries.${entryIndex}.ingredients.${ingredientIndex}.amount must be a positive number`);
+			}
+		}
+	}
+}
+
+// A travel graph is only useful if every link lands on a point that exists — a dangling
+// endpoint makes a destination silently unreachable instead of failing loudly.
+function validateTravelNetworkPayload(entry, fieldName) {
+	if (!Array.isArray(entry.points) || !entry.points.length) throw new Error(`${fieldName}.points must be a non-empty array`);
+	if (!Array.isArray(entry.links) || !entry.links.length) throw new Error(`${fieldName}.links must be a non-empty array`);
+
+	const ids = new Set();
+	for (const [index, point] of entry.points.entries()) {
+		if (!isPlainObject(point)) throw new Error(`${fieldName}.points.${index} must be an object`);
+		validateString(point.id, `${fieldName}.points.${index}.id`);
+		for (const axis of ["x", "y"]) {
+			if (typeof point[axis] !== "number" || !Number.isFinite(point[axis])) {
+				throw new Error(`${fieldName}.points.${index}.${axis} must be a finite number`);
+			}
+		}
+		if (point.kind !== "city" && point.kind !== "stop") throw new Error(`${fieldName}.points.${index}.kind must be "city" or "stop"`);
+		if (point.isVip !== undefined && typeof point.isVip !== "boolean") throw new Error(`${fieldName}.points.${index}.isVip must be a boolean`);
+		if (point.image !== undefined) validateString(point.image, `${fieldName}.points.${index}.image`);
+		ids.add(point.id);
+	}
+
+	for (const [index, link] of entry.links.entries()) {
+		if (!isPlainObject(link)) throw new Error(`${fieldName}.links.${index} must be an object`);
+		for (const end of ["from", "to"]) {
+			validateString(link[end], `${fieldName}.links.${index}.${end}`);
+			if (!ids.has(link[end])) throw new Error(`${fieldName}.links.${index}.${end} points at an unknown place`);
+		}
+		if (typeof link.bidirectional !== "boolean") throw new Error(`${fieldName}.links.${index}.bidirectional must be a boolean`);
+		if (link.requiresVip !== undefined && typeof link.requiresVip !== "boolean") throw new Error(`${fieldName}.links.${index}.requiresVip must be a boolean`);
+		if (link.note !== undefined) validateString(link.note, `${fieldName}.links.${index}.note`);
+	}
+}
+
+function validateBoostLookupPayload(entry, fieldName) {
+	if (!Array.isArray(entry.groups) || !entry.groups.length) throw new Error(`${fieldName}.groups must be a non-empty array`);
+	for (const [index, group] of entry.groups.entries()) {
+		if (!isPlainObject(group)) throw new Error(`${fieldName}.groups.${index} must be an object`);
+		if (!Number.isFinite(group.boost)) throw new Error(`${fieldName}.groups.${index}.boost must be a number`);
+		if (!Array.isArray(group.pokemon) || !group.pokemon.length) throw new Error(`${fieldName}.groups.${index}.pokemon must be a non-empty array`);
+		for (const [pokemonIndex, pokemon] of group.pokemon.entries()) {
+			if (!isPlainObject(pokemon)) throw new Error(`${fieldName}.groups.${index}.pokemon.${pokemonIndex} must be an object`);
+			validateString(pokemon.name, `${fieldName}.groups.${index}.pokemon.${pokemonIndex}.name`);
+			if (pokemon.image !== undefined) validateString(pokemon.image, `${fieldName}.groups.${index}.pokemon.${pokemonIndex}.image`);
+		}
+	}
+}
+
+function validateTalentTreesPayload(entry, fieldName) {
+	for (const key of ["maxPoints", "maxSpecialPoints", "pointsRequiredForSpecial"]) {
+		if (!Number.isInteger(entry[key]) || entry[key] < 0) throw new Error(`${fieldName}.${key} must be a non-negative integer`);
+	}
+	if (!Array.isArray(entry.trees) || !entry.trees.length) throw new Error(`${fieldName}.trees must be a non-empty array`);
+
+	for (const [index, tree] of entry.trees.entries()) {
+		if (!isPlainObject(tree)) throw new Error(`${fieldName}.trees.${index} must be an object`);
+		validateString(tree.id, `${fieldName}.trees.${index}.id`);
+		validateString(tree.name, `${fieldName}.trees.${index}.name`);
+		if (!Array.isArray(tree.skills) || !tree.skills.length) throw new Error(`${fieldName}.trees.${index}.skills must be a non-empty array`);
+
+		const skillIds = new Set(tree.skills.map((skill) => skill?.id));
+		for (const [skillIndex, skill] of tree.skills.entries()) {
+			const skillField = `${fieldName}.trees.${index}.skills.${skillIndex}`;
+			if (!isPlainObject(skill)) throw new Error(`${skillField} must be an object`);
+			validateString(skill.id, `${skillField}.id`);
+			validateString(skill.name, `${skillField}.name`);
+			if (!Array.isArray(skill.prereqs)) throw new Error(`${skillField}.prereqs must be an array`);
+			// A prerequisite naming a skill that is not in the tree would lock a node
+			// permanently, so it is a data defect rather than a display problem.
+			for (const prereq of skill.prereqs) {
+				if (!skillIds.has(prereq)) throw new Error(`${skillField}.prereqs names unknown skill ${prereq}`);
+			}
+			for (const key of ["description", "value", "unit"]) {
+				if (skill[key] !== undefined) validateString(skill[key], `${skillField}.${key}`);
+			}
+			for (const key of ["isStart", "isSpecial"]) {
+				if (skill[key] !== undefined && typeof skill[key] !== "boolean") throw new Error(`${skillField}.${key} must be a boolean`);
+			}
+		}
+	}
+}
+
+function validatePokelogEntriesPayload(entry, fieldName) {
+	if (!Array.isArray(entry.entries) || !entry.entries.length) throw new Error(`${fieldName}.entries must be a non-empty array`);
+	for (const [index, pokemon] of entry.entries.entries()) {
+		const field = `${fieldName}.entries.${index}`;
+		if (!isPlainObject(pokemon)) throw new Error(`${field} must be an object`);
+		validateString(pokemon.name, `${field}.name`);
+		for (const key of ["dex", "image", "pokelogCategory", "experienceCategory"]) {
+			if (pokemon[key] !== undefined) validateString(pokemon[key], `${field}.${key}`);
+		}
+		if (pokemon.elements !== undefined) {
+			if (!Array.isArray(pokemon.elements)) throw new Error(`${field}.elements must be an array`);
+			for (const element of pokemon.elements) validateString(element, `${field}.elements`);
+		}
+		if (!Array.isArray(pokemon.stages) || !pokemon.stages.length) throw new Error(`${field}.stages must be a non-empty array`);
+		for (const [stageIndex, stage] of pokemon.stages.entries()) {
+			if (!isPlainObject(stage)) throw new Error(`${field}.stages.${stageIndex} must be an object`);
+			if (!Number.isFinite(stage.amount)) throw new Error(`${field}.stages.${stageIndex}.amount must be a number`);
+			for (const key of ["research", "pokelog", "experience"]) {
+				if (stage[key] !== null && stage[key] !== undefined && !Number.isFinite(stage[key])) {
+					throw new Error(`${field}.stages.${stageIndex}.${key} must be a number or null`);
+				}
 			}
 		}
 	}
@@ -746,6 +857,10 @@ function validateSection(section, fieldName) {
 		validateTypedRowsSupportPayload(entry, entryFieldName, ["exchange", "shop", "craft", "cost", "generic", "pokepark-score"])
 	);
 	validateStructuredObjectMap(section.craftEntries, `${fieldName}.craftEntries`, ["entries"], validateCraftEntriesPayload);
+	validateStructuredObjectMap(section.travelNetwork, `${fieldName}.travelNetwork`, ["points", "links"], validateTravelNetworkPayload);
+	validateStructuredObjectMap(section.boostLookup, `${fieldName}.boostLookup`, ["groups"], validateBoostLookupPayload);
+	validateStructuredObjectMap(section.talentTrees, `${fieldName}.talentTrees`, ["maxPoints", "maxSpecialPoints", "pointsRequiredForSpecial", "trees"], validateTalentTreesPayload);
+	validateStructuredObjectMap(section.pokelogEntries, `${fieldName}.pokelogEntries`, ["entries"], validatePokelogEntriesPayload);
 
 	if (section.mediaRefs !== undefined) {
 		for (const [locale, refs] of Object.entries(section.mediaRefs)) {

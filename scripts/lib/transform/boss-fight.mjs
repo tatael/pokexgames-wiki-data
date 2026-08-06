@@ -330,7 +330,65 @@ export function parseDifficultyEntries(paragraphs = [], items = []) {
 		});
 	}
 
-	return { intro, entries, notes };
+	return attachLooseDifficultyDetails({ intro, entries, notes });
+}
+
+// Some boss pages list the per-difficulty objective and entry cost as standalone lines
+// after the difficulty list rather than inside each "Fácil: …" line. Those never match a
+// difficulty label, so they pile up in `intro` and render as a wall of near-identical
+// sentences above the table. They appear in difficulty order, so they are attached to
+// the entries that are still missing the field and removed from the intro.
+function attachLooseDifficultyDetails({ intro, entries, notes }) {
+	if (entries.length < 2) return { intro, entries, notes };
+
+	const objectives = [];
+	const requirements = [];
+	const remainingIntro = [];
+
+	for (const line of intro) {
+		const token = normalizeIdToken(line);
+		const objective = line.match(/dever[aã]o?\s+(.+?)\s+para\s+concluir/i);
+		const requirement = line.match(/necess[aá]rio\s+que\s+o\s+jogador\s+(?:tenha|possua)\s+(\d+)\s+(.+?)(?:\.|$)/i)
+			?? (token.match(/necessario que o jogador (?:tenha|possua)\s+(\d+)\s+(.+?)\s*$/) ?? null);
+
+		if (objective) {
+			objectives.push(sentenceCase(cleanBossText(objective[1])));
+			continue;
+		}
+
+		if (requirement) {
+			requirements.push({
+				amount: Number(requirement[1]),
+				name: canonicalBossItemName(titleCaseItemName(cleanBossItemName(requirement[2]))),
+			});
+			continue;
+		}
+
+		remainingIntro.push(line);
+	}
+
+	// Only fold them in when there is exactly one value per difficulty; anything else is
+	// prose that happens to match, and guessing an order would misattribute it.
+	const useObjectives = objectives.length === entries.length;
+	const useRequirements = requirements.length === entries.length;
+	if (!useObjectives && !useRequirements) return { intro, entries, notes };
+
+	const merged = entries.map((entry, index) => ({
+		...entry,
+		...(useObjectives && !entry.objective ? { objective: objectives[index] } : {}),
+		...(useRequirements && !entry.entryRequirement && requirements[index]?.name
+			? { entryRequirement: requirements[index] }
+			: {}),
+	}));
+
+	// Put back any line whose family was not consumed as a whole.
+	const restored = [
+		...remainingIntro,
+		...(useObjectives ? [] : objectives),
+		...(useRequirements ? [] : requirements.map((item) => `${item.amount} ${item.name}`)),
+	];
+
+	return { intro: restored, entries: merged, notes };
 }
 
 function expandDifficultyTexts(values = []) {

@@ -55,6 +55,8 @@ Section contract (`schemaVersion: 2`):
 - `content.<locale>.paragraphs` is normalized prose that still belongs on the page
 - `content.<locale>.bullets` is only for simple list content that has no stronger semantic model yet
 - pipe-style source rows are published as `tables.<locale>[].rows[].cells[]` instead of string rows such as `A | B | C`
+- this also covers pipe rows the extractor left inside `paragraphs`: `publishSection` promotes them into `tables` groups and removes them from the prose, so consumers never receive a pipe wall
+- a group promoted from a `# Group` heading carries `tables.<locale>[].title`; consumers should render one labelled table per titled group rather than merging them
 - semantic data is published in dedicated fields such as `facts`, `tasks`, `taskGroups`, `rewards`, `pokemon`, `profile`, `moves`, `effectiveness`, `variants`, `abilities`, `steps`, `locations`, `bossSupport`, `bossRecommendations`, `embeddedTowerSupport`, `heldDetails`, `dungeonSupport`, and `commerceEntries`
 - repeated canonical labels are also emitted as audit registries under `registries/` for `items`, `pokemon`, `npcs`, `definitions`, and `linked-cards`
 - consumers should treat those semantic fields as source of truth and should not re-parse raw wiki table/list text

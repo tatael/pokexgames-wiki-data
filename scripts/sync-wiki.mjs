@@ -32,11 +32,27 @@ import {
 	extractSections,
 	extractTitle,
 } from "./lib/extract.mjs";
+import { stripWidgetChromeText } from "./lib/shared.mjs";
 import {
 	buildFlexTaskSections,
 	extractFlexTasksData,
 	isFlexTasksPage,
 } from "./lib/extract-flex-tasks.mjs";
+import {
+	buildCraftEntries,
+	extractCraftProfData,
+	resolveProfessionKey,
+} from "./lib/extract-craft-prof.mjs";
+import { extractCraftTableEntries } from "./lib/extract-craft-tables.mjs";
+import {
+	extractBoostLookup,
+	extractPokelogEntries,
+	extractTalentTrees,
+	extractTravelNetwork,
+} from "./lib/extract-tool-widgets.mjs";
+import { extractClanEffectivenessGroups } from "./lib/extract-clan-effectiveness.mjs";
+import { extractBossRecommendations } from "./lib/extract-boss-recommendations.mjs";
+import { extractHeldBoostRanges } from "./lib/extract-tabber-tables.mjs";
 import {
 	discoverPageImages,
 	extractPageImages,
@@ -93,6 +109,146 @@ function mergeFlexTaskSections(baseSections, articleHtml, { slug }) {
 		return id === "introducao" || id.startsWith("introdu");
 	});
 	return [...introSections, ...flexSections];
+}
+
+// Profession craft recipes moved from HTML tables into a `window.CraftProfData`
+// widget payload, which extractArticleHtml strips. Read them from the raw page html
+// and attach them to the craft section so `structureSection` publishes them as
+// `craftEntries` (its table-based parse finds nothing on these pages now).
+function mergeCraftProfSections(baseSections, articleHtml, { slug, title }) {
+	const data = extractCraftProfData(articleHtml);
+	if (!data) return baseSections;
+	const professionKey = resolveProfessionKey(data, `${title ?? ""} ${slug ?? ""}`);
+	if (!professionKey) return baseSections;
+	const entries = buildCraftEntries(data, professionKey);
+	if (!entries.length) return baseSections;
+
+	const sections = baseSections ?? [];
+	const targetIndex = sections.findIndex((section) => /craft/i.test(`${section?.id ?? ""} ${section?.heading?.[PT_BR] ?? ""}`));
+	const index = targetIndex >= 0 ? targetIndex : 0;
+	if (!sections[index]) return baseSections;
+
+	return sections.map((section, position) => (position === index
+		? { ...section, craftEntries: { [PT_BR]: { entries }, en: { entries }, es: { entries } } }
+		: section));
+}
+
+// Alquimista and Cozinheiro still keep their recipes in an HTML wikitable. The generic
+// path never turns those into `craftEntries` — Cozinheiro's cells are flattened past
+// recovery, and Alquimista's survive only as commerce rows, which `parseCraftEntries`
+// never sees — so both land in the Calculadoras list with no calculator. Parse the table
+// directly for any page the manifest already marks as a craft page.
+function mergeCraftTableSections(baseSections, articleHtml, { pageKind }) {
+	const sections = baseSections ?? [];
+	if (pageKind !== "craft" || sections.some((section) => section?.craftEntries)) return baseSections;
+	const entries = extractCraftTableEntries(articleHtml);
+	if (!entries.length) return baseSections;
+
+	const targetIndex = sections.findIndex((section) => /craft|receita|comida/i.test(`${section?.id ?? ""} ${section?.heading?.[PT_BR] ?? ""}`));
+	const index = targetIndex >= 0 ? targetIndex : 0;
+	if (!sections[index]) return baseSections;
+
+	return sections.map((section, position) => (position === index
+		? { ...section, craftEntries: { [PT_BR]: { entries }, en: { entries }, es: { entries } } }
+		: section));
+}
+
+// Clan effectiveness tables use rowspans and put the element+mode in a header row the
+// generic section extractor drops, so the transform can no longer rebuild the payload
+// from flattened rows. Parse the table HTML directly and attach the result.
+function mergeClanEffectivenessSections(baseSections, articleHtml, { category }) {
+	if (category !== "clans") return baseSections;
+	const groups = extractClanEffectivenessGroups(articleHtml);
+	if (!groups.length) return baseSections;
+
+	const sections = baseSections ?? [];
+	const index = sections.findIndex((section) => /efetividade/i.test(`${section?.id ?? ""} ${section?.heading?.[PT_BR] ?? ""}`));
+	if (index < 0) return baseSections;
+
+	return sections.map((section, position) => (position === index
+		? { ...section, effectiveness: { [PT_BR]: groups, en: groups, es: groups } }
+		: section));
+}
+
+// "Pokémon recomendados" is one <h3> per role, each with its own roster table. The
+// generic extractor flattens them into a single list, which publishes every role's
+// Pokémon under every role and captures stray prose as a Pokémon name. Parse the
+// headings and tables directly instead.
+function mergeBossRecommendationSections(baseSections, articleHtml) {
+	const payload = extractBossRecommendations(articleHtml);
+	if (!payload) return baseSections;
+
+	const sections = baseSections ?? [];
+	const index = sections.findIndex((section) => /recomendad/i.test(`${section?.id ?? ""} ${section?.heading?.[PT_BR] ?? ""}`));
+	if (index < 0) return baseSections;
+
+	return sections.map((section, position) => (position === index
+		? { ...section, bossRecommendations: { [PT_BR]: payload, en: payload, es: payload } }
+		: section));
+}
+
+// The interactive tool pages embed a whole single-page app whose <script> the article
+// extractor strips, so the overlay used to show only the surrounding prose — including
+// "select an origin and click Calculate Route" on a page with no controls. Publish each
+// tool's data as a typed payload so the overlay can rebuild the tool natively.
+const TOOL_WIDGETS = new Map([
+	["viagens", { field: "travelNetwork", extract: extractTravelNetwork, sections: [/viagem|viagens|transporte/i, /introdu/i] }],
+	["boost-da-master-ball", { field: "boostLookup", extract: extractBoostLookup, sections: [/consulta/i, /boost/i] }],
+	["star-signs", { field: "talentTrees", extract: extractTalentTrees, localized: true, sections: [/builder/i, /star.?signs/i, /constela/i] }],
+	["pokelog-planner", { field: "pokelogEntries", extract: extractPokelogEntries, sections: [/planner|pokelog/i, /funcionalidades/i] }],
+]);
+
+function mergeToolWidgetSections(baseSections, articleHtml, { slug }) {
+	const widget = TOOL_WIDGETS.get(slug);
+	if (!widget) return baseSections;
+	// Star Signs carries a real per-language string table; the rest are language-neutral
+	// data (coordinates, Pokémon names, numbers) and publish the same payload everywhere.
+	const locales = [PT_BR, "en", "es"];
+	const payloads = widget.localized
+		? Object.fromEntries(locales.map((locale) => [locale, widget.extract(articleHtml, locale)]))
+		: null;
+	const payload = payloads ? payloads[PT_BR] : widget.extract(articleHtml);
+	if (!payload) return baseSections;
+
+	const sections = baseSections ?? [];
+	const label = (section) => `${section?.id ?? ""} ${section?.heading?.[PT_BR] ?? ""}`;
+	// Patterns are tried in order so the tool lands on the section that names it (the
+	// "Star Signs Builder" heading) rather than an earlier one that merely mentions it.
+	let targetIndex = -1;
+	for (const pattern of widget.sections) {
+		targetIndex = sections.findIndex((section) => pattern.test(label(section)));
+		if (targetIndex >= 0) break;
+	}
+
+	// The tool is the page; if no section names it, the last one is where the widget sat.
+	const index = targetIndex >= 0 ? targetIndex : sections.length - 1;
+	if (!sections[index]) return baseSections;
+
+	return sections.map((section, position) => (position === index
+		? {
+			...section,
+			[widget.field]: payloads
+				? Object.fromEntries(locales.map((locale) => [locale, payloads[locale] ?? payload]))
+				: { [PT_BR]: payload, en: payload, es: payload },
+		}
+		: section));
+}
+
+// The X-Boost level tables live in tabber panels, one per tier. The generic extractor
+// flattens the panels and keeps only the shared header, publishing a table whose single
+// row is its own header. Read the panels directly instead.
+function mergeHeldBoostRanges(baseSections, articleHtml, { category }) {
+	if (category !== "held-items") return baseSections;
+	const ranges = extractHeldBoostRanges(articleHtml);
+	if (!ranges.length) return baseSections;
+
+	const sections = baseSections ?? [];
+	const index = sections.findIndex((section) => /x-boost/i.test(`${section?.id ?? ""} ${section?.heading?.[PT_BR] ?? ""}`));
+	if (index < 0) return baseSections;
+
+	return sections.map((section, position) => (position === index
+		? { ...section, heldBoostRanges: { [PT_BR]: ranges, en: ranges, es: ranges } }
+		: section));
 }
 
 function buildSearchText(page) {
@@ -216,12 +372,18 @@ async function syncEntry(entry) {
 	const articleHtml = guardianHtml ?? extractArticleFragmentHtml(fullArticleHtml, sourceFragment);
 	const fallbackTitle = entry.title?.[PT_BR] || entry.slug;
 	const resolvedTitle = fallbackTitle || extractTitle(html, entry.slug);
-	const baseSections = extractSections(articleHtml, resolvedTitle, sourceUrl.toString());
+	const baseSections = extractSections(stripWidgetChromeText(articleHtml), resolvedTitle, sourceUrl.toString());
 	// The flex-task data lives in a <script> (window.quests.*), which extractArticleHtml
 	// strips — read it from the raw page html instead.
-	const sectionsBase = isFlexTasksPage(html, { category: entry.category })
+	const flexSections = isFlexTasksPage(html, { category: entry.category })
 		? mergeFlexTaskSections(baseSections, html, { slug: entry.slug })
 		: baseSections;
+	const craftProfSections = mergeCraftProfSections(flexSections, html, { slug: entry.slug, title: resolvedTitle });
+	const craftSections = mergeCraftTableSections(craftProfSections, html, { pageKind: entry.pageKind });
+	const clanSections = mergeClanEffectivenessSections(craftSections, html, { category: entry.category });
+	const bossSections = mergeBossRecommendationSections(clanSections, html);
+	const boostRangeSections = mergeHeldBoostRanges(bossSections, html, { category: entry.category });
+	const sectionsBase = mergeToolWidgetSections(boostRangeSections, html, { slug: entry.slug });
 	const provisionalSections = normalizeSections(sectionsBase, {
 		category: entry.category,
 		slug: entry.slug,

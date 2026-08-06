@@ -22,7 +22,7 @@ import {
 import { parseTaskSectionPayloads } from "./transform/tasks.mjs";
 import { isQuestLocationSection, isQuestStepSection, isQuestSupportSection, parseCombatPokemonTable, parseQuestPhase, parseQuestSupport } from "./transform/quests.mjs";
 import { parseClanTaskRanks } from "./transform/clan-tasks.mjs";
-import { isCommerceSection, parseCommerceEntries, parseCraftEntries } from "./transform/commerce.mjs";
+import { isCommerceSection, parseCommerceEntries, parseCraftEntries, pruneCraftIntro } from "./transform/commerce.mjs";
 import {
 	isHeldBoostSection,
 	isHeldCategoriesSection,
@@ -160,7 +160,9 @@ export function structureSection(section) {
 		if (Object.values(pokemon).some((entries) => entries.length)) result.pokemon = pokemon;
 	}
 
-	if (isBossRecommendationsSection(normalizedId, normalizedHeading, pageCategory)) {
+	// A payload parsed from the section HTML wins: the text-based parser below cannot
+	// see which <h3> role each roster table belongs to.
+	if (isBossRecommendationsSection(normalizedId, normalizedHeading, pageCategory) && !section.bossRecommendations) {
 		const bossRecommendations = {};
 		for (const locale of new Set([
 			...Object.keys(section.paragraphs ?? {}),
@@ -228,7 +230,9 @@ export function structureSection(section) {
 		if (Object.keys(moves).length) result.moves = moves;
 	}
 
-	if (normalizedId === "efetividade" || normalizedId === "efetividades") {
+	// A pre-parsed payload from extract-clan-effectiveness wins; the text-based parsers
+	// below cannot see the rowspan/header structure the wiki tables now use.
+	if ((normalizedId === "efetividade" || normalizedId === "efetividades") && !section.effectiveness) {
 		const effectiveness = {};
 		for (const locale of Object.keys(section.paragraphs ?? {})) {
 			const paragraphs = section.paragraphs?.[locale] ?? [];
@@ -547,6 +551,10 @@ export function structureSection(section) {
 		const heldBoosts = {};
 		for (const locale of Object.keys(section.paragraphs ?? {})) {
 			const parsed = parseHeldBoostGroups(section.paragraphs?.[locale] ?? []);
+			// The tier tables live in tabber panels the text parser cannot see, so a
+			// payload read straight from the HTML replaces whatever it produced.
+			const htmlRanges = section.heldBoostRanges?.[locale];
+			if (htmlRanges?.length) parsed.ranges = htmlRanges;
 			if (parsed.ranges.length || parsed.utilities.length) heldBoosts[locale] = parsed;
 		}
 
@@ -655,6 +663,20 @@ export function structureSection(section) {
 		}
 
 		if (Object.keys(craftEntries).length) result.craftEntries = craftEntries;
+
+		// A section can also arrive with recipes already attached (the HTML craft-table
+		// extractor runs before the transform). Either way, once the recipes exist the
+		// flattened table rows left behind in the commerce intro are duplication.
+		const resolvedCraft = result.craftEntries ?? section.craftEntries;
+		if (resolvedCraft) {
+			for (const [locale, commerce] of Object.entries(result.commerceEntries)) {
+				const entries = resolvedCraft[locale]?.entries ?? resolvedCraft[PT_BR]?.entries ?? [];
+				const intro = pruneCraftIntro(commerce?.intro ?? [], entries);
+				if (intro.length !== (commerce?.intro ?? []).length) {
+					result.commerceEntries[locale] = { ...commerce, intro };
+				}
+			}
+		}
 	}
 
 	if (pageCategory === "boss fight") {

@@ -231,6 +231,23 @@ export function extractTitle(html, fallbackTitle) {
 	return title || fallbackTitle;
 }
 
+// An embedded widget marks its own chrome with a translation key (`data-cp-i18n`,
+// `data-i18n`) and ships it in whatever language the widget defaults to. Those strings are
+// UI, not article prose — the Craft Planner's English "Find recipes and plan your
+// materials." was becoming the Portuguese card summary of every `craft-profissoes-*` page.
+//
+// This is NOT part of `extractArticleHtml`: discovery walks that same HTML for links, and
+// dropping an element's contents there loses every page linked from inside widget chrome
+// (it cost 38 pages when it was wired in at that level). Apply it only where prose is
+// read. Headings are left alone — a section still needs a title, and the widget's heading
+// is the most accurate one the page has.
+export function stripWidgetChromeText(html) {
+	return String(html ?? "").replace(
+		/(<(\w+)\b[^>]*\bdata-(?:cp-)?i18n\s*=[^>]*>)([\s\S]*?)(<\/\2>)/gi,
+		(match, open, tag, _body, close) => (/^h[1-6]$/i.test(tag) ? match : `${open}${close}`)
+	);
+}
+
 export function extractArticleHtml(html) {
 	const parserOutputMatch = html.match(/<div[^>]+class="[^"]*mw-parser-output[^"]*"[^>]*>([\s\S]*?)<div[^>]+class="printfooter"/i);
 	if (parserOutputMatch?.[1]) {

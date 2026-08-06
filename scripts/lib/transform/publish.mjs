@@ -79,25 +79,163 @@ function stripContentFilenames(values, mediaStems) {
 	return out;
 }
 
+// A source table that the extractor could not turn into real rows arrives as a run of
+// pipe-delimited paragraphs, optionally split into "# Group" blocks. Left in prose it
+// renders as a literal pipe wall, so it is promoted into real table groups here and the
+// promoted lines are removed from the published paragraphs.
+const GROUP_HEADING_RE = /^#+\s+(.+)$/;
+const MIN_PROMOTED_ROWS = 2;
+
+function splitPipeRow(value) {
+	return String(value ?? "")
+		.split(/\s*\|\s*/)
+		.map(parseTableCell)
+		.filter((cell) => cell.text || cell.raw);
+}
+
+function isPipeRowLine(value) {
+	const text = String(value ?? "");
+	if (!text.includes("|")) return false;
+	// Count raw segments, not parsed cells: a cell holding only an icon filename
+	// parses to an empty cell, and using the parsed count would misread
+	// "Item.png | Custo" as ordinary prose.
+	return text.split("|").map((part) => part.trim()).filter(Boolean).length >= 2;
+}
+
+export function extractParagraphTableGroups(paragraphs = []) {
+	const blocks = [];
+	let current = { title: "", rows: [], prose: [] };
+	const push = () => {
+		if (current.title || current.rows.length || current.prose.length) blocks.push(current);
+		current = { title: "", rows: [], prose: [] };
+	};
+
+	for (const value of paragraphs ?? []) {
+		const text = String(value ?? "").trim();
+		if (!text) continue;
+		const headingMatch = text.match(GROUP_HEADING_RE);
+		if (headingMatch) {
+			push();
+			current.title = headingMatch[1].trim();
+			continue;
+		}
+
+		if (isPipeRowLine(text)) current.rows.push(text);
+		else current.prose.push(text);
+	}
+
+	push();
+
+	const promotedRowCount = blocks.reduce((total, block) => total + block.rows.length, 0);
+	if (promotedRowCount < MIN_PROMOTED_ROWS) {
+		return { groups: [], listItems: [], remaining: (paragraphs ?? []).map((value) => String(value ?? "").trim()).filter(Boolean) };
+	}
+
+	const groups = [];
+	const remaining = [];
+	const listItems = [];
+	// Anything not turned into a table or list is handed back verbatim; this function
+	// must never silently drop a source line.
+	const keepAsProse = (block) => {
+		if (block.title) remaining.push(`# ${block.title}`);
+		remaining.push(...block.rows, ...block.prose);
+	};
+
+	for (const block of blocks) {
+		if (block.rows.length < MIN_PROMOTED_ROWS) {
+			keepAsProse(block);
+			continue;
+		}
+
+		const parsed = block.rows.map((line) => ({ cells: mergeIconNameCells(splitPipeRow(line)) }));
+
+		const cellText = (cell) => {
+			const label = String(cell?.text ?? "").trim();
+			const file = String(cell?.raw ?? "").trim();
+			return file && label && file !== label ? `${file} ${label}` : (label || file);
+		};
+
+		// An "<icon> | <name>" pair merges down to a single cell, so a run of those is a
+		// list of items, not a table. Publishing them as bullets keeps the icon+label and
+		// avoids both a degenerate one-column table and a literal pipe wall in prose.
+		//
+		// Only a single leading header row is recognised. Splitting the block at every
+		// multi-cell row was tried and measured worse: a 3-column roster row
+		// ("<icon> | <name> | <weaknesses>") gets misread as a header, and joining its
+		// cells leaks raw filenames into visible text.
+		const headerRow = parsed[0]?.cells.length >= 2 ? parsed[0] : null;
+		const itemRows = headerRow ? parsed.slice(1) : parsed;
+		if (itemRows.length >= MIN_PROMOTED_ROWS && itemRows.every((row) => row.cells.length === 1)) {
+			if (block.title) remaining.push(`# ${block.title}`);
+			if (headerRow) {
+				const heading = headerRow.cells.map(cellText).filter(Boolean).join(" — ");
+				if (heading) remaining.push(`# ${heading}`);
+			}
+
+			remaining.push(...block.prose);
+			for (const row of itemRows) {
+				const value = cellText(row.cells[0]);
+				if (value) listItems.push(value);
+			}
+
+			continue;
+		}
+
+		// The bundle schema requires every published row to have at least two cells, so a
+		// block that cannot publish all of its rows stays prose rather than shipping a
+		// half-complete table.
+		const rows = parsed.filter((row) => row.cells.length >= 2);
+		if (rows.length < MIN_PROMOTED_ROWS || rows.length !== parsed.length) {
+			keepAsProse(block);
+			continue;
+		}
+
+		remaining.push(...block.prose);
+		const group = { type: "table", rows };
+		if (block.title) group.title = block.title;
+		groups.push(group);
+	}
+
+	return { groups, remaining, listItems };
+}
+
 export function publishSection(section) {
 	const output = {
 		id: section.id ?? "",
 		kind: section.kind ?? "prose",
 		title: compactLocalizedValueMap(section.heading ?? {}),
 	};
-	const content = compactLocalizedValueMap(buildPublicSectionContent(section));
-	const tables = compactLocalizedValueMap(buildPublicSectionTables(section));
+	const promoted = buildPromotedParagraphTables(section);
+	const content = compactLocalizedValueMap(buildPublicSectionContent(section, promoted));
+	const tables = compactLocalizedValueMap(buildPublicSectionTables(section, promoted));
 	if (Object.keys(content).length) output.content = content;
 	if (Object.keys(tables).length) output.tables = tables;
 	if (section.media) output.media = compactLocalizedValueMap(section.media);
-	for (const key of ["facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness", "variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations", "heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails", "questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression", "embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries"]) {
+	for (const key of ["facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness", "variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations", "heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails", "questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression", "embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries", "travelNetwork", "boostLookup", "talentTrees", "pokelogEntries"]) {
 		if (section[key]) output[key] = compactLocalizedValueMap(section[key]);
 	}
 
 	return output;
 }
 
-function buildPublicSectionContent(section) {
+// Runs the paragraph-table promotion once per locale so content and tables agree on
+// which lines were consumed.
+function buildPromotedParagraphTables(section) {
+	const promoted = {};
+	if (!shouldPublishParagraphContent(section) || section.kind === "tasks") return promoted;
+	for (const locale of Object.keys(section.paragraphs ?? {})) {
+		const source = filterTableMirrorLines(
+			section,
+			filterLinkedCardMarkerLines(section, section.paragraphs?.[locale] ?? []),
+		).filter((paragraph) => !isNoiseParagraph(paragraph));
+		const result = extractParagraphTableGroups(source);
+	  if (result.groups.length || result.listItems.length) promoted[locale] = result;
+	}
+
+	return promoted;
+}
+
+function buildPublicSectionContent(section, promoted = {}) {
 	const content = {};
 	const locales = new Set([
 		...Object.keys(section.paragraphs ?? {}),
@@ -110,7 +248,8 @@ function buildPublicSectionContent(section) {
 		if (shouldPublishParagraphContent(section)) {
 			paragraphs = section.kind === "tasks"
 				? []
-				: filterTableMirrorLines(section, filterLinkedCardMarkerLines(section, section.paragraphs?.[locale] ?? []));
+				: (promoted[locale]?.remaining
+					?? filterTableMirrorLines(section, filterLinkedCardMarkerLines(section, section.paragraphs?.[locale] ?? [])));
 			if (section.kind === "pokemon-group" && section.pokemon) {
 				paragraphs = paragraphs.filter((paragraph) => !isRawPokemonGroupMirrorParagraph(paragraph));
 			}
@@ -118,14 +257,15 @@ function buildPublicSectionContent(section) {
 			paragraphs = stripContentFilenames(paragraphs, mediaStems);
 		}
 
+		const promotedBullets = promoted[locale]?.listItems ?? [];
 		const bullets = stripContentFilenames(
-			(section.kind === "pokemon-group" && !section.bossRecommendations && !section.pokemon
+			[...promotedBullets, ...(section.kind === "pokemon-group" && !section.bossRecommendations && !section.pokemon
 				? (section.items?.[locale] ?? [])
 				: (shouldPublishListContent(section)
 					? filterLinkedCardMarkerLines(section, section.items?.[locale] ?? [])
 						.filter((item) => !String(item ?? "").includes("|"))
 						.filter((item) => !isMediaOnlyMirrorLine(item))
-					: [])).filter((item) => !isNoiseParagraph(item)),
+					: []))].filter((item) => !isNoiseParagraph(item)),
 			mediaStems,
 		);
 		const value = {};
@@ -138,9 +278,64 @@ function buildPublicSectionContent(section) {
 }
 
 function filterTableMirrorLines(section, values = []) {
-	const hasStructuredRows = section.tables || section.commerceEntries || section.dungeonSupport || section.bossSupport || section.locations;
+	const cellHaystack = buildStructuredCellHaystack(section);
+	// Pipe rows in `items` become a table at publish time, so they count as structured
+	// rows even though `section.tables` does not exist yet.
+	const hasStructuredRows = section.tables || section.commerceEntries || section.dungeonSupport
+		|| section.bossSupport || section.locations || Boolean(cellHaystack);
 	if (!hasStructuredRows) return values;
-	return (values ?? []).filter((value) => !isRawTableMirrorLine(value) && !isMediaOnlyMirrorLine(value));
+	return (values ?? []).filter((value) => !isRawTableMirrorLine(value)
+		&& !isMediaOnlyMirrorLine(value)
+		&& !isStructuredCellEcho(value, cellHaystack));
+}
+
+// Every cell of the section's structured rows, normalized, as one searchable string.
+// This runs before `buildPublicSectionTables`, so the generic table rows are read from
+// `section.items` (the pipe rows they are built from) rather than from `section.tables`.
+function buildStructuredCellHaystack(section) {
+	const parts = [];
+	const collectRows = (rows) => {
+		for (const row of rows ?? []) {
+			for (const cell of row?.cells ?? []) parts.push(String(cell?.raw ?? cell?.text ?? ""));
+		}
+	};
+
+	for (const items of Object.values(section.items ?? {})) {
+		for (const item of items ?? []) {
+			if (String(item ?? "").includes("|")) parts.push(String(item));
+		}
+	}
+
+	for (const groups of Object.values(section.tables ?? {})) {
+		for (const group of groups ?? []) collectRows(group?.rows);
+	}
+
+	for (const payload of Object.values(section.commerceEntries ?? {})) collectRows(payload?.rows);
+
+	return normalizeEchoText(parts.join("  "));
+}
+
+function normalizeEchoText(value) {
+	return String(value ?? "")
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.toLowerCase()
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+// A craft table's ingredient cell stacks many "<qty> <item>" pairs, and the extractor
+// also emits each pair as its own paragraph — the same data printed as a text wall above
+// and below the rendered table. A paragraph that appears verbatim inside a published
+// cell is that echo, not prose. Sentence-like lines are never dropped, so real
+// explanations that merely quote an item name survive.
+function isStructuredCellEcho(value, cellHaystack) {
+	if (!cellHaystack) return false;
+	const text = String(value ?? "").trim();
+	if (!text || text.length < 4) return false;
+	if (/[.!?:;]$/.test(text)) return false;
+	if (text.split(/\s+/).length > 8) return false;
+	return cellHaystack.includes(normalizeEchoText(text));
 }
 
 function isRawTableMirrorLine(value = "") {
@@ -281,27 +476,28 @@ function cleanCostCell(cell) {
 	};
 }
 
-function buildPublicSectionTables(section) {
-	if (!shouldPublishListContent(section)) return {};
+function buildPublicSectionTables(section, promoted = {}) {
 	const tables = {};
-	for (const locale of Object.keys(section.items ?? {})) {
-		const rows = [];
-		for (const item of section.items?.[locale] ?? []) {
-			if (!String(item ?? "").includes("|")) continue;
-			const rawCells = String(item ?? "")
-				.split(/\s*\|\s*/)
-				.map(parseTableCell)
-				.filter((cell) => cell.text || cell.raw);
-			const cells = mergeIconNameCells(rawCells);
-			if (cells.length >= 2) rows.push({ cells });
+	const locales = new Set([
+		...Object.keys(section.items ?? {}),
+		...Object.keys(promoted),
+	]);
+	for (const locale of locales) {
+		const groups = [];
+
+		if (shouldPublishListContent(section)) {
+			const rows = [];
+			for (const item of section.items?.[locale] ?? []) {
+				if (!String(item ?? "").includes("|")) continue;
+				const cells = mergeIconNameCells(splitPipeRow(item));
+				if (cells.length >= 2) rows.push({ cells });
+			}
+
+			if (rows.length) groups.push({ type: "table", rows });
 		}
 
-		if (rows.length) {
-			tables[locale] = [{
-				type: "table",
-				rows,
-			}];
-		}
+		groups.push(...(promoted[locale]?.groups ?? []));
+		if (groups.length) tables[locale] = groups;
 	}
 
 	return tables;

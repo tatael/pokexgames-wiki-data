@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+	buildLocalizedPageSummary,
 	buildLocalizedSummary,
 	normalizeSections,
 	resolveCategory,
@@ -708,4 +709,85 @@ test("normalizeSections keeps daily mission location galleries as media-rich tab
 	});
 	assert.equal(sections[0].media[PT_BR].length, 2);
 	assert.equal(sections[0].media[PT_BR][0].alt, "Cerulean NW Jenny.png");
+});
+
+test("a card summary drops the banner caption flattened onto its front", () => {
+	const sections = [{
+		id: "introducao",
+		content: { [PT_BR]: { paragraphs: ["Banner Nightmare Nightmare Crystal Nos locais de caça da Nightmare World é possível encontrar cristais."] } },
+		media: { [PT_BR]: [{ alt: "Banner Nightmare.png", url: "https://wiki/Banner_Nightmare.png" }] },
+	}];
+
+	const summary = buildLocalizedPageSummary({}, "", sections);
+	assert.ok(!summary[PT_BR].startsWith("Banner Nightmare"), "the image caption must not lead the card");
+	assert.match(summary[PT_BR], /Nos locais de caça/);
+});
+
+test("prose that merely repeats a media word is left intact", () => {
+	const sections = [{
+		id: "introducao",
+		content: { [PT_BR]: { paragraphs: ["O Nightmare World é um update continental com Banner Nightmare no topo."] } },
+		media: { [PT_BR]: [{ alt: "Banner Nightmare.png", url: "https://wiki/Banner_Nightmare.png" }] },
+	}];
+
+	const summary = buildLocalizedPageSummary({}, "", sections);
+	assert.match(summary[PT_BR], /^O Nightmare World/, "only a leading caption is noise");
+});
+
+test("a summary is never stripped down to nothing", () => {
+	const sections = [{
+		id: "introducao",
+		content: { [PT_BR]: { paragraphs: ["Banner Nightmare curto"] } },
+		media: { [PT_BR]: [{ alt: "Banner Nightmare.png", url: "https://wiki/Banner_Nightmare.png" }] },
+	}];
+
+	const summary = buildLocalizedPageSummary({}, "", sections);
+	assert.match(summary[PT_BR], /Banner Nightmare curto/, "stripping must leave readable text behind");
+});
+
+test("a widget's unrendered row template is not published as a section", () => {
+	const sections = normalizeSections(
+		[
+			{
+				id: "introducao",
+				heading: { "pt-BR": "Introdução" },
+				paragraphs: { "pt-BR": ["Nesta ferramenta o jogador encontrará as quests do jogo."] },
+				items: { "pt-BR": [] },
+			},
+			{
+				id: "name",
+				heading: { "pt-BR": "{{name}}" },
+				paragraphs: { "pt-BR": ["# {{name}}"] },
+				items: { "pt-BR": ["poke ball 1", "nightmare ball"] },
+			},
+		],
+		{ category: "quests", slug: "quests", pageKind: "index" },
+	);
+
+	assert.deepEqual(sections.map((section) => section.id), ["introducao"]);
+});
+
+test("every category label is complete in all three languages", () => {
+	const ids = [
+		"boss-fight", "clans", "daily-missions", "dimensional-zone", "embedded-tower",
+		"events", "held-items", "items", "mystery-dungeons", "nightmare-rifts",
+		"nightmare-world", "npcs", "pokemon", "professions", "quests", "secret-lab",
+		"systems", "tasks", "territory-guardians", "tools", "ultra-lab",
+	];
+
+	for (const id of ids) {
+		// The fallback is deliberately wrong here: it is the label of whatever page came
+		// first in that category, which is how `professions` was published as "Nightmare
+		// Rifts". A known category must never consult it.
+		const label = resolveCategoryLabel(id, { "pt-BR": "Nightmare Rifts" });
+		for (const locale of ["pt-BR", "en", "es"]) {
+			assert.ok(label[locale], `${id} is missing ${locale}`);
+		}
+		// `nightmare-rifts` is genuinely called that, so only the others prove the point.
+		if (id !== "nightmare-rifts") {
+			assert.notEqual(label["pt-BR"], "Nightmare Rifts", `${id} fell through to the fallback`);
+		}
+	}
+
+	assert.equal(resolveCategoryLabel("professions")["pt-BR"], "Profissões");
 });

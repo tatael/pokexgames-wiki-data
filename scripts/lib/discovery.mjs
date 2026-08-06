@@ -21,6 +21,7 @@ import {
 	extractArticleWikiLinks,
 	mergeNavigationPath,
 } from "./extract.mjs";
+import { cmsEntriesAsLinks } from "./extract-cms-list.mjs";
 
 const POKEMON_CATEGORY_LABEL = {
 	"pt-BR": "Pokémon",
@@ -388,6 +389,23 @@ export function shouldRecurseDiscoveredPage(entry, depth) {
 	return true;
 }
 
+// Wiki-wide hub pages get cross-referenced from all over the wiki ("veja Pokémon",
+// "veja Clãs"). Adopting one as a child of whatever page happened to link it produces a
+// junk entry that inherits the linking page's category and the link's label as its
+// title — e.g. "Pokémon TM" filed under boss-fight, or the Clãs landing filed under
+// quests as "Clan Tasks". They are never a child of another category.
+const GLOBAL_HUB_SLUGS = new Set([
+	"pokemon",
+	"clas",
+	"itens",
+	"tarefas",
+	"quests",
+	"eventos",
+	"sistemas",
+	"profissoes",
+	"npcs",
+]);
+
 export function shouldSkipDiscoveredLink({
 	link,
 	parentEntry,
@@ -410,10 +428,13 @@ export function shouldSkipDiscoveredLink({
 			/^embedded-tower-(en|es|pt|br)$/i.test(childSlug)
 			|| /\b(primer|cuarto|quinto|sexto|septimo|piso|funcionamiento|recompensas\s+de\s+la)\b/i.test(normalizeDiscoveryText(titleText))
 		);
+	// A hub page is only legitimate when it is the root of its own category tree.
+	const isForeignHubLink = GLOBAL_HUB_SLUGS.has(childSlug) && childSlug !== rootEntry.slug;
 	return (
 		!childSlug
 		|| childSlug === parentEntry.slug
 		|| childSlug === rootEntry.slug
+		|| isForeignHubLink
 		|| seenSlugs.has(childSlug)
 		|| excludeSlugs.has(childSlug)
 		|| excludeTitles.has(link.title)
@@ -436,7 +457,13 @@ async function discoverChildrenRecursive({
 	const html = await fetchWikiHtml(parentEntry.url);
 	if (!html) return;
 	const articleHtml = extractArticleHtml(html);
-	const links = extractArticleWikiLinks(articleHtml, parentEntry.url);
+	// Widget-driven index pages (Mystery Dungeons) list their children in a CMS_DATA
+	// blob rather than <a> tags, so those entries are merged in here and go through the
+	// same filtering as real links.
+	const links = [
+		...extractArticleWikiLinks(articleHtml, parentEntry.url),
+		...cmsEntriesAsLinks(html, parentEntry.url),
+	];
 	const excludeSlugs = new Set(childrenRule.excludeSlugs || []);
 	const excludeTitles = new Set(childrenRule.excludeTitles || []);
 

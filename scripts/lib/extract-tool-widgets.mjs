@@ -210,3 +210,61 @@ export function extractPokelogEntries(html) {
 
 	return entries.length ? { entries } : null;
 }
+
+// --- Buscador de Mapas de Aventureiro ---------------------------------------------
+
+// The overlay page for adventurer maps used to be four screenshots of the wiki's own web
+// finder plus instructions for clicking it — useless from inside the overlay, and already
+// stale (the screenshots show three map colours; the data has four). The finder's dataset
+// is a `specificOptions` literal keyed by map type, then by the terrain the X sits on.
+const ADVENTURER_MAP_TYPES = new Map([
+	["1", "Mapa Vermelho"],
+	["2", "Mapa Verde"],
+	["3", "Mapa Roxo"],
+	["4", "Mapa Azul"],
+]);
+
+export function extractAdventurerMaps(html) {
+	const data = extractJsLiteral(html, "specificOptions");
+	if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+
+	const maps = [];
+	const tags = new Set();
+	const terrains = new Set();
+
+	for (const [typeKey, groups] of Object.entries(data)) {
+		const typeLabel = ADVENTURER_MAP_TYPES.get(String(typeKey));
+		if (!typeLabel || !groups || typeof groups !== "object") continue;
+
+		for (const [terrain, entries] of Object.entries(groups)) {
+			if (!Array.isArray(entries)) continue;
+			for (const entry of entries) {
+				const id = cleanText(entry?.id);
+				const image = cleanText(entry?.imageUrl);
+				if (!id || !image) continue;
+				const entryTags = (entry?.tags ?? []).map(cleanText).filter(Boolean);
+				const cleanTerrain = cleanText(terrain);
+				maps.push({
+					id,
+					type: typeLabel,
+					terrain: cleanTerrain,
+					location: cleanText(entry?.local),
+					coordinates: cleanText(entry?.coordinates),
+					tags: entryTags,
+					image,
+				});
+				if (cleanTerrain) terrains.add(cleanTerrain);
+				for (const tag of entryTags) tags.add(tag);
+			}
+		}
+	}
+
+	if (!maps.length) return null;
+	const byLabel = (left, right) => left.localeCompare(right, "pt-BR");
+	return {
+		types: [...ADVENTURER_MAP_TYPES.values()].filter((label) => maps.some((map) => map.type === label)),
+		terrains: [...terrains].sort(byLabel),
+		tags: [...tags].sort(byLabel),
+		maps,
+	};
+}

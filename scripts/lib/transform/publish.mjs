@@ -211,7 +211,7 @@ export function publishSection(section) {
 	if (Object.keys(content).length) output.content = content;
 	if (Object.keys(tables).length) output.tables = tables;
 	if (section.media) output.media = compactLocalizedValueMap(section.media);
-	for (const key of ["facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness", "variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations", "heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails", "questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression", "embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries", "travelNetwork", "boostLookup", "talentTrees", "pokelogEntries"]) {
+	for (const key of ["facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness", "variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations", "heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails", "questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression", "embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries", "travelNetwork", "boostLookup", "talentTrees", "pokelogEntries", "adventurerMaps"]) {
 		if (section[key]) output[key] = compactLocalizedValueMap(section[key]);
 	}
 

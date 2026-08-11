@@ -48,6 +48,7 @@ const TYPED_SECTION_KEYS = [
 	"boostLookup",
 	"talentTrees",
 	"pokelogEntries",
+	"adventurerMaps",
 	"facts",
 	"tasks",
 	"taskGroups",
@@ -442,6 +443,29 @@ function validateTalentTreesPayload(entry, fieldName) {
 				if (skill[key] !== undefined && typeof skill[key] !== "boolean") throw new Error(`${skillField}.${key} must be a boolean`);
 			}
 		}
+	}
+}
+
+// Every map must carry the picture the player matches against and the coordinate they
+// came for; a row missing either is useless in the finder.
+function validateAdventurerMapsPayload(entry, fieldName) {
+	for (const key of ["types", "terrains", "tags"]) {
+		if (!Array.isArray(entry[key])) throw new Error(`${fieldName}.${key} must be an array`);
+		for (const value of entry[key]) validateString(value, `${fieldName}.${key}`);
+	}
+
+	if (!Array.isArray(entry.maps) || !entry.maps.length) throw new Error(`${fieldName}.maps must be a non-empty array`);
+	const types = new Set(entry.types);
+	for (const [index, map] of entry.maps.entries()) {
+		const field = `${fieldName}.maps.${index}`;
+		if (!isPlainObject(map)) throw new Error(`${field} must be an object`);
+		for (const key of ["id", "type", "terrain", "image"]) validateString(map[key], `${field}.${key}`);
+		if (!types.has(map.type)) throw new Error(`${field}.type is not one of the published types`);
+		for (const key of ["location", "coordinates"]) {
+			if (map[key] !== undefined) validateString(map[key], `${field}.${key}`);
+		}
+		if (!Array.isArray(map.tags)) throw new Error(`${field}.tags must be an array`);
+		for (const tag of map.tags) validateString(tag, `${field}.tags`);
 	}
 }
 
@@ -861,6 +885,7 @@ function validateSection(section, fieldName) {
 	validateStructuredObjectMap(section.boostLookup, `${fieldName}.boostLookup`, ["groups"], validateBoostLookupPayload);
 	validateStructuredObjectMap(section.talentTrees, `${fieldName}.talentTrees`, ["maxPoints", "maxSpecialPoints", "pointsRequiredForSpecial", "trees"], validateTalentTreesPayload);
 	validateStructuredObjectMap(section.pokelogEntries, `${fieldName}.pokelogEntries`, ["entries"], validatePokelogEntriesPayload);
+	validateStructuredObjectMap(section.adventurerMaps, `${fieldName}.adventurerMaps`, ["types", "terrains", "tags", "maps"], validateAdventurerMapsPayload);
 
 	if (section.mediaRefs !== undefined) {
 		for (const [locale, refs] of Object.entries(section.mediaRefs)) {

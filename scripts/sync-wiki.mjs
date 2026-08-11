@@ -45,6 +45,7 @@ import {
 } from "./lib/extract-craft-prof.mjs";
 import { extractCraftTableEntries } from "./lib/extract-craft-tables.mjs";
 import {
+	extractAdventurerMaps,
 	extractBoostLookup,
 	extractPokelogEntries,
 	extractTalentTrees,
@@ -131,6 +132,52 @@ function mergeCraftProfSections(baseSections, articleHtml, { slug, title }) {
 	return sections.map((section, position) => (position === index
 		? { ...section, craftEntries: { [PT_BR]: { entries }, en: { entries }, es: { entries } } }
 		: section));
+}
+
+// The adventurer-map finder is a separate wiki page that discovery never picks up, and the
+// page players actually open ("Mapas de Aventureiro") only *documents* it — four
+// screenshots of the wiki's web UI and instructions for clicking it, which is unusable
+// from inside the overlay. Fetch the finder's data and attach it here so the overlay can
+// host the real tool; `replaceSection` then drops the tutorial it makes redundant.
+const ADVENTURER_MAP_FINDER_URL =
+	"https://wiki.pokexgames.com/index.php/Buscador_de_Mapas_de_Aventureiro";
+
+async function mergeAdventurerMapSections(baseSections, { slug, shouldRefresh }) {
+	if (slug !== "mapas-de-aventureiro-ref") return baseSections;
+
+	let finderHtml = null;
+	try {
+		finderHtml = await fetchWikiHtml(ADVENTURER_MAP_FINDER_URL, {
+			cacheKey: "buscador-de-mapas",
+			refresh: shouldRefresh,
+		});
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.warn(`adventurer map finder unavailable (${message}); keeping the page as-is`);
+		return baseSections;
+	}
+
+	const payload = extractAdventurerMaps(finderHtml);
+	if (!payload) return baseSections;
+
+	const sections = baseSections ?? [];
+	const tutorialIndex = sections.findIndex((section) => /buscador/i.test(`${section?.id ?? ""} ${section?.heading?.[PT_BR] ?? ""}`));
+	const finderSection = {
+		id: "buscador-de-mapas-de-aventureiro",
+		heading: { [PT_BR]: "Buscador de mapas", en: "Map finder", es: "Buscador de mapas" },
+		paragraphs: {},
+		items: {},
+		media: {},
+		adventurerMaps: { [PT_BR]: payload, en: payload, es: payload },
+	};
+
+	// Replacing rather than appending: the tutorial's whole content is instructions for the
+	// UI this section supersedes.
+	if (tutorialIndex >= 0) {
+		return sections.map((section, position) => (position === tutorialIndex ? finderSection : section));
+	}
+
+	return [...sections, finderSection];
 }
 
 // Alquimista and Cozinheiro still keep their recipes in an HTML wikitable. The generic
@@ -383,7 +430,8 @@ async function syncEntry(entry) {
 	const clanSections = mergeClanEffectivenessSections(craftSections, html, { category: entry.category });
 	const bossSections = mergeBossRecommendationSections(clanSections, html);
 	const boostRangeSections = mergeHeldBoostRanges(bossSections, html, { category: entry.category });
-	const sectionsBase = mergeToolWidgetSections(boostRangeSections, html, { slug: entry.slug });
+	const widgetSections = mergeToolWidgetSections(boostRangeSections, html, { slug: entry.slug });
+	const sectionsBase = await mergeAdventurerMapSections(widgetSections, { slug: entry.slug, shouldRefresh });
 	const provisionalSections = normalizeSections(sectionsBase, {
 		category: entry.category,
 		slug: entry.slug,

@@ -696,7 +696,7 @@ const PUBLISHED_TYPED_SECTION_KEYS = [
 	"heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails",
 	"questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression",
 	"embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries",
-	"travelNetwork", "boostLookup", "talentTrees", "pokelogEntries",
+	"travelNetwork", "boostLookup", "talentTrees", "pokelogEntries", "adventurerMaps",
 ];
 
 function hasLocalizedEntries(map) {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { extractJsLiteral } from "../lib/extract-js-literal.mjs";
 import {
+	extractAdventurerMaps,
 	extractBoostLookup,
 	extractPokelogEntries,
 	extractTalentTrees,
@@ -128,4 +129,47 @@ test("HTML authored inside a transport note is reduced to its text", () => {
 	const note = extractTravelNetwork(html).links[0].note;
 	assert.equal(note, "Compre um Taxi Ticket com NPC Travel Agent");
 	assert.ok(!/[<>]/.test(note), "no markup survives into a rendered note");
+});
+
+const MAPS_HTML = `
+<script>
+const specificOptions = {
+1: {
+  'Areia': [
+    { id: '101', local: 'Green Island', coordinates: '3780, 3326, 7', tags:['Areia','Água'], imageUrl: 'https://wiki/a.webp' }
+  ],
+  'Pedra': [
+    { id: '112', local: 'Power Plant', coordinates: '4434, 3503, 7', tags:['Pedra'], imageUrl: 'https://wiki/b.webp' },
+    { id: '113', local: 'No Image', coordinates: '1, 2, 3', tags:['Pedra'] }
+  ]
+},
+4: {
+  'Gelo': [
+    { id: '400', local: 'Ice Cave', coordinates: '10, 20, 7', tags:['Gelo'], imageUrl: 'https://wiki/c.webp' }
+  ]
+},
+9: { 'Areia': [ { id: '900', local: 'Unknown Type', coordinates: '0, 0, 0', tags:[], imageUrl: 'https://wiki/d.webp' } ] }
+};
+</script>`;
+
+test("adventurer maps are flattened with their type and terrain", () => {
+	const data = extractAdventurerMaps(MAPS_HTML);
+	assert.equal(data.maps.length, 3, "a map with no picture is dropped, and an unknown type key is ignored");
+	assert.deepEqual(data.types, ["Mapa Vermelho", "Mapa Azul"], "only types that actually have maps, in wiki order");
+	assert.deepEqual(data.terrains, ["Areia", "Gelo", "Pedra"]);
+	assert.deepEqual(data.tags, ["Água", "Areia", "Gelo", "Pedra"]);
+
+	const powerPlant = data.maps.find((map) => map.id === "112");
+	assert.equal(powerPlant.type, "Mapa Vermelho");
+	assert.equal(powerPlant.terrain, "Pedra");
+	assert.equal(powerPlant.location, "Power Plant");
+	assert.equal(powerPlant.coordinates, "4434, 3503, 7");
+});
+
+test("every published map carries the picture and coordinate the finder needs", () => {
+	for (const map of extractAdventurerMaps(MAPS_HTML).maps) {
+		assert.ok(map.image, `${map.id} has an image`);
+		assert.ok(map.coordinates, `${map.id} has a coordinate`);
+		assert.ok(map.type && map.terrain, `${map.id} is filterable`);
+	}
 });

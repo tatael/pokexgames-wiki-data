@@ -241,8 +241,64 @@ export function extractTitle(html, fallbackTitle) {
 // (it cost 38 pages when it was wired in at that level). Apply it only where prose is
 // read. Headings are left alone — a section still needs a title, and the widget's heading
 // is the most accurate one the page has.
+// Removes an element and everything inside it, counting nested tags of the same name so a
+// `<div>` wrapper does not end at its first inner `</div>`.
+function removeSubtrees(html, matchOpenTag) {
+	let source = String(html ?? "");
+	const openTag = /<([a-z][\w-]*)\b([^>]*)>/gi;
+
+	for (;;) {
+		let start = -1;
+		let tagName = "";
+		openTag.lastIndex = 0;
+		for (const match of source.matchAll(openTag)) {
+			if (!matchOpenTag(match[1], match[2] ?? "")) continue;
+			start = match.index ?? -1;
+			tagName = match[1];
+			break;
+		}
+
+		if (start < 0) return source;
+
+		const scan = new RegExp(`<(/?)${tagName}\\b[^>]*>`, "gi");
+		scan.lastIndex = start;
+		let depth = 0;
+		let end = -1;
+		for (const match of source.slice(start).matchAll(new RegExp(scan.source, "gi"))) {
+			const at = start + (match.index ?? 0);
+			depth += match[1] === "/" ? -1 : 1;
+			if (depth === 0) {
+				end = at + match[0].length;
+				break;
+			}
+		}
+
+		// An unclosed tag would loop forever; drop to the end of the document instead.
+		source = source.slice(0, start) + (end < 0 ? "" : source.slice(end));
+	}
+}
+
+// Strips everything an embedded widget contributes that is not article prose:
+//
+//  - `<script>`/`<style>`: the PokéLog planner's translation table was rendering as
+//    paragraphs of raw JavaScript ("sidebar_total_points: ...").
+//  - dialogs and hidden panels: the Craft Planner's transfer modal supplied
+//    "Importar ou exportar" as the card summary of every `craft-profissoes-*` page.
+//  - text inside elements carrying a widget i18n key, which ships in whatever language the
+//    widget defaults to (the English "Find recipes and plan your materials.").
+//
+// This is NOT part of `extractArticleHtml`: discovery walks that same HTML for links, and
+// dropping subtrees there loses every page linked from inside them (it cost 38 pages when
+// it was wired in at that level). Apply it only where prose is read. Headings keep their
+// text — a section still needs a title.
 export function stripWidgetChromeText(html) {
-	return String(html ?? "").replace(
+	const withoutCode = removeSubtrees(html, (tag) => /^(script|style|template|noscript)$/i.test(tag));
+	const withoutChrome = removeSubtrees(withoutCode, (_tag, attrs) =>
+		/\brole\s*=\s*["']?dialog\b/i.test(attrs)
+		|| /\baria-hidden\s*=\s*["']?true\b/i.test(attrs)
+		|| /\bclass\s*=\s*["'][^"']*\b(?:cp-modal|cp-drawer|cp-toast)\b/i.test(attrs));
+
+	return withoutChrome.replace(
 		/(<(\w+)\b[^>]*\bdata-(?:cp-)?i18n\s*=[^>]*>)([\s\S]*?)(<\/\2>)/gi,
 		(match, open, tag, _body, close) => (/^h[1-6]$/i.test(tag) ? match : `${open}${close}`)
 	);

@@ -75,6 +75,7 @@ import {
 	resolveSortRank,
 	resolveTitleOverride,
 } from "./lib/page-pipeline.mjs";
+import { buildSearchIndex } from "./lib/build-search-index.mjs";
 import { validateBundle } from "./lib/validation.mjs";
 import { extractQuestMetadata } from "./lib/transform/quest-metadata.mjs";
 
@@ -606,6 +607,7 @@ async function main() {
 		categories: [...categoriesMap.values()],
 		pages,
 		mediaPath: "media.json",
+		searchIndexPath: "search-index.json",
 		registries: {
 			items: "registries/items.json",
 			pokemon: "registries/pokemon.json",
@@ -682,8 +684,19 @@ async function main() {
 		DIST_BUILD_DIR
 	);
 
+	// Built from the published pages rather than the manifest: the point of the index is
+	// the body text, which the manifest deliberately does not carry.
+	const searchIndex = buildSearchIndex(
+		await Promise.all(pages.map(async (page) => ({
+			slug: page.slug,
+			page: await readJson(path.join(PAGES_BUILD_DIR, page.pagePath)),
+		})))
+	);
+	console.log(`Search index: ${searchIndex.slugs.length} pages, ${Object.keys(searchIndex.tokens).length} terms.`);
+
 	await writeJson(path.join(DIST_BUILD_DIR, "manifest.json"), manifest);
 	await writeJson(path.join(DIST_BUILD_DIR, "media.json"), mediaRegistry);
+	await writeJson(path.join(DIST_BUILD_DIR, "search-index.json"), searchIndex);
 	await copyFile(
 		path.join(process.cwd(), "scripts", "templates", "index.html"),
 		path.join(DIST_BUILD_DIR, "index.html")

@@ -557,6 +557,25 @@
 		}
 	},
 	{
+		"category": "quests",
+		"categoryLabel": {
+			"pt-BR": "Quests",
+			"en": "Quests",
+			"es": "Quests"
+		},
+		"slug": "ginasios-de-johto",
+		"url": "https://wiki.pokexgames.com/index.php/Gin%C3%A1sios_de_Johto",
+		"title": {
+			"pt-BR": "Ginásios de Johto",
+			"en": "Johto Gyms",
+			"es": "Gimnasios de Johto"
+		},
+		"navigationPath": [
+			"Quests"
+		],
+		"pageKind": "quest"
+	},
+	{
 		"category": "daily-missions",
 		"categoryLabel": {
 			"pt-BR": "Missões Diárias",

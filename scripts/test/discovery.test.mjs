@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import { extractArticleHtml, extractArticleWikiLinks } from "../lib/extract.mjs";
 import {
@@ -160,4 +161,29 @@ test("a hub page is still discovered when it is the root of its own tree", () =>
 		true,
 		"matches rootEntry.slug so it is skipped as a self-link, not adopted twice"
 	);
+});
+
+// A discovered page inherits the category of whichever seed's crawl reaches it first
+// (discovery.mjs:489), and both the Quests and Mystery Dungeons seeds recurse to maxDepth 2.
+// "Ginásios de Johto" is reachable from both, so its category flipped between runs: a local
+// cache-backed build filed it under quests, while a fresh CI scrape filed it under
+// mystery-dungeons and then failed validation, because a quest page has neither the typed
+// abilities nor the rewards a mystery-dungeon page must publish.
+//
+// Config slugs are pre-claimed before any crawl (discovery.mjs:527), so an explicit entry is the
+// authoritative fix. This test pins that, and documents the shape of the underlying hazard:
+// any page reachable from two seeds can flip, and only the categories with strict validation
+// rules fail loudly when it happens.
+test("pages reachable from two seeds are pinned in config, not left to crawl order", async () => {
+	const config = JSON.parse(
+		await readFile(new URL("../../config/wiki-pages.json", import.meta.url), "utf8"),
+	);
+
+	const entry = config.find((item) => item.slug === "ginasios-de-johto");
+	assert.ok(entry, "Ginásios de Johto must stay explicitly configured");
+	assert.equal(entry.category, "quests", "it is a quest page, not a mystery dungeon");
+	assert.equal(entry.pageKind, "quest");
+
+	const slugs = config.map((item) => item.slug);
+	assert.equal(new Set(slugs).size, slugs.length, "config slugs must stay unique");
 });

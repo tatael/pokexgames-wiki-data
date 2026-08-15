@@ -9,6 +9,17 @@
 
 export const DEFAULT_MIN_PAGE_RATIO = 0.9;
 
+/**
+ * Manifest `pagePath` values are relative to `pages/`, not to the bundle root — the overlay
+ * inserts the same prefix in `page_remote_url` (src-tauri/src/wiki/http.rs) while
+ * `media_remote_url` joins asset paths directly. Mixing the two 404s on a perfectly good bundle,
+ * which is exactly what the first published smoke run did.
+ */
+export function pageUrlPath(pagePath) {
+	const clean = String(pagePath ?? '').replace(/^\/+/, '');
+	return clean.startsWith('pages/') ? clean : `pages/${clean}`;
+}
+
 function countByCategory(pages) {
 	const counts = new Map();
 	for (const page of pages ?? []) {

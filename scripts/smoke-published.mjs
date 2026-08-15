@@ -8,6 +8,7 @@ import path from "node:path";
 import { readFile } from "node:fs/promises";
 
 import { DIST_DIR, SCHEMA_VERSION } from "./lib/shared.mjs";
+import { pageUrlPath } from "./lib/publish-guard.mjs";
 
 const PUBLISHED_BASE_URL =
 	process.env.WIKI_PUBLISHED_BASE_URL?.trim() || "https://tatael.github.io/pokexgames-wiki-data";
@@ -66,6 +67,9 @@ async function main() {
 		failures.push(`published ${publishedPages} pages, built ${builtPages}`);
 	}
 
+	// Assets sit at the bundle root, pages sit under pages/. The overlay encodes the same
+	// asymmetry in src-tauri/src/wiki/http.rs — `media_remote_url` joins the path directly while
+	// `page_remote_url` inserts `pages/`. Getting this wrong here 404s on a bundle that is fine.
 	if (published.searchIndexPath) {
 		await fetchPublished(published.searchIndexPath);
 	} else {
@@ -75,7 +79,7 @@ async function main() {
 	// One real page, end to end. The manifest can be perfect while every page 404s.
 	const samplePage = (published.pages ?? []).find((page) => page?.pagePath);
 	if (samplePage) {
-		await fetchPublished(samplePage.pagePath);
+		await fetchPublished(pageUrlPath(samplePage.pagePath));
 	} else {
 		failures.push("published manifest has no page with a pagePath to sample");
 	}

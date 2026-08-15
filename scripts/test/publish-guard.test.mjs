@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { evaluatePublishGuard, summarizeBundle } from "../lib/publish-guard.mjs";
+import { evaluatePublishGuard, pageUrlPath, summarizeBundle } from "../lib/publish-guard.mjs";
 
 function bundle(pages) {
 	return summarizeBundle({ schemaVersion: 2, pages });
@@ -106,4 +106,16 @@ test("force publishes past a block and records why", () => {
 	assert.equal(result.ok, true);
 	assert.deepEqual(result.blocking, []);
 	assert.match(result.warnings.join(" "), /forced past: page count fell/);
+});
+
+// The first successful publish deployed a perfectly good bundle and then failed its own smoke
+// check, because manifest pagePath values are relative to pages/ while asset paths are relative
+// to the bundle root. The overlay encodes the same split in src-tauri/src/wiki/http.rs.
+test("page paths are resolved under pages/, asset paths are not", () => {
+	assert.equal(pageUrlPath("boss-fight/boss-fight.json"), "pages/boss-fight/boss-fight.json");
+	assert.equal(pageUrlPath("/clans/volcanic.json"), "pages/clans/volcanic.json");
+});
+
+test("a pagePath that already carries the prefix is not doubled", () => {
+	assert.equal(pageUrlPath("pages/clans/volcanic.json"), "pages/clans/volcanic.json");
 });

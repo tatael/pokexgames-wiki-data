@@ -2,6 +2,11 @@ name: Daily Wiki Sync
 
 on:
   workflow_dispatch:
+    inputs:
+      force_publish:
+        description: "Publish even if the bundle shrank (use when the wiki really did lose content)"
+        type: boolean
+        default: false
   schedule:
     - cron: "0 9 * * *"
 
@@ -9,6 +14,8 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  # Needed by the failure reporter below.
+  issues: write
 
 concurrency:
   group: pages
@@ -17,29 +24,84 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # A full live scrape is ~2970 fetches at WIKI_SYNC_CONCURRENCY=24. This has never run in
+    # CI, so the first dispatch is the real measurement; raise it if a legitimate run is cut off.
+    timeout-minutes: 120
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
-      - name: Build Bundle
-        run: npm run ci
+      # Split out of `npm run ci` so a red X names the stage that broke instead of
+      # surfacing three steps later as a tar error.
+      - name: Test
+        run: npm test
+
+      - name: Build bundle
+        run: npm run build
+
+      - name: Validate bundle
+        run: npm run validate
+
+      # Blocks a publish that would shrink the live bundle. See scripts/lib/publish-guard.mjs.
+      - name: Guard against regression
+        env:
+          WIKI_PUBLISH_FORCE: ${{ inputs.force_publish && '1' || '' }}
+        run: npm run guard
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
       - name: Deploy Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
+
+      # Proves the bundle reachable over HTTPS is the one just built. The pipeline spent four
+      # months "succeeding" while serving an April bundle; only this step would have caught it.
+      - name: Smoke test published bundle
+        run: npm run smoke
+
+      # Nobody noticed 100+ consecutive red runs. This is the part that makes the rest hold.
+      - name: Report failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh label create sync-failure --color B60205 --description "Daily Wiki Sync is failing" --force
+          body="Daily Wiki Sync failed on $(date -u +%Y-%m-%d). Run: $RUN_URL"
+          existing=$(gh issue list --label sync-failure --state open --limit 1 --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create \
+              --title "Daily Wiki Sync is failing" \
+              --label sync-failure \
+              --body "$body"$'\n\n'"The published bundle is now going stale. Close this issue once a run goes green."
+          fi
+
+      # Close the loop so a fixed pipeline does not leave a stale alarm open.
+      - name: Resolve failure issue
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          existing=$(gh issue list --label sync-failure --state open --limit 1 --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "Sync is green again. Run: $RUN_URL"
+          fi

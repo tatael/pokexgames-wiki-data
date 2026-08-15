@@ -135,6 +135,8 @@ Current locale note:
 ```bash
 npm run sync
 npm run validate
+npm run guard    # would this bundle regress what is published?
+npm run smoke    # does the published bundle match the local one?
 npm run serve
 ```
 
@@ -152,6 +154,8 @@ Useful environment overrides:
 - `WIKI_SYNC_CATEGORY=boss-fight,quests`: sync only specific categories
 - `WIKI_REFRESH=entei,king-charizard-dungeon`: force a live refetch and cache refresh for specific page slugs or exact source URLs
 - `WIKI_SKIP_VALIDATE=1`: skip bundle validation during fast local iteration
+- `WIKI_PUBLISH_FORCE=1`: let `npm run guard` publish a bundle that shrank
+- `WIKI_PUBLISHED_BASE_URL=…`: point `guard` / `smoke` at a different published bundle (defaults to the GitHub Pages URL)
 
 `npm run serve` starts a local HTTP server at `http://127.0.0.1:8787` that serves the `dist/` folder.
 Set `PORT=<number>` to use a different port.
@@ -211,7 +215,29 @@ Current known limitation:
 
 ## Publish Flow
 
-GitHub Actions runs the daily sync and deploys the generated `dist/` folder to GitHub Pages.
+`.github/workflows/daily-sync.yml` runs the sync every day at 09:00 UTC and deploys the
+generated `dist/` folder to GitHub Pages. The stages are separate steps so a red run names
+what broke:
+
+`npm test` → `npm run build` → `npm run validate` → `npm run guard` → deploy → `npm run smoke`
+
+- **guard** (`scripts/guard-publish.mjs`) runs *before* the upload and refuses to publish a
+  bundle that regresses the live one: total pages below 90% of what is currently published, or
+  any category dropping to zero. A missing baseline (nothing published yet, Pages 5xx) warns
+  and allows, so a first publish is never deadlocked. Set `WIKI_PUBLISH_FORCE=1` — or tick
+  **force_publish** on a manual dispatch — when the wiki genuinely lost content.
+- **smoke** (`scripts/smoke-published.mjs`) runs *after* the deploy and asserts that what is
+  reachable over HTTPS is what was just built: matching `updatedAt` and page count, the
+  expected `schemaVersion`, a fetchable `search-index.json`, and one real page file. It retries,
+  because a Pages deploy is not readable the instant the step returns.
+- On failure the job opens (or comments on) a `sync-failure` issue, and closes it on the next
+  green run. This exists because the pipeline once spent four months failing every single day
+  with nobody watching: `ci` was defined as `npm run test` with no build, so `dist/` never
+  existed and the Pages upload died on `tar: dist: Cannot open`.
+
+The category-emptied check matters as much as the page count. Every silent collapse this repo
+has hit — `extract-flex-tasks`, `extract-craft-prof`, `extract-clan-effectiveness` — emptied one
+category when the wiki moved its data into a JS widget, while the total barely moved.
 
 Default published URLs:
 - `https://<owner>.github.io/pokexgames-wiki-data/`

@@ -11,7 +11,9 @@
 		"review:checklist": "node scripts/generate-review-checklist.mjs",
 		"review:shortlist": "node scripts/generate-review-shortlist.mjs",
 		"build": "node scripts/sync-wiki.mjs",
-		"ci": "npm run test && npm run build && npm run validate",
+		"ci": "npm run test && npm run build && npm run validate && npm run guard",
+		"guard": "node scripts/guard-publish.mjs",
+		"smoke": "node scripts/smoke-published.mjs",
 		"test": "node --test scripts/test/*.test.mjs",
 		"serve": "node scripts/serve.mjs",
 		"cache:clean": "node scripts/clean-cache.mjs"

@@ -45,9 +45,32 @@ async function fetchPublished(relativePath, { json = true } = {}) {
 	throw new Error(`${url} never became readable: ${lastError?.message ?? "unknown error"}`);
 }
 
+/**
+ * Waits for the CDN to actually serve the bundle we just built.
+ *
+ * `fetchPublished` retries transport failures, but a stale bundle answers 200 — the manifest is
+ * perfectly reachable, it is simply the previous deploy. Comparing once and failing was wrong: a
+ * Pages deploy propagates asynchronously, so the first read after the deploy step returns can
+ * legitimately still be the old bundle. Only after the freshness window expires is this a real
+ * publish failure rather than a slow one.
+ */
+async function waitForPublishedManifest(expectedUpdatedAt) {
+	let published = await fetchPublished("manifest.json");
+
+	for (let attempt = 1; attempt <= RETRIES && published.updatedAt !== expectedUpdatedAt; attempt += 1) {
+		console.warn(
+			`Published bundle is still ${published.updatedAt}, waiting for ${expectedUpdatedAt}; retrying in ${RETRY_DELAY_MS / 1000}s.`,
+		);
+		await sleep(RETRY_DELAY_MS);
+		published = await fetchPublished("manifest.json");
+	}
+
+	return published;
+}
+
 async function main() {
 	const built = JSON.parse(await readFile(path.join(DIST_DIR, "manifest.json"), "utf8"));
-	const published = await fetchPublished("manifest.json");
+	const published = await waitForPublishedManifest(built.updatedAt);
 
 	const failures = [];
 
@@ -57,7 +80,7 @@ async function main() {
 
 	if (published.updatedAt !== built.updatedAt) {
 		failures.push(
-			`published updatedAt is ${published.updatedAt}, expected ${built.updatedAt} — Pages is still serving an older bundle`,
+			`published updatedAt is ${published.updatedAt}, expected ${built.updatedAt} — Pages never served the new bundle`,
 		);
 	}
 

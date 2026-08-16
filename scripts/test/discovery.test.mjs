@@ -184,6 +184,17 @@ test("pages reachable from two seeds are pinned in config, not left to crawl ord
 	assert.equal(entry.category, "quests", "it is a quest page, not a mystery dungeon");
 	assert.equal(entry.pageKind, "quest");
 
+	// These two hubs were won by the dimensional-zone crawl, which claimed them at its own
+	// maxDepth and never recursed — silently costing the bundle all 48 of their children
+	// (every shard, Poké Ball and evolution stone). Seeds are processed in config order now,
+	// but pinning keeps them correct regardless of where they sit in that order.
+	for (const slug of ["pedras-de-evolucao", "pokebolas"]) {
+		const hub = config.find((item) => item.slug === slug);
+		assert.ok(hub, `${slug} must stay explicitly configured`);
+		assert.equal(hub.category, "items", `${slug} belongs to items`);
+		assert.ok(hub.children, `${slug} must keep discovering its own children`);
+	}
+
 	const slugs = config.map((item) => item.slug);
 	assert.equal(new Set(slugs).size, slugs.length, "config slugs must stay unique");
 });

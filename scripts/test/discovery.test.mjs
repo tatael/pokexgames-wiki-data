@@ -10,6 +10,7 @@ import {
 	looksLikePokemonDiscoveryCandidate,
 	shouldRecurseDiscoveredPage,
 	shouldSkipDiscoveredLink,
+	resolveDiscoveryOwnership,
 } from "../lib/discovery.mjs";
 import { buildLocalizedText } from "../lib/shared.mjs";
 import { loadFixture } from "./helpers.mjs";
@@ -197,4 +198,28 @@ test("pages reachable from two seeds are pinned in config, not left to crawl ord
 
 	const slugs = config.map((item) => item.slug);
 	assert.equal(new Set(slugs).size, slugs.length, "config slugs must stay unique");
+});
+
+// Ownership used to go to whichever concurrent crawl reached a page first, which made the whole
+// bundle nondeterministic — nightmare-world swung between 45 and 17 pages on identical input.
+// Traversal and ownership are separate now: every seed crawls fully, then this picks one owner.
+test("the seed that reaches a page most directly owns it", () => {
+	const candidates = new Map([
+		["dratini", { depth: 3, seedIndex: 2, entry: { slug: "dratini", category: "items" } }],
+	]);
+	// A shallower reach from a later seed still wins: directness beats config position.
+	candidates.set("dratini", { depth: 1, seedIndex: 9, entry: { slug: "dratini", category: "pokemon" } });
+
+	const [winner] = resolveDiscoveryOwnership(candidates);
+	assert.equal(winner.entry.category, "pokemon");
+});
+
+test("ownership output is ordered deterministically", () => {
+	const make = (slug, seedIndex, depth) => [slug, { depth, seedIndex, entry: { slug, category: "items" } }];
+	const first = resolveDiscoveryOwnership(new Map([make("b", 1, 1), make("a", 0, 2), make("c", 1, 1)]));
+	const second = resolveDiscoveryOwnership(new Map([make("c", 1, 1), make("b", 1, 1), make("a", 0, 2)]));
+
+	// Insertion order differs; the resolved order must not.
+	assert.deepEqual(first.map((x) => x.entry.slug), second.map((x) => x.entry.slug));
+	assert.deepEqual(first.map((x) => x.entry.slug), ["a", "b", "c"]);
 });

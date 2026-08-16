@@ -445,6 +445,9 @@ export function shouldSkipDiscoveredLink({
 	);
 }
 
+/// Crawls one seed in isolation and records every page it can reach, without claiming anything.
+/// `seenSlugs` here is the seed's own visit set — it stops cycles inside this crawl and nothing
+/// more. Ownership is decided afterwards by `resolveDiscoveryOwnership`.
 async function discoverChildrenRecursive({
 	parentEntry,
 	rootEntry,
@@ -453,6 +456,9 @@ async function discoverChildrenRecursive({
 	expanded,
 	seenSlugs,
 	discoveredEntries,
+	candidates,
+	configSlugs,
+	seedIndex,
 }) {
 	const html = await fetchWikiHtml(parentEntry.url);
 	if (!html) return;
@@ -495,17 +501,31 @@ async function discoverChildrenRecursive({
 			pageKind: inferredPageKind,
 		};
 
-		expanded.push(childEntry);
-		discoveredEntries.push({
-			parentSlug: rootEntry.slug,
-			discoveredFromSlug: parentEntry.slug,
-			slug: childSlug,
-			url: link.url,
-			title: childEntry.title,
-			navigationPath: childEntry.navigationPath,
-			pageKind: childEntry.pageKind,
-			pagePath: buildPagePath(childEntry),
-		});
+		// Recorded as a candidate, not claimed. A page reachable from several seeds is offered by
+		// each of them and resolved once, afterwards.
+		if (!configSlugs.has(childSlug)) {
+			const existing = candidates.get(childSlug);
+			// The seed that reaches a page most directly owns it; config order breaks ties. Both
+			// halves are deterministic, which is the whole point.
+			if (!existing || depth < existing.depth || (depth === existing.depth && seedIndex < existing.seedIndex)) {
+				candidates.set(childSlug, {
+					depth,
+					seedIndex,
+					entry: childEntry,
+					discovered: {
+						parentSlug: rootEntry.slug,
+						discoveredFromSlug: parentEntry.slug,
+						slug: childSlug,
+						url: link.url,
+						title: childEntry.title,
+						navigationPath: childEntry.navigationPath,
+						pageKind: childEntry.pageKind,
+						pagePath: buildPagePath(childEntry),
+					},
+				});
+			}
+		}
+
 		seenSlugs.add(childSlug);
 
 		if (depth < (childrenRule.maxDepth || 1) && shouldRecurseDiscoveredPage(childEntry, depth)) {
@@ -517,9 +537,23 @@ async function discoverChildrenRecursive({
 				expanded,
 				seenSlugs,
 				discoveredEntries,
+				candidates,
+				configSlugs,
+				seedIndex,
 			});
 		}
 	}
+}
+
+/// Picks one owner per discovered slug. Sorted so the output order is stable regardless of which
+/// crawl happened to finish first.
+export function resolveDiscoveryOwnership(candidates) {
+	return [...candidates.values()].sort(
+		(left, right) =>
+			left.seedIndex - right.seedIndex
+			|| left.depth - right.depth
+			|| left.entry.slug.localeCompare(right.entry.slug),
+	);
 }
 
 export async function expandConfigWithDiscoveredChildren(config) {
@@ -536,18 +570,52 @@ export async function expandConfigWithDiscoveredChildren(config) {
 		processedSlugs.add(entry.slug);
 	}
 
-	const discoverEntries = config.filter((entry) => entry.children?.mode === "discover-links");
-	await runWithConcurrency(discoverEntries, WIKI_DISCOVERY_CONCURRENCY, (entry) =>
+	// Two phases, because ownership and traversal are different questions.
+	//
+	// Seeds used to share one mutable `seenSlugs`, so a page belonged to whichever crawl reached
+	// it first — a race whose winner changed run to run. The real damage was not the wrong
+	// category: a seed that had already hit its own `maxDepth` still claimed the slug and then
+	// never recursed, so every child beneath it silently disappeared. That cost the published
+	// bundle 75 item pages, and made `nightmare-world` swing between 45 and 17 pages on identical
+	// input.
+	//
+	// Ordering the seeds cannot fix this. Both orderings were measured and both are wrong:
+	// running catalogues first sends ~600 pages to items/quests, running areas first sends
+	// nightmare-world from 45 to 270. The wiki's link graph reaches most pages from several
+	// directions, so no single traversal order is correct.
+	//
+	// So each seed now crawls independently and records candidates, and ownership is resolved once
+	// at the end: shallowest depth wins, config order breaks ties. No seed can block another's
+	// traversal, which removes the cascading child loss entirely, and the result is deterministic.
+	// Repeat fetches of a shared page are served by the per-run HTML cache.
+	const configSlugs = new Set(config.map((entry) => entry.slug));
+	const candidates = new Map();
+	const discoverEntries = config
+		.map((entry, index) => ({ entry, index }))
+		.filter(({ entry }) => entry.children?.mode === "discover-links");
+
+	await runWithConcurrency(discoverEntries, WIKI_DISCOVERY_CONCURRENCY, ({ entry, index }) =>
 		discoverChildrenRecursive({
 			parentEntry: entry,
 			rootEntry: entry,
 			childrenRule: entry.children,
 			depth: 1,
 			expanded,
-			seenSlugs,
+			// Per-seed visit set: stops cycles inside this crawl, and nothing else.
+			seenSlugs: new Set(configSlugs),
 			discoveredEntries,
+			candidates,
+			configSlugs,
+			seedIndex: index,
 		})
 	);
+
+	for (const { entry, discovered } of resolveDiscoveryOwnership(candidates)) {
+		if (seenSlugs.has(entry.slug)) continue;
+		expanded.push(entry);
+		seenSlugs.add(entry.slug);
+		discoveredEntries.push(discovered);
+	}
 
 	const pokemonDiscoverRoots = config.filter((entry) => entry.children?.mode === "discover-pokemon-api");
 	for (const rootEntry of pokemonDiscoverRoots) {

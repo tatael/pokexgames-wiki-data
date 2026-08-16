@@ -27,12 +27,63 @@ function parseElementListText(value) {
 	);
 }
 
+// FACT_LABEL_RE does not know about "Mega Stone" or the PvP-exclusivity sentence, so those run
+// on into whichever fact preceded them — which in practice is Habilidades. The published field
+// then held entries like
+//   "Headbutt. Mega Stone: Garchompite Este Pokémon é exclusivo do clã Wingeon em batalhas PvP"
+// and any consumer filtering on ability names missed them. Cutting at the first label that starts
+// a different fact is safer than teaching FACT_LABEL_RE every possible trailing sentence.
+const ABILITY_TRAILING_FACT_RE =
+	/\s*\.?\s*(?:mega\s*stone\s*:|pedra\s+de\s+evolu|est[ea]\s+pok[eé]mon\s+[eé]\s+exclusiv|exclusiv[oa]\s+do\s+cl[ãa])/i;
+
+// The wiki writes these with inconsistent casing across pages ("Dig" on 407, "dig" on 60), plus a
+// few outright typos. Left alone, an ability filter silently misses ~15% of its matches.
+const CANONICAL_ABILITIES = new Map([
+	["blink", "Blink"],
+	["control mind", "Control Minds"],
+	["control minds", "Control Minds"],
+	["cut", "Cut"],
+	["dark portal", "Dark Portal"],
+	["dig", "Dig"],
+	["fly", "Fly"],
+	["headbutt", "Headbutt"],
+	["levitate", "Levitate"],
+	["light", "Light"],
+	["ride", "Ride"],
+	["rock smash", "Rock Smash"],
+	["rock smah", "Rock Smash"],
+	["strength", "Strength"],
+	["strenght", "Strength"],
+	["surf", "Surf"],
+	["teleport", "Teleport"],
+	["transform", "Transform"],
+]);
+
+// "Nenhuma" is the wiki saying the Pokémon has no utility ability. Publishing it as one made 45
+// Pokémon look like they shared an ability called "none".
+const NON_ABILITY_VALUES = new Set(["", "-", "n/a", "nenhuma", "nenhum", "none", "ninguna"]);
+
+export function normalizeAbilityName(value) {
+	const cleaned = String(value ?? "")
+		.split(ABILITY_TRAILING_FACT_RE)[0]
+		.replace(/[.,;]+$/, "")
+		.replace(/\s+and$/i, "")
+		.replace(/\s+/g, " ")
+		.trim();
+
+	const key = cleaned.toLowerCase();
+	if (NON_ABILITY_VALUES.has(key)) return "";
+	// Unknown values are kept rather than dropped: a new utility ability should show up as itself,
+	// not vanish because this map has not been updated yet.
+	return CANONICAL_ABILITIES.get(key) ?? cleaned;
+}
+
 function splitAbilitiesText(value) {
 	if (!value) return [];
 	return dedupeBySlug(
 		String(value)
 			.split(/\s*(?:,| and | e | y )\s*/i)
-			.map((item) => displayStructuredText(item))
+			.map((item) => normalizeAbilityName(displayStructuredText(item)))
 			.filter(Boolean),
 		(item) => buildSlug(item, "")
 	);

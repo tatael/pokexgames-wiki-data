@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { normalizeAbilityName } from "../lib/transform/pokemon.mjs";
 
 import { publishSection, structureSection, parsePokemonItemText, parseRewardItemText } from "../lib/transform.mjs";
 import { parseDifficultyEntries } from "../lib/transform/boss-fight.mjs";
@@ -2095,4 +2096,45 @@ test("a prose sentence is not published as a utility held item", () => {
 	const names = (groups.utilities ?? []).flatMap((group) => group.entries.map((entry) => entry.name));
 	assert.ok(names.includes("X-Lucky"), "a real held item survives");
 	assert.ok(!names.some((name) => /concede/.test(name)), "the sentence is dropped");
+});
+
+// The Habilidades fact swallowed whatever sentence followed it, because FACT_LABEL_RE does not
+// know about "Mega Stone" or the PvP-exclusivity line. 35 Pokémon published abilities like
+// "Headbutt. Mega Stone: Garchompite Este Pokémon é exclusivo do clã Wingeon em batalhas PvP",
+// which no ability filter could ever match.
+test("ability names drop a trailing fact that ran on from the next label", () => {
+	assert.equal(
+		normalizeAbilityName("Headbutt. Mega Stone: Garchompite Este Pokémon é exclusivo do clã Wingeon em batalhas PvP"),
+		"Headbutt",
+	);
+	assert.equal(normalizeAbilityName("Ride. Mega Stone: Absolite"), "Ride");
+	assert.equal(normalizeAbilityName("None. Pedra de evolução: Eviolite"), "");
+	assert.equal(normalizeAbilityName("Fly Mega Stone: Altarianite"), "Fly");
+});
+
+// "Dig" on 407 pages and "dig" on 60 is the same ability; a filter keyed on the published string
+// missed roughly 15% of every match.
+test("ability casing is canonicalized across pages", () => {
+	assert.equal(normalizeAbilityName("dig"), "Dig");
+	assert.equal(normalizeAbilityName("Rock smash"), "Rock Smash");
+	assert.equal(normalizeAbilityName("rock smash"), "Rock Smash");
+	assert.equal(normalizeAbilityName("HEADBUTT"), "Headbutt");
+});
+
+test("known source typos resolve to the real ability", () => {
+	assert.equal(normalizeAbilityName("rock smah"), "Rock Smash");
+	assert.equal(normalizeAbilityName("strenght"), "Strength");
+	assert.equal(normalizeAbilityName("Surf and"), "Surf");
+});
+
+// "Nenhuma" is the wiki saying there is no utility ability, not the name of one.
+test("no-ability placeholders are dropped instead of published as an ability", () => {
+	for (const value of ["Nenhuma", "nenhum", "None", "-", "n/a", "  "]) {
+		assert.equal(normalizeAbilityName(value), "", `${value} must not publish as an ability`);
+	}
+});
+
+// A new utility ability must appear as itself rather than vanish because the map is stale.
+test("an unrecognized ability is preserved, not dropped", () => {
+	assert.equal(normalizeAbilityName("Phase Shift"), "Phase Shift");
 });

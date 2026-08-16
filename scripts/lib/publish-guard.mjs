@@ -8,6 +8,11 @@
 // content. Comparing against what is currently published is the only check that catches it.
 
 export const DEFAULT_MIN_PAGE_RATIO = 0.9;
+/// A category may legitimately shrink as the wiki reorganises, so this is looser than the
+/// bundle-wide floor — it is aimed at a collapse, not at churn.
+export const DEFAULT_MIN_CATEGORY_RATIO = 0.85;
+/// Below this a category moves by whole pages and a ratio is noise.
+const MIN_CATEGORY_SIZE_FOR_RATIO = 20;
 
 /**
  * Manifest `pagePath` values are relative to `pages/`, not to the bundle root — the overlay
@@ -46,7 +51,13 @@ export function summarizeBundle(manifest) {
  *               an unreachable baseline warns rather than blocks — refusing to publish
  *               because nothing is published yet would be a deadlock.
  */
-export function evaluatePublishGuard({ built, live, force = false, minRatio = DEFAULT_MIN_PAGE_RATIO }) {
+export function evaluatePublishGuard({
+	built,
+	live,
+	force = false,
+	minRatio = DEFAULT_MIN_PAGE_RATIO,
+	minCategoryRatio = DEFAULT_MIN_CATEGORY_RATIO,
+}) {
 	const blocking = [];
 	const warnings = [];
 
@@ -66,10 +77,25 @@ export function evaluatePublishGuard({ built, live, force = false, minRatio = DE
 
 		// A category going to zero is the signature of a source shape change, and it
 		// survives a page-count check whenever the category is small.
+		//
+		// A category losing a *large share* is the same failure caught earlier: on 2026-08-16 the
+		// items category fell 451 → 364 because two hub pages were claimed by another seed's
+		// crawl, taking all 48 of their children with them. That is 3% of the bundle — nowhere
+		// near the total-page floor — but 19% of the category.
 		for (const [category, liveCount] of live.categories) {
 			const builtCount = built.categories.get(category) ?? 0;
 			if (builtCount === 0) {
 				blocking.push(`category "${category}" lost all ${liveCount} of its pages`);
+				continue;
+			}
+
+			// Small categories move by whole pages, so a ratio there is noise; only guard
+			// categories large enough for a proportion to mean something.
+			const floor = Math.floor(liveCount * minCategoryRatio);
+			if (liveCount >= MIN_CATEGORY_SIZE_FOR_RATIO && builtCount < floor) {
+				blocking.push(
+					`category "${category}" fell from ${liveCount} to ${builtCount}, below the ${Math.round(minCategoryRatio * 100)}% floor of ${floor}`,
+				);
 			}
 		}
 	}

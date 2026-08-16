@@ -119,3 +119,35 @@ test("page paths are resolved under pages/, asset paths are not", () => {
 test("a pagePath that already carries the prefix is not doubled", () => {
 	assert.equal(pageUrlPath("pages/clans/volcanic.json"), "pages/clans/volcanic.json");
 });
+
+// The 2026-08-16 loss: two items hub pages were claimed by another seed's crawl and took all 48
+// of their children with them. Items fell 451 -> 364 while the bundle overall lost only 3%, so
+// the total-page floor never fired.
+test("a category collapsing blocks even when the bundle total looks healthy", () => {
+	const result = evaluatePublishGuard({
+		built: bundle(pagesFor({ items: 364, pokemon: 1191, quests: 248 })),
+		live: bundle(pagesFor({ items: 451, pokemon: 1191, quests: 248 })),
+	});
+
+	assert.equal(result.ok, false);
+	assert.match(result.blocking.join(" "), /category "items" fell from 451 to 364/);
+});
+
+test("ordinary churn inside a category still publishes", () => {
+	const result = evaluatePublishGuard({
+		built: bundle(pagesFor({ items: 440, pokemon: 1191 })),
+		live: bundle(pagesFor({ items: 451, pokemon: 1191 })),
+	});
+
+	assert.equal(result.ok, true);
+});
+
+// A category of five moves by whole pages; a ratio there would block on normal editing.
+test("small categories are not ratio-checked", () => {
+	const result = evaluatePublishGuard({
+		built: bundle(pagesFor({ tools: 3, pokemon: 1191 })),
+		live: bundle(pagesFor({ tools: 6, pokemon: 1191 })),
+	});
+
+	assert.equal(result.ok, true);
+});

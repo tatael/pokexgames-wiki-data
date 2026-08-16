@@ -349,6 +349,62 @@
 			"en": "Items",
 			"es": "Objetos"
 		},
+		"slug": "pedras-de-evolucao",
+		"url": "https://wiki.pokexgames.com/index.php/Pedras_de_Evolu%C3%A7%C3%A3o",
+		"title": {
+			"pt-BR": "Pedras de Evolução",
+			"en": "Evolution Stones",
+			"es": "Piedras de Evolución"
+		},
+		"navigationPath": [
+			"Itens",
+			"Itens Gerais"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "item",
+			"excludeSlugs": [
+				"pedras-de-evolucao"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "pokebolas",
+		"url": "https://wiki.pokexgames.com/index.php/Pokebolas",
+		"title": {
+			"pt-BR": "Pokébolas",
+			"en": "Poké Balls",
+			"es": "Pokébolas"
+		},
+		"navigationPath": [
+			"Itens",
+			"Itens Gerais"
+		],
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "item",
+			"excludeSlugs": [
+				"pokebolas"
+			],
+			"maxDepth": 2
+		}
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
 		"slug": "rubber-ball",
 		"url": "https://wiki.pokexgames.com/index.php/Rubber_Ball",
 		"title": {

@@ -367,7 +367,7 @@
 			"excludeSlugs": [
 				"pedras-de-evolucao"
 			],
-			"maxDepth": 2
+			"maxDepth": 1
 		}
 	},
 	{
@@ -395,7 +395,7 @@
 			"excludeSlugs": [
 				"pokebolas"
 			],
-			"maxDepth": 2
+			"maxDepth": 1
 		}
 	},
 	{

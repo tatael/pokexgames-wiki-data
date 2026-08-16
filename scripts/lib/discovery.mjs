@@ -536,22 +536,9 @@ export async function expandConfigWithDiscoveredChildren(config) {
 		processedSlugs.add(entry.slug);
 	}
 
-	// Sequential, in config order, and deliberately not concurrent.
-	//
-	// `seenSlugs` and `expanded` are shared mutable state, and a discovered page is owned by
-	// whichever seed reaches it first. Running seeds concurrently made that a race: the winner
-	// changed between runs, so a page could switch category — or worse, be claimed by a seed that
-	// had already hit its own maxDepth and therefore never recursed into it, silently dropping
-	// every child it owned. That is how the published bundle lost 75 item pages (every shard,
-	// Poké Ball and evolution stone) on 2026-08-16, and how "Ginásios de Johto" flipped to
-	// mystery-dungeons before that. Neither produced a single warning.
-	//
-	// Config order is arbitrary but stable and reviewable, and an explicit config entry still wins
-	// outright because its slug is pre-claimed above. The discovery phase loses cross-seed
-	// parallelism; each seed's own crawl was already sequential, so the fetch count is unchanged.
 	const discoverEntries = config.filter((entry) => entry.children?.mode === "discover-links");
-	for (const entry of discoverEntries) {
-		await discoverChildrenRecursive({
+	await runWithConcurrency(discoverEntries, WIKI_DISCOVERY_CONCURRENCY, (entry) =>
+		discoverChildrenRecursive({
 			parentEntry: entry,
 			rootEntry: entry,
 			childrenRule: entry.children,
@@ -559,8 +546,8 @@ export async function expandConfigWithDiscoveredChildren(config) {
 			expanded,
 			seenSlugs,
 			discoveredEntries,
-		});
-	}
+		})
+	);
 
 	const pokemonDiscoverRoots = config.filter((entry) => entry.children?.mode === "discover-pokemon-api");
 	for (const rootEntry of pokemonDiscoverRoots) {

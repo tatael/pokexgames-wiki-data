@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { dropRewardTableHeaders } from "../lib/transform/rewards.mjs";
 import { normalizeAbilityName } from "../lib/transform/pokemon.mjs";
 
 import { publishSection, structureSection, parsePokemonItemText, parseRewardItemText } from "../lib/transform.mjs";
@@ -2137,4 +2138,27 @@ test("no-ability placeholders are dropped instead of published as an ability", (
 // A new utility ability must appear as itself rather than vanish because the map is stale.
 test("an unrecognized ability is preserved, not dropped", () => {
 	assert.equal(normalizeAbilityName("Phase Shift"), "Phase Shift");
+});
+
+// Ultra Lab Alpha published its loot table's header row as loot: "Chance de Drop" appeared above
+// the real drops with no icon and nothing to click.
+test("a loot table header row is not published as loot", () => {
+	const kept = dropRewardTableHeaders([
+		{ type: "loot", name: "Chance de Drop", rarity: null, qty: null },
+		{ type: "loot", name: "Inhibitor Chip", rarity: "69%", qty: "1-46" },
+	]);
+
+	assert.deepEqual(kept.map((r) => r.name), ["Inhibitor Chip"]);
+});
+
+// The empty rarity/qty requirement is what keeps this from eating real items: a drop that
+// happens to be named after a column word still has numbers attached.
+test("an item named like a column keeps its row when it has real numbers", () => {
+	const kept = dropRewardTableHeaders([{ type: "loot", name: "Item", rarity: "5%", qty: "1" }]);
+	assert.equal(kept.length, 1);
+});
+
+test("header matching ignores accents and casing", () => {
+	const kept = dropRewardTableHeaders([{ type: "loot", name: "PROBABILIDADE", rarity: null, qty: null }]);
+	assert.equal(kept.length, 0);
 });

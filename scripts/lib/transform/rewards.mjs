@@ -559,6 +559,42 @@ function mergeRewardBaseline(previous, current) {
 	return merged;
 }
 
+// A loot table's header row was being published as loot: Ultra Lab Alpha listed "Chance de Drop"
+// above the real drops, with no icon and nothing to click. The header is recognisable because it
+// is a column label carrying neither a rarity nor a quantity, while every genuine drop has both.
+// Requiring the empty fields matters — an item legitimately named after a column word keeps its
+// row as long as it has real numbers attached.
+const REWARD_TABLE_HEADERS = new Set([
+	"chance de drop",
+	"chance",
+	"drop",
+	"drop chance",
+	"item",
+	"itens",
+	"items",
+	"quantidade",
+	"quantity",
+	"qtd",
+	"probabilidade",
+	"probability",
+	"recompensa",
+	"recompensas",
+	"reward",
+	"rewards",
+]);
+
+export function dropRewardTableHeaders(rewards) {
+	return (rewards ?? []).filter((reward) => {
+		const name = String(reward?.name ?? "")
+			.normalize("NFD")
+			.replace(/[̀-ͯ]/g, "")
+			.trim()
+			.toLowerCase();
+		if (!REWARD_TABLE_HEADERS.has(name)) return true;
+		return Boolean(reward?.rarity) || Boolean(reward?.qty);
+	});
+}
+
 export function dedupeRewards(rewards) {
 	const seen = new Set();
 	return rewards.filter((reward) => {

@@ -13,6 +13,7 @@ import {
 	parseVariantEntryText,
 } from "./transform/pokemon.mjs";
 import {
+	dropRewardTableHeaders,
 	dedupeRewards,
 	ensureLegendaryBossRewards,
 	fillSparseDifficultyRewards,
@@ -130,7 +131,7 @@ export function structureSection(section) {
 			const parsed = (section.items[locale] ?? [])
 				.map(parseRewardItemText)
 				.filter(Boolean);
-			rewards[locale] = dedupeRewards(fillSparseDifficultyRewards(ensureLegendaryBossRewards(propagateDifficulty(parsed))));
+			rewards[locale] = dropRewardTableHeaders(dedupeRewards(fillSparseDifficultyRewards(ensureLegendaryBossRewards(propagateDifficulty(parsed)))));
 		}
 
 		result.rewards = rewards;

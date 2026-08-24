@@ -255,9 +255,14 @@ export function isPokemonSectionSignature(sections) {
 			.filter(Boolean)
 	);
 
-	return tokens.has("informacoes gerais")
-		&& tokens.has("movimentos")
-		&& tokens.has("efetividades");
+	// Prefix match, not equality. Pages that split their move list — "Movimentos PVP" and
+	// "Movimentos PVE" rather than a single "Movimentos" — failed this check and were rejected
+	// as not-a-Pokémon, so they never entered the bundle at all. Shiny Froslass was one of them.
+	const hasPrefixed = (prefix) => [...tokens].some((token) => token === prefix || token.startsWith(`${prefix} `));
+
+	return hasPrefixed("informacoes gerais")
+		&& hasPrefixed("movimentos")
+		&& hasPrefixed("efetividades");
 }
 
 async function fetchAllWikiPageTitles() {

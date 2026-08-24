@@ -223,3 +223,35 @@ test("ownership output is ordered deterministically", () => {
 	assert.deepEqual(first.map((x) => x.entry.slug), second.map((x) => x.entry.slug));
 	assert.deepEqual(first.map((x) => x.entry.slug), ["a", "b", "c"]);
 });
+
+// Shiny Froslass exists on the wiki and returned 200, but never reached the bundle: its page
+// splits moves into "Movimentos PVP" / "Movimentos PVE" rather than a single "Movimentos", and
+// the signature demanded the exact token. Every Pokémon with a split move list was rejected as
+// not-a-Pokémon and silently dropped.
+test("a split move list still reads as a Pokémon page", () => {
+	const froslass = [
+		{ line: "Informações Gerais" },
+		{ line: "Movimentos PVP" },
+		{ line: "Movimentos PVE" },
+		{ line: "Efetividades" },
+	];
+
+	assert.equal(isPokemonSectionSignature(froslass), true);
+});
+
+test("the single-heading layout still passes", () => {
+	assert.equal(isPokemonSectionSignature([
+		{ line: "Informações Gerais" },
+		{ line: "Movimentos" },
+		{ line: "Efetividades" },
+	]), true);
+});
+
+// The prefix must not be so loose that any page with a stray word qualifies.
+test("a page missing a required section is still rejected", () => {
+	assert.equal(isPokemonSectionSignature([
+		{ line: "Informações Gerais" },
+		{ line: "Movimentos" },
+	]), false);
+	assert.equal(isPokemonSectionSignature([{ line: "Movimentoso" }]), false);
+});

@@ -214,7 +214,10 @@ export function extractArticleWikiLinks(html, pageUrl) {
 		}
 
 		results.push({
-			url: resolved.toString(),
+			// Canonical /index.php/ form, not the short path the wiki now emits. Everything
+			// downstream — slug building, cache keys, the published manifest — assumes this
+			// shape, and the manifest validator requires an absolute https url.
+			url: buildWikiUrlFromTitle(title),
 			title,
 			label: extractAnchorLabel(innerHtml, title, match[0]),
 			headingPath: headingTrail.map((item) => item.label),

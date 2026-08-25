@@ -105,13 +105,33 @@ export function extractGuardianBossSectionsHtml(html, guardianTitle) {
 		.join("\n");
 }
 
-export function decodeWikiTitleFromUrl(url) {
-	const parsed = new URL(url);
-	if (parsed.hostname !== WIKI_SOURCE_HOST || !parsed.pathname.startsWith("/index.php/")) {
-		return null;
+// The wiki serves article links two ways. It used to emit /index.php/Title everywhere; it now
+// also emits short paths like /Mochilas. Matching only the long form made every crawl return
+// zero links overnight — the pages were all still there, the hrefs had simply changed shape.
+//
+// Reserved MediaWiki prefixes stay excluded so File:, Special: and friends are not mistaken for
+// articles, and anything with a further path segment is not an article path at all.
+const WIKI_RESERVED_PREFIXES = /^(?:file|image|special|category|template|help|talk|user|mediawiki|media|ficheiro|arquivo|categoria|predefinicao|usuario|discussao|especial|ajuda):/i;
+
+export function wikiArticlePathTitle(pathname) {
+	if (!pathname || pathname === "/") return "";
+
+	if (pathname.startsWith("/index.php/")) {
+		return pathname.slice("/index.php/".length);
 	}
 
-	const rawTitle = parsed.pathname.slice("/index.php/".length);
+	// A short article path is a single segment: /Mochilas, not /images/3/3c/x.png.
+	const raw = pathname.slice(1);
+	if (!raw || raw.includes("/")) return "";
+	if (raw === "index.php" || WIKI_RESERVED_PREFIXES.test(decodeURIComponent(raw))) return "";
+	return raw;
+}
+
+export function decodeWikiTitleFromUrl(url) {
+	const parsed = new URL(url);
+	if (parsed.hostname !== WIKI_SOURCE_HOST) return null;
+
+	const rawTitle = wikiArticlePathTitle(parsed.pathname);
 	if (!rawTitle) {
 		return null;
 	}
@@ -172,7 +192,7 @@ export function extractArticleWikiLinks(html, pageUrl) {
 			continue;
 		}
 
-		if (resolved.hostname !== WIKI_SOURCE_HOST || !resolved.pathname.startsWith("/index.php/")) {
+		if (resolved.hostname !== WIKI_SOURCE_HOST || !wikiArticlePathTitle(resolved.pathname)) {
 			continue;
 		}
 
@@ -217,7 +237,7 @@ export function extractArticleWikiLinks(html, pageUrl) {
 					continue;
 				}
 
-				if (resolved.hostname !== WIKI_SOURCE_HOST || !resolved.pathname.startsWith("/index.php/")) continue;
+				if (resolved.hostname !== WIKI_SOURCE_HOST || !wikiArticlePathTitle(resolved.pathname)) continue;
 				const title = decodeWikiTitleFromUrl(resolved.toString()) ?? name;
 				results.push({
 					url: resolved.toString(),
@@ -288,7 +308,7 @@ export function extractSeeMoreWikiLinks(html, pageUrl) {
 			continue;
 		}
 
-		if (resolved.hostname !== WIKI_SOURCE_HOST || !resolved.pathname.startsWith("/index.php/")) continue;
+		if (resolved.hostname !== WIKI_SOURCE_HOST || !wikiArticlePathTitle(resolved.pathname)) continue;
 		if (resolved.searchParams.has("action") || resolved.searchParams.has("redlink")) continue;
 
 		const title = decodeWikiTitleFromUrl(resolved.toString());
@@ -666,8 +686,10 @@ function extractMedia(html, pageUrl = "", options = {}) {
 	const inferWikiLinkSlug = (href) => {
 		try {
 			const target = new URL(href, pageUrl);
-			if (target.hostname !== WIKI_SOURCE_HOST || !target.pathname.startsWith("/index.php/")) return null;
-			const title = decodeURIComponent(target.pathname.slice("/index.php/".length)).replaceAll("_", " ");
+			if (target.hostname !== WIKI_SOURCE_HOST) return null;
+			const rawPath = wikiArticlePathTitle(target.pathname);
+			if (!rawPath) return null;
+			const title = decodeURIComponent(rawPath).replaceAll("_", " ");
 			if (!title || title.includes(":")) return null;
 			return buildSlug(title, "");
 		} catch {

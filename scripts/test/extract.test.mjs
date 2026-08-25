@@ -9,6 +9,8 @@ import {
 	extractGuardianBossSectionsHtml,
 	extractSeeMoreWikiLinks,
 	extractSections,
+	wikiArticlePathTitle,
+	decodeWikiTitleFromUrl,
 } from "../lib/extract.mjs";
 import { loadFixture } from "./helpers.mjs";
 
@@ -276,4 +278,33 @@ test("extractArticleWikiLinks uses linked image alt text and single quoted hrefs
 	assert.equal(links[0].label, "Lavender's Curse");
 	assert.equal(links[0].hasImage, true);
 	assert.deepEqual(links[0].headingPath, ["Eventos"]);
+});
+
+// The wiki emitted /index.php/Title everywhere until it started serving short paths like
+// /Mochilas. Matching only the long form made every discover-links crawl return zero links
+// overnight: the pages were all still there, the hrefs had simply changed shape. Nothing
+// reported it, because "no links on this page" is not an error.
+test("short article paths are recognised alongside index.php paths", () => {
+	assert.equal(wikiArticlePathTitle("/index.php/Itens_Gerais"), "Itens_Gerais");
+	assert.equal(wikiArticlePathTitle("/Mochilas"), "Mochilas");
+});
+
+// An image or asset path has more than one segment and is not an article.
+test("asset paths are not treated as articles", () => {
+	assert.equal(wikiArticlePathTitle("/images/3/3c/Itensgerais.png"), "");
+	assert.equal(wikiArticlePathTitle("/"), "");
+	assert.equal(wikiArticlePathTitle("/index.php"), "");
+});
+
+// MediaWiki's reserved namespaces are not articles, in either language the wiki uses.
+test("reserved namespaces are excluded", () => {
+	for (const path of ["/File:Thing.png", "/Special:Random", "/Categoria:Itens", "/Usuario:Someone"]) {
+		assert.equal(wikiArticlePathTitle(path), "", `${path} must not be an article`);
+	}
+});
+
+test("a short path still decodes to a title", () => {
+	assert.equal(decodeWikiTitleFromUrl("https://wiki.pokexgames.com/Mochilas"), "Mochilas");
+	assert.equal(decodeWikiTitleFromUrl("https://wiki.pokexgames.com/index.php/Itens_Gerais"), "Itens Gerais");
+	assert.equal(decodeWikiTitleFromUrl("https://other.example/Mochilas"), null);
 });

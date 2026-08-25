@@ -1,11 +1,29 @@
 import path from "node:path";
 
-import { readJson, writeJson } from "./shared.mjs";
+import { readJson, writeJson, WIKI_SOURCE_ORIGIN } from "./shared.mjs";
+
+// The wiki serves its video sources over plain http while every image comes back https, so a
+// page with an .mp4 produced entries the bundle validator rejects — and one rejected entry fails
+// the whole publish. Upgrading is safe and limited to the wiki's own host, which is known to
+// answer on https; an unrelated http host is left alone rather than silently rewritten.
+const WIKI_HTTP_ORIGIN = WIKI_SOURCE_ORIGIN.replace(/^https:/, "http:");
+
+export function normalizeMediaUrl(url) {
+	const value = String(url ?? "").trim();
+	if (!value) return "";
+	if (value.startsWith(`${WIKI_HTTP_ORIGIN}/`)) {
+		return `${WIKI_SOURCE_ORIGIN}${value.slice(WIKI_HTTP_ORIGIN.length)}`;
+	}
+
+	// Protocol-relative sources resolve against the page, which is https.
+	if (value.startsWith("//")) return `https:${value}`;
+	return value;
+}
 
 function buildMediaSignature(entry) {
 	return JSON.stringify({
 		type: entry?.type ?? "image",
-		url: entry?.url ?? "",
+		url: normalizeMediaUrl(entry?.url),
 		alt: entry?.alt ?? "",
 		width: entry?.width ?? null,
 		height: entry?.height ?? null,
@@ -16,7 +34,7 @@ function buildMediaSignature(entry) {
 function cloneMediaEntry(entry) {
 	const output = {
 		type: entry?.type ?? "image",
-		url: entry?.url ?? "",
+		url: normalizeMediaUrl(entry?.url),
 	};
 
 	if (entry?.alt) output.alt = entry.alt;

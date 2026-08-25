@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { normalizeMediaUrl } from "../lib/media-registry.mjs";
 
 import { discoverPageImages, extractLeadWikiImageUrl, extractPageImagesFromUrls, showdownPokemonSlug } from "../lib/images.mjs";
 
@@ -155,4 +156,30 @@ test("species whose Showdown name drops a separator are aliased", () => {
 test("shiny and TM qualifiers resolve to the base sprite", () => {
 	assert.equal(showdownPokemonSlug("shiny-froslass"), "froslass");
 	assert.equal(showdownPokemonSlug("shiny-charizard-tm"), "charizard");
+});
+
+// The wiki serves video sources over http while every image comes back https. A page carrying an
+// .mp4 therefore produced entries the bundle validator rejects, and one rejected entry fails the
+// entire publish — which is how a forced re-sync ended with the bundle silently unchanged.
+test("wiki media served over http is upgraded", () => {
+	assert.equal(
+		normalizeMediaUrl("http://wiki.pokexgames.com/images/5/58/M1_-_Roar.mp4"),
+		"https://wiki.pokexgames.com/images/5/58/M1_-_Roar.mp4",
+	);
+});
+
+test("protocol-relative sources resolve to https", () => {
+	assert.equal(normalizeMediaUrl("//wiki.pokexgames.com/images/a.png"), "https://wiki.pokexgames.com/images/a.png");
+});
+
+// Limited to the wiki's own host, which is known to answer on https. Rewriting an unrelated
+// host's scheme would be a guess that breaks the URL when it is wrong.
+test("an unrelated http host is left alone", () => {
+	assert.equal(normalizeMediaUrl("http://other.example/a.png"), "http://other.example/a.png");
+});
+
+test("an https url and an empty url are unchanged", () => {
+	assert.equal(normalizeMediaUrl("https://wiki.pokexgames.com/x.png"), "https://wiki.pokexgames.com/x.png");
+	assert.equal(normalizeMediaUrl(""), "");
+	assert.equal(normalizeMediaUrl(null), "");
 });

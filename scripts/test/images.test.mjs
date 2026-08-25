@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { discoverPageImages, extractLeadWikiImageUrl, extractPageImagesFromUrls } from "../lib/images.mjs";
+import { discoverPageImages, extractLeadWikiImageUrl, extractPageImagesFromUrls, showdownPokemonSlug } from "../lib/images.mjs";
 
 test("extractPageImagesFromUrls prefers static sprite assets over gif fallbacks", () => {
 	const images = extractPageImagesFromUrls([
@@ -114,4 +114,45 @@ test("extractLeadWikiImageUrl skips language flags and interface chrome", () => 
 		extractLeadWikiImageUrl(html, "https://wiki.pokexgames.com/index.php/Daily_Gift", "sprite"),
 		"https://wiki.pokexgames.com/images/3/34/Banner_Daily-Gift.png",
 	);
+});
+
+// Showdown names a form as `species-<modifiers>`, modifiers concatenated with no separator. The
+// old builder treated the first token as the only modifier and moved the rest to the front, which
+// was right for one-word modifiers and wrong the moment there were two: "Galarian Zen Darmanitan"
+// became `zen-darmanitan-galar`, a 404, and the sprite silently vanished from the app.
+test("a two-word form folds both modifiers into one suffix", () => {
+	assert.equal(showdownPokemonSlug("galarian-zen-darmanitan"), "darmanitan-galarzen");
+});
+
+test("mega X and Y move the letter into the suffix", () => {
+	assert.equal(showdownPokemonSlug("mega-charizard-x"), "charizard-megax");
+	assert.equal(showdownPokemonSlug("mega-charizard-y"), "charizard-megay");
+});
+
+test("single-word regional forms still work", () => {
+	assert.equal(showdownPokemonSlug("alolan-ninetales"), "ninetales-alola");
+	assert.equal(showdownPokemonSlug("hisuian-typhlosion"), "typhlosion-hisui");
+});
+
+// PokeXGames gives its megas an element suffix Showdown has no sprite for; the base mega is the
+// right fallback rather than a broken image.
+test("a PokeXGames element suffix on a mega falls back to the base mega", () => {
+	assert.equal(showdownPokemonSlug("mega-altaria-dragon"), "altaria-mega");
+	assert.equal(showdownPokemonSlug("mega-ampharos-electric"), "ampharos-mega");
+});
+
+// An element word is part of some real species names, so it must only be dropped for megas.
+test("element words survive on species that genuinely carry them", () => {
+	assert.equal(showdownPokemonSlug("rotom-wash"), "rotom-wash");
+});
+
+test("species whose Showdown name drops a separator are aliased", () => {
+	assert.equal(showdownPokemonSlug("mr-mime"), "mrmime");
+	assert.equal(showdownPokemonSlug("mime-jr"), "mimejr");
+	assert.equal(showdownPokemonSlug("galarian-farfetch-d"), "farfetchd-galar");
+});
+
+test("shiny and TM qualifiers resolve to the base sprite", () => {
+	assert.equal(showdownPokemonSlug("shiny-froslass"), "froslass");
+	assert.equal(showdownPokemonSlug("shiny-charizard-tm"), "charizard");
 });

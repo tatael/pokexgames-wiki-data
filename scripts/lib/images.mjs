@@ -314,45 +314,88 @@ function isNoiseImageSet(images) {
 	return urls.length > 0 && urls.every((url) => isNoiseMediaAsset(url, ""));
 }
 
-function showdownPokemonSlug(slug) {
+// Showdown names a form as `species-<modifiers>`, with the modifiers concatenated and no
+// separator between them: charizard-megax, darmanitan-galarzen, ninetales-alola. The previous
+// version treated the first token as the only modifier and moved everything after it to the
+// front, which happened to be right for one-word modifiers and wrong the moment there were two —
+// "Galarian Zen Darmanitan" became `zen-darmanitan-galar`, a 404, so the sprite silently vanished.
+const SHOWDOWN_FORM_PREFIXES = new Map([
+	["alolan", "alola"],
+	["galarian", "galar"],
+	["hisuian", "hisui"],
+	["paldean", "paldea"],
+	["mega", "mega"],
+	["zen", "zen"],
+]);
+
+// Mega X/Y are written as a trailing letter in the wiki slug and as part of the suffix in
+// Showdown: mega-charizard-x -> charizard-megax.
+const SHOWDOWN_FORM_SUFFIXES = new Set(["x", "y"]);
+
+// PokeXGames-only qualifiers with no Showdown equivalent. Dropping them falls back to the base
+// species sprite, which is far better than a broken image.
+// PokeXGames gives its megas an element suffix ("Mega Altaria Dragon") that Showdown has no
+// sprite for; the base mega is the right fallback.
+const SHOWDOWN_ELEMENT_TOKENS = new Set([
+	"normal", "fire", "water", "grass", "electric", "ice", "fighting", "poison", "ground",
+	"flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy",
+]);
+
+// Species whose Showdown name simply drops the separator.
+const SHOWDOWN_SPECIES_ALIASES = new Map([
+	["mr-mime", "mrmime"],
+	["mime-jr", "mimejr"],
+	["mr-rime", "mrrime"],
+	["type-null", "typenull"],
+	["porygon-z", "porygonz"],
+	["ho-oh", "hooh"],
+	["jangmo-o", "jangmoo"],
+	["hakamo-o", "hakamoo"],
+	["kommo-o", "kommoo"],
+]);
+
+const SHOWDOWN_NOISE_TOKENS = new Set([
+	"tm", "tr", "boss", "champion", "golden", "big", "elite", "baby", "giant", "dark", "form",
+]);
+
+export function showdownPokemonSlug(slug) {
 	const tokens = String(slug ?? "")
 		.toLowerCase()
 		.split(/[^a-z0-9]+/)
 		.filter(Boolean)
-		.filter((token) => !["tm", "tr", "boss", "champion", "golden", "big"].includes(token));
+		.filter((token) => !SHOWDOWN_NOISE_TOKENS.has(token));
 	if (!tokens.length) return "";
 
-	const isShiny = tokens.includes("shiny");
 	const formTokens = tokens.filter((token) => token !== "shiny");
 	const withoutNumbers = formTokens.filter((token) => !/^\d+$/.test(token));
-	const normalizedTokens = withoutNumbers.length ? withoutNumbers : formTokens;
-	if (!normalizedTokens.length) return "";
+	let rest = withoutNumbers.length ? withoutNumbers : formTokens;
+	if (!rest.length) return "";
 
-	if (normalizedTokens.join("-") === "sirfetch-d") {
-		return "sirfetchd";
+	const modifiers = [];
+	while (rest.length > 1 && SHOWDOWN_FORM_PREFIXES.has(rest[0])) {
+		modifiers.push(SHOWDOWN_FORM_PREFIXES.get(rest[0]));
+		rest = rest.slice(1);
 	}
 
-	if (normalizedTokens[0] === "alolan" && normalizedTokens.length > 1) {
-		return `${normalizedTokens.slice(1).join("-")}-alola`;
+	while (rest.length > 1 && SHOWDOWN_FORM_SUFFIXES.has(rest[rest.length - 1])) {
+		modifiers.push(rest[rest.length - 1]);
+		rest = rest.slice(0, -1);
 	}
 
-	if (normalizedTokens[0] === "galarian" && normalizedTokens.length > 1) {
-		return `${normalizedTokens.slice(1).join("-")}-galar`;
+	// Only for megas: an element word is a real part of some species names (Rotom forms), so it
+	// is dropped where PokeXGames adds it and kept everywhere else.
+	if (modifiers.includes("mega")) {
+		while (rest.length > 1 && SHOWDOWN_ELEMENT_TOKENS.has(rest[rest.length - 1])) {
+			rest = rest.slice(0, -1);
+		}
 	}
 
-	if (normalizedTokens[0] === "hisuian" && normalizedTokens.length > 1) {
-		return `${normalizedTokens.slice(1).join("-")}-hisui`;
-	}
-
-	if (normalizedTokens[0] === "paldean" && normalizedTokens.length > 1) {
-		return `${normalizedTokens.slice(1).join("-")}-paldea`;
-	}
-
-	if (normalizedTokens[0] === "mega" && normalizedTokens.length > 1) {
-		return `${normalizedTokens.slice(1).join("-")}-mega`;
-	}
-
-	return normalizedTokens.join("-");
+	// Applied after the prefix strip, not before: "Galarian Farfetch'd" needs the apostrophe
+	// collapsed on the species alone, or the region suffix lands on the wrong string.
+	const joined = rest.join("-").replace(/^(sirfetch|farfetch)-d$/, "$1d");
+	const species = SHOWDOWN_SPECIES_ALIASES.get(joined) ?? joined;
+	if (!species) return "";
+	return modifiers.length ? `${species}-${modifiers.join("")}` : species;
 }
 
 function generatedPokemonImageSet(slug) {

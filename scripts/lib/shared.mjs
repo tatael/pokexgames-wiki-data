@@ -441,3 +441,17 @@ export function buildPagePath(entry) {
 	const fileName = `${inferLeafFileSlug(entry)}.json`;
 	return [...directories, fileName].join("/");
 }
+
+// The typed payloads a published section can carry. Three copies of this list existed —
+// one for emptiness checks, one for the publish copier, one for validation — and adding a
+// field to two of them published a section whose payload was silently dropped on the way
+// out. One list, imported everywhere.
+export const PUBLISHED_TYPED_SECTION_KEYS = [
+	"facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness",
+	"variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations",
+	"heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails",
+	"questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression",
+	"embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries",
+	"travelNetwork", "boostLookup", "talentTrees", "pokelogEntries", "adventurerMaps",
+	"huntSpots", "huntProfile",
+];

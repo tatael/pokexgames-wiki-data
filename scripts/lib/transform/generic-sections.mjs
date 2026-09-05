@@ -82,8 +82,28 @@ export function parseStepEntries(paragraphs = [], items = [], fallbackTitle = ""
 	});
 }
 
+// A paragraph that is nothing but image filenames — "Minimap - Locais de Caça (Luxray) 3.webp
+// Minimap - Locais de Caça (Luxray) 4.webp" — is the caption row of a picture strip. The
+// pictures are already published as mediaRefs, so the filenames would render as a line of
+// junk text directly above the images they name.
+function isMediaFilenameLine(value) {
+	const text = String(value ?? "").trim();
+	if (!text) return true;
+	if (!/\.(?:png|gif|webp|jpe?g|svg)\b/i.test(text)) return false;
+	// File names carry spaces on this wiki ("Minimap - Locais de Caça (Luxray) 3.webp"), so a
+	// run is everything up to an extension. If consuming those runs leaves nothing, the line
+	// was only file names.
+	const withoutFiles = text.replace(/[^.]*\.(?:png|gif|webp|jpe?g|svg)\b/gi, " ").replace(/\s+/g, " ").trim();
+	return withoutFiles.length === 0;
+}
+
 export function parseLocationEntries(paragraphs = [], items = []) {
-	const descriptions = paragraphs.map(cleanStructuredText).filter(Boolean);
+	const allDescriptions = paragraphs.map(cleanStructuredText).filter(Boolean);
+	const withoutCaptions = allDescriptions.filter((value) => !isMediaFilenameLine(value));
+	// Only drop the caption lines when something real is left. On a page whose location
+	// section is nothing but a picture strip, dropping them empties the payload and the
+	// section publishes as generic-only, which bundle validation rejects.
+	const descriptions = withoutCaptions.length ? withoutCaptions : allDescriptions;
 	const tableRows = items
 		.filter((item) => String(item ?? "").includes("|"))
 		.map((item) => String(item ?? "")

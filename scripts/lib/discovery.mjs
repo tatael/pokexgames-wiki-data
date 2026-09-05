@@ -22,6 +22,7 @@ import {
 	mergeNavigationPath,
 } from "./extract.mjs";
 import { cmsEntriesAsLinks } from "./extract-cms-list.mjs";
+import { huntEntriesAsLinks } from "./extract-nw-hunts.mjs";
 
 const POKEMON_CATEGORY_LABEL = {
 	"pt-BR": "Pokémon",
@@ -474,6 +475,9 @@ async function discoverChildrenRecursive({
 	const links = [
 		...extractArticleWikiLinks(articleHtml, parentEntry.url),
 		...cmsEntriesAsLinks(html, parentEntry.url),
+		// Same problem, different widget: the Nightmare hunting-spot index links its 106
+		// children only from a `const hunts = {…}` literal.
+		...huntEntriesAsLinks(html, parentEntry.url),
 	];
 	const excludeSlugs = new Set(childrenRule.excludeSlugs || []);
 	const excludeTitles = new Set(childrenRule.excludeTitles || []);

@@ -58,6 +58,15 @@ Section contract (`schemaVersion: 2`):
 - this also covers pipe rows the extractor left inside `paragraphs`: `publishSection` promotes them into `tables` groups and removes them from the prose, so consumers never receive a pipe wall
 - a group promoted from a `# Group` heading carries `tables.<locale>[].title`; consumers should render one labelled table per titled group rather than merging them
 - semantic data is published in dedicated fields such as `facts`, `tasks`, `taskGroups`, `rewards`, `pokemon`, `profile`, `moves`, `effectiveness`, `variants`, `abilities`, `steps`, `locations`, `bossSupport`, `bossRecommendations`, `embeddedTowerSupport`, `heldDetails`, `dungeonSupport`, and `commerceEntries`
+- the `hunting-spots` category publishes two of those: `huntSpots` on the index page (`{ spots: [...] }`,
+  one entry per Nightmare hunting spot with `name`, `title`, `difficulty`, `cities`, `clans`,
+  `everyClan`, `elements`, `neutral`), and `huntProfile` on each spot page (`difficulty`, `cities`,
+  `clans`, `everyClan`, `weakTo`, and the `boss` / `angry` spawns). Clan and element values are
+  published lowercase so consumers key on them directly — the display labels are the consumer's
+  problem, and mixing the two has silently emptied element lookups downstream before
+- the typed field list itself lives once, in `PUBLISHED_TYPED_SECTION_KEYS` (`shared.mjs`). It used
+  to be duplicated across the emptiness check, the publish copier and the validator; adding a field
+  to two of the three published a section whose payload was dropped on the way out
 - repeated canonical labels are also emitted as audit registries under `registries/` for `items`, `pokemon`, `npcs`, `definitions`, and `linked-cards`
 - consumers should treat those semantic fields as source of truth and should not re-parse raw wiki table/list text
 
@@ -209,6 +218,19 @@ Discovery behavior:
 - generic heading labels such as `Índice`, `Introdução`, or `Primeros pasos` are ignored in generated navigation paths
 - semantic child pages prefer normalized filenames such as `crafts.json`, `workshop.json`, `dungeons.json`, and `maps.json`
 - Pokémon pages are discovered through the MediaWiki API, cached locally in `.cache/pokemon-pages.generated.json`, and then synced like any other page entry
+
+Widget-only index pages:
+- Some index pages no longer link their children in HTML at all — the article body is one or
+  two `{{#widget:…}}` calls and the child list lives in a JS literal. Discovery walks `<a>`
+  tags, so those children are invisible to it: the Nightmare hunting-spot index carried 106
+  spots the bundle never had. `extract-cms-list.mjs` (`CMS_DATA`) and `extract-nw-hunts.mjs`
+  (`const hunts`) read those literals and hand discovery the links, through the same filtering
+  as real ones — see `discoverChildrenRecursive` in `discovery.mjs`.
+- A page whose article has no readable content at all is skipped with a named warning rather
+  than failing the bundle. One page moving into a widget must not take the whole daily publish
+  down; the publish guard still catches it if it happens in bulk.
+- These literals can carry a `/* CMS_DATA_START */` marker between the `=` and the object.
+  Both readers tolerate it; not tolerating it is how the craft recipes went missing.
 
 Current known limitation:
 - `Profissões` likely needs custom pathing/discovery rules beyond the generic recursive heuristics, because cross-linked profession systems can still produce semantically wrong branches if treated as a pure link graph

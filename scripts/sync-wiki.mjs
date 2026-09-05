@@ -51,6 +51,7 @@ import {
 	extractTalentTrees,
 	extractTravelNetwork,
 } from "./lib/extract-tool-widgets.mjs";
+import { extractHuntProfile, extractHuntSpots } from "./lib/extract-nw-hunts.mjs";
 import { extractClanEffectivenessGroups } from "./lib/extract-clan-effectiveness.mjs";
 import { extractBossRecommendations } from "./lib/extract-boss-recommendations.mjs";
 import { extractHeldBoostRanges } from "./lib/extract-tabber-tables.mjs";
@@ -244,6 +245,12 @@ const TOOL_WIDGETS = new Map([
 	["boost-da-master-ball", { field: "boostLookup", extract: extractBoostLookup, sections: [/consulta/i, /boost/i] }],
 	["star-signs", { field: "talentTrees", extract: extractTalentTrees, localized: true, sections: [/builder/i, /star.?signs/i, /constela/i] }],
 	["pokelog-planner", { field: "pokelogEntries", extract: extractPokelogEntries, sections: [/planner|pokelog/i, /funcionalidades/i] }],
+	// The hunting-spot index is nothing but its widget: without this the page is three
+	// paragraphs describing filters that are not there.
+	["nightmare-hunts", { field: "huntSpots", extract: (html) => {
+		const spots = extractHuntSpots(html);
+		return spots.length ? { spots } : null;
+	}, sections: [/hunt|ca[çc]a/i] }],
 ]);
 
 function mergeToolWidgetSections(baseSections, articleHtml, { slug }) {
@@ -279,6 +286,31 @@ function mergeToolWidgetSections(baseSections, articleHtml, { slug }) {
 				? Object.fromEntries(locales.map((locale) => [locale, payloads[locale] ?? payload]))
 				: { [PT_BR]: payload, en: payload, es: payload },
 		}
+		: section));
+}
+
+// A hunting-spot page states its difficulty, resistance city and recommended clans as bold
+// labels in the lead, and the element to bring in a one-row table — none of which the generic
+// section extractor can see as anything but prose. Those four facts are the whole reason to
+// open the page, so they are published as a typed payload.
+function mergeHuntProfileSections(baseSections, articleHtml, { category, slug, pageKind }) {
+	if (category !== "hunting-spots") return baseSections;
+	// The index page is not a spot. Its widget template contains the same bold labels the
+	// detail pages use, so reading it produced a profile whose difficulty was the literal
+	// placeholder text "selecione uma dificuldade".
+	if (pageKind === "index" || slug === "nightmare-hunts") return baseSections;
+
+	const profile = extractHuntProfile(articleHtml);
+	if (!profile) return baseSections;
+
+	const sections = baseSections ?? [];
+	// The table of contents is dropped later in the pipeline, so a payload attached to it
+	// disappears silently — which is exactly what happened to 106 of these pages.
+	const index = sections.findIndex((section) => !/^(?:indice|toc)$/i.test(String(section?.id ?? "")));
+	if (index < 0) return baseSections;
+
+	return sections.map((section, position) => (position === index
+		? { ...section, huntProfile: { [PT_BR]: profile, en: profile, es: profile } }
 		: section));
 }
 
@@ -432,7 +464,8 @@ async function syncEntry(entry) {
 	const bossSections = mergeBossRecommendationSections(clanSections, html);
 	const boostRangeSections = mergeHeldBoostRanges(bossSections, html, { category: entry.category });
 	const widgetSections = mergeToolWidgetSections(boostRangeSections, html, { slug: entry.slug });
-	const sectionsBase = await mergeAdventurerMapSections(widgetSections, { slug: entry.slug, shouldRefresh });
+	const huntSections = mergeHuntProfileSections(widgetSections, articleHtml, { category: entry.category, slug: entry.slug, pageKind: entry.pageKind });
+	const sectionsBase = await mergeAdventurerMapSections(huntSections, { slug: entry.slug, shouldRefresh });
 	const provisionalSections = normalizeSections(sectionsBase, {
 		category: entry.category,
 		slug: entry.slug,
@@ -449,6 +482,16 @@ async function syncEntry(entry) {
 		slug: entry.slug,
 		pageKind,
 	});
+
+	// The wiki keeps moving whole pages into client-side widgets: the article body becomes a
+	// single {{#widget:…}} call and extraction has nothing to read. A page with no sections
+	// fails bundle validation, which would take the entire daily publish down over one page,
+	// so it is dropped with a named warning instead. The publish guard still catches this if
+	// it ever happens in bulk.
+	if (!sections.length) {
+		console.warn(`skipping ${entry.slug}: article body has no readable content (widget-only page)`);
+		return null;
+	}
 
 	const rawSummary = buildSummary(sectionsBase);
 	const profileTitle = profile

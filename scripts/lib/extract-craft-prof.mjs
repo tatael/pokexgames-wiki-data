@@ -4,7 +4,11 @@
 // that payload here — the same approach `extract-flex-tasks.mjs` takes for the
 // FlexibleList task pages.
 
-const CRAFT_DATA_ASSIGNMENT = /window\.CraftProfData\s*=\s*\{/;
+// The assignment now reads `window.CraftProfData = /* CMS_DATA_START */ {…}`. That marker
+// comment appeared between the "=" and the object, the old pattern stopped matching, and the
+// page published with every recipe silently dropped — the failure this module exists to fix,
+// recurring one wiki edit later. Both the prefix and the comment are optional now.
+const CRAFT_DATA_ASSIGNMENT = /(?:window\.)?CraftProfData\s*=\s*(?:\/\*[\s\S]*?\*\/\s*)?\{/;
 
 function sliceBalancedObject(source, startIdx) {
 	let depth = 0;

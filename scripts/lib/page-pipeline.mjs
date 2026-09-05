@@ -1,4 +1,4 @@
-import { PT_BR, decodeHtmlEntities, normalizeWhitespace } from "./shared.mjs";
+import { PT_BR, PUBLISHED_TYPED_SECTION_KEYS, decodeHtmlEntities, normalizeWhitespace } from "./shared.mjs";
 import { publishSection, structureSection } from "./transform.mjs";
 import { cleanStructuredText, repairMojibake } from "./transform/text.mjs";
 
@@ -690,14 +690,6 @@ function synthesizePrimeiroEncontroSection(sections = [], pageContext = {}) {
 	return next;
 }
 
-const PUBLISHED_TYPED_SECTION_KEYS = [
-	"facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness",
-	"variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations",
-	"heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails",
-	"questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression",
-	"embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries",
-	"travelNetwork", "boostLookup", "talentTrees", "pokelogEntries", "adventurerMaps",
-];
 
 function hasLocalizedEntries(map) {
 	return Boolean(map && typeof map === "object" && Object.keys(map).length);

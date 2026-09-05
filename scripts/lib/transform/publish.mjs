@@ -1,3 +1,4 @@
+import { PUBLISHED_TYPED_SECTION_KEYS } from "../shared.mjs";
 import { compactLocalizedValueMap } from "../localized.mjs";
 import { parseTableCell } from "./generic-sections.mjs";
 
@@ -211,7 +212,7 @@ export function publishSection(section) {
 	if (Object.keys(content).length) output.content = content;
 	if (Object.keys(tables).length) output.tables = tables;
 	if (section.media) output.media = compactLocalizedValueMap(section.media);
-	for (const key of ["facts", "tasks", "taskGroups", "pokemon", "rewards", "profile", "moves", "effectiveness", "variants", "abilities", "steps", "locations", "difficulties", "bossSupport", "bossRecommendations", "heldEnhancement", "hazards", "dungeonSupport", "heldCategories", "heldBoosts", "heldDetails", "questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression", "embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries", "travelNetwork", "boostLookup", "talentTrees", "pokelogEntries", "adventurerMaps"]) {
+	for (const key of PUBLISHED_TYPED_SECTION_KEYS) {
 		if (section[key]) output[key] = compactLocalizedValueMap(section[key]);
 	}
 

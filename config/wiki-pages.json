@@ -828,6 +828,538 @@
 		}
 	},
 	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "abomasnow-bag",
+		"url": "https://wiki.pokexgames.com/index.php/Abomasnow_Bag",
+		"title": {
+			"pt-BR": "Abomasnow Bag",
+			"en": "Abomasnow Bag",
+			"es": "Abomasnow Bag"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "arcanine-bag",
+		"url": "https://wiki.pokexgames.com/index.php/Arcanine_Bag",
+		"title": {
+			"pt-BR": "Arcanine Bag",
+			"en": "Arcanine Bag",
+			"es": "Arcanine Bag"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "gardevoir-bag",
+		"url": "https://wiki.pokexgames.com/index.php/Gardevoir_Bag",
+		"title": {
+			"pt-BR": "Gardevoir Bag",
+			"en": "Gardevoir Bag",
+			"es": "Gardevoir Bag"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-1",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-10",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-11",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-13",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-14",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-15",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-16",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-17",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-18",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-19",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-2",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-20",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-22",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-23",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-24",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-25",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-3",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-4",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-5",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-6",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-7",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-8",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "old-backpack-9",
+		"url": "https://wiki.pokexgames.com/index.php/Old_Backpack",
+		"title": {
+			"pt-BR": "Old Backpack",
+			"en": "Old Backpack",
+			"es": "Old Backpack"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "tyranitar-bag",
+		"url": "https://wiki.pokexgames.com/index.php/Tyranitar_Bag",
+		"title": {
+			"pt-BR": "Tyranitar Bag",
+			"en": "Tyranitar Bag",
+			"es": "Tyranitar Bag"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
+		"category": "dimensional-zone",
+		"categoryLabel": {
+			"pt-BR": "Dimensional Zone",
+			"en": "Dimensional Zone",
+			"es": "Dimensional Zone"
+		},
+		"slug": "ursaring-bag",
+		"url": "https://wiki.pokexgames.com/index.php/Ursaring_Bag",
+		"title": {
+			"pt-BR": "Ursaring Bag",
+			"en": "Ursaring Bag",
+			"es": "Ursaring Bag"
+		},
+		"navigationPath": [
+			"Dimensional Zone"
+		],
+		"pageKind": "zone"
+	},
+	{
 		"category": "embedded-tower",
 		"categoryLabel": {
 			"pt-BR": "Embedded Tower",
@@ -1499,24 +2031,31 @@
 		"pageKind": "task"
 	},
 	{
-		"category": "nightmare-world",
+		"category": "hunting-spots",
 		"categoryLabel": {
-			"pt-BR": "Nightmare World",
-			"en": "Nightmare World",
-			"es": "Nightmare World"
+			"pt-BR": "Locais de Caça",
+			"en": "Hunting Spots",
+			"es": "Lugares de Caza"
 		},
 		"slug": "nightmare-hunts",
 		"url": "https://wiki.pokexgames.com/index.php/Nightmare_Hunts",
 		"title": {
-			"pt-BR": "Nightmare Hunts",
-			"en": "Nightmare Hunts",
-			"es": "Nightmare Hunts"
+			"pt-BR": "Locais de Caça",
+			"en": "Hunting Spots",
+			"es": "Lugares de Caza"
 		},
 		"navigationPath": [
-			"Nightmare World",
-			"Nightmare Hunts"
+			"Locais de Caça"
 		],
-		"pageKind": "search"
+		"pageKind": "index",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "hunting-spot",
+			"excludeSlugs": [
+				"nightmare-hunts"
+			],
+			"maxDepth": 1
+		}
 	},
 	{
 		"category": "nightmare-world",

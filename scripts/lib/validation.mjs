@@ -49,6 +49,8 @@ const TYPED_SECTION_KEYS = [
 	"talentTrees",
 	"pokelogEntries",
 	"adventurerMaps",
+	"huntSpots",
+	"huntProfile",
 	"facts",
 	"tasks",
 	"taskGroups",
@@ -886,6 +888,8 @@ function validateSection(section, fieldName) {
 	validateStructuredObjectMap(section.talentTrees, `${fieldName}.talentTrees`, ["maxPoints", "maxSpecialPoints", "pointsRequiredForSpecial", "trees"], validateTalentTreesPayload);
 	validateStructuredObjectMap(section.pokelogEntries, `${fieldName}.pokelogEntries`, ["entries"], validatePokelogEntriesPayload);
 	validateStructuredObjectMap(section.adventurerMaps, `${fieldName}.adventurerMaps`, ["types", "terrains", "tags", "maps"], validateAdventurerMapsPayload);
+	validateStructuredObjectMap(section.huntSpots, `${fieldName}.huntSpots`, ["spots"], validateHuntSpotsPayload);
+	validateStructuredObjectMap(section.huntProfile, `${fieldName}.huntProfile`, ["difficulty", "cities", "clans", "everyClan", "weakTo", "boss", "angry"], validateHuntProfilePayload);
 
 	if (section.mediaRefs !== undefined) {
 		for (const [locale, refs] of Object.entries(section.mediaRefs)) {
@@ -915,6 +919,50 @@ function validateStructuredEntryMap(value, fieldName, allowedKeys, validateEntry
 
 			if (validateEntry) validateEntry(entry, `${fieldName}.${locale}.${index}`);
 		}
+	}
+}
+
+function validateHuntClanList(value, fieldName) {
+	if (value === undefined) return;
+	if (!Array.isArray(value)) throw new Error(`${fieldName} must be an array`);
+	for (const [index, clan] of value.entries()) {
+		if (!isPlainObject(clan)) throw new Error(`${fieldName}.${index} must be an object`);
+		validateString(clan.slug, `${fieldName}.${index}.slug`);
+		validateString(clan.label, `${fieldName}.${index}.label`);
+	}
+}
+
+// Element and clan keys are published lowercase so every consumer can key on them directly.
+// Publishing a display label here is the mismatch that has broken element lookups before.
+function validateHuntKeyList(value, fieldName) {
+	if (value === undefined) return;
+	if (!Array.isArray(value)) throw new Error(`${fieldName} must be an array`);
+	for (const [index, key] of value.entries()) {
+		validateString(key, `${fieldName}.${index}`);
+		if (key !== key.toLowerCase()) throw new Error(`${fieldName}.${index} must be lowercase`);
+	}
+}
+
+function validateHuntSpotsPayload(entry, fieldName) {
+	if (!Array.isArray(entry.spots) || !entry.spots.length) throw new Error(`${fieldName}.spots must be a non-empty array`);
+	for (const [index, spot] of entry.spots.entries()) {
+		const at = `${fieldName}.spots.${index}`;
+		if (!isPlainObject(spot)) throw new Error(`${at} must be an object`);
+		validateString(spot.name, `${at}.name`);
+		validateString(spot.title, `${at}.title`);
+		validateHuntKeyList(spot.elements, `${at}.elements`);
+		validateHuntClanList(spot.clans, `${at}.clans`);
+		if (spot.cities !== undefined && !Array.isArray(spot.cities)) throw new Error(`${at}.cities must be an array`);
+		if (spot.image !== undefined) validateString(spot.image, `${at}.image`);
+	}
+}
+
+function validateHuntProfilePayload(entry, fieldName) {
+	validateHuntKeyList(entry.weakTo, `${fieldName}.weakTo`);
+	validateHuntClanList(entry.clans, `${fieldName}.clans`);
+	if (entry.cities !== undefined && !Array.isArray(entry.cities)) throw new Error(`${fieldName}.cities must be an array`);
+	for (const key of ["boss", "angry"]) {
+		if (entry[key] !== undefined) validateString(entry[key], `${fieldName}.${key}`);
 	}
 }
 

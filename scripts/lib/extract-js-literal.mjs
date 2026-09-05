@@ -84,7 +84,9 @@ function toJson(source) {
 // the page does not carry that literal or it is not parseable as data.
 export function extractJsLiteral(html, name) {
 	const source = String(html ?? "");
-	const assignment = new RegExp(`\\b${name}\\s*=\\s*[[{]`).exec(source);
+	// A CMS marker comment can sit between the "=" and the literal
+	// (`Data = /* CMS_DATA_START */ {…}`), which is how the craft-recipe payload went missing.
+	const assignment = new RegExp(`\\b${name}\\s*=\\s*(?:/\\*[\\s\\S]*?\\*/\\s*)?[[{]`).exec(source);
 	if (!assignment) return null;
 	const startIdx = assignment.index + assignment[0].length - 1;
 	const slice = sliceBalanced(source, startIdx);

@@ -51,7 +51,7 @@ import {
 	extractTalentTrees,
 	extractTravelNetwork,
 } from "./lib/extract-tool-widgets.mjs";
-import { extractHuntProfile, extractHuntSpots, extractHuntTasks } from "./lib/extract-nw-hunts.mjs";
+import { extractHuntLevels, extractHuntProfile, extractHuntSpots, extractHuntTasks } from "./lib/extract-nw-hunts.mjs";
 import { extractClanEffectivenessGroups } from "./lib/extract-clan-effectiveness.mjs";
 import { extractBossRecommendations } from "./lib/extract-boss-recommendations.mjs";
 import { extractHeldBoostRanges } from "./lib/extract-tabber-tables.mjs";
@@ -302,6 +302,11 @@ function mergeHuntProfileSections(baseSections, articleHtml, { category, slug, p
 
 	const profile = extractHuntProfile(articleHtml);
 	if (!profile) return baseSections;
+
+	// The level sentences are in the page bullets, not the lead the rest of the profile
+	// comes from, so this reads the whole article stripped of its markup.
+	const levels = extractHuntLevels([articleHtml.replace(/<[^>]*>/g, " ")]);
+	if (levels) profile.levels = levels;
 
 	const sections = baseSections ?? [];
 	// The table of contents is dropped later in the pipeline, so a payload attached to it

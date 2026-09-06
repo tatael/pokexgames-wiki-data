@@ -366,3 +366,32 @@ export function extractHuntTasks(paragraphs = [], items = []) {
 	if (!kept.length) return null;
 	return { notes, groups: kept };
 }
+// --- level gates ---------------------------------------------------------------------
+
+// "Baixa" and "Alta" are the wiki's words for difficulty, and on their own they say low and
+// high of nothing. What a player actually needs is the level the place is for, and the pages
+// state it — two different ways, because the two difficulties gate differently.
+//
+//   alta:  "Jogadores abaixo do nível 400 não receberão experiência ou loot"  → a floor
+//   baixa: "Após o nível 450, a experiência … diminuem … Ao atingir o nível 550, não será
+//           mais possível receber experiência ou loot"                        → a ceiling
+const LEVEL_FLOOR = /abaixo\s+do\s+n[ií]vel\s+(\d{2,4})/i;
+const LEVEL_DECAY = /ap[óo]s\s+o\s+n[ií]vel\s+(\d{2,4})/i;
+const LEVEL_CEILING = /ao\s+atingir\s+o\s+n[ií]vel\s+(\d{2,4})/i;
+
+export function extractHuntLevels(lines = []) {
+	const text = (lines ?? []).map((line) => String(line ?? "")).join(" ");
+	const read = (pattern) => {
+		const value = Number(pattern.exec(text)?.[1]);
+		return Number.isFinite(value) ? value : null;
+	};
+
+	const levels = {};
+	const floor = read(LEVEL_FLOOR);
+	const decay = read(LEVEL_DECAY);
+	const ceiling = read(LEVEL_CEILING);
+	if (floor) levels.min = floor;
+	if (decay) levels.decaysFrom = decay;
+	if (ceiling) levels.max = ceiling;
+	return Object.keys(levels).length ? levels : null;
+}

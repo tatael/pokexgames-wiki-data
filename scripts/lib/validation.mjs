@@ -890,7 +890,7 @@ function validateSection(section, fieldName) {
 	validateStructuredObjectMap(section.pokelogEntries, `${fieldName}.pokelogEntries`, ["entries"], validatePokelogEntriesPayload);
 	validateStructuredObjectMap(section.adventurerMaps, `${fieldName}.adventurerMaps`, ["types", "terrains", "tags", "maps"], validateAdventurerMapsPayload);
 	validateStructuredObjectMap(section.huntSpots, `${fieldName}.huntSpots`, ["spots"], validateHuntSpotsPayload);
-	validateStructuredObjectMap(section.huntProfile, `${fieldName}.huntProfile`, ["difficulty", "cities", "clans", "everyClan", "weakTo", "boss", "angry"], validateHuntProfilePayload);
+	validateStructuredObjectMap(section.huntProfile, `${fieldName}.huntProfile`, ["difficulty", "cities", "clans", "everyClan", "weakTo", "boss", "angry", "levels"], validateHuntProfilePayload);
 	validateStructuredObjectMap(section.huntTasks, `${fieldName}.huntTasks`, ["notes", "groups", "links"], validateHuntTasksPayload);
 
 	if (section.mediaRefs !== undefined) {
@@ -978,6 +978,14 @@ function validateHuntSpotsPayload(entry, fieldName) {
 }
 
 function validateHuntProfilePayload(entry, fieldName) {
+	if (entry.levels !== undefined) {
+		if (!isPlainObject(entry.levels)) throw new Error(`${fieldName}.levels must be an object`);
+		for (const key of Object.keys(entry.levels)) {
+			if (!["min", "max", "decaysFrom"].includes(key)) throw new Error(`${fieldName}.levels.${key} is not supported`);
+			if (!Number.isInteger(entry.levels[key])) throw new Error(`${fieldName}.levels.${key} must be an integer`);
+		}
+	}
+
 	validateHuntKeyList(entry.weakTo, `${fieldName}.weakTo`);
 	validateHuntClanList(entry.clans, `${fieldName}.clans`);
 	if (entry.cities !== undefined && !Array.isArray(entry.cities)) throw new Error(`${fieldName}.cities must be an array`);

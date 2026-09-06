@@ -342,6 +342,19 @@ function cleanHuntSectionDuplicates(baseSections, { category }) {
 	return (baseSections ?? []).map((section) => {
 		let next = section;
 
+		// The Efetividades section of a hunting spot is a sentence, a one-column list of the
+		// elements that hit hard there, and two notes. The generic effectiveness parser read the
+		// list heading and the note that followed it as one label — "Elementos que causam dano
+		// super efetivo neste local Observação" — and turned the tip into a chip. The elements
+		// themselves are already published on huntProfile.weakTo and drawn in the summary, so
+		// both the mis-parsed field and its duplicate table come off and the prose is left.
+		if (/^efetividades?$/i.test(String(next.id ?? "")) && (next.effectiveness || next.tables)) {
+			const { effectiveness: _effectiveness, tables: _tables, ...rest } = next;
+			void _effectiveness;
+			void _tables;
+			next = rest;
+		}
+
 		// The banner's file name is published as a caption above the banner it names.
 		if (next.content) {
 			const content = {};
@@ -365,15 +378,39 @@ function cleanHuntSectionDuplicates(baseSections, { category }) {
 			next = { ...next, locations };
 		}
 
-		if (next.linkedCards && (next.locations || next.huntTasks)) {
+		// linkedCards duplicates the section's own prose. Where the section publishes that prose
+		// itself — as content, as locations, as huntTasks — the copy renders a second time above
+		// the cards, which is how "Elementos que causam dano super efetivo neste local" ended up
+		// concatenated with the "Observação" that follows it.
+		if (next.linkedCards && (next.content || next.locations || next.huntTasks)) {
 			const linkedCards = {};
+			let hasCards = false;
 			for (const [locale, payload] of Object.entries(next.linkedCards)) {
-				// Both halves are the same prose the typed payload already carries — markers, caption
-				// lines and all — and the renderer prints them above the cards.
 				linkedCards[locale] = { ...payload, intro: [], notes: [] };
+				if ((payload?.cards ?? []).length) hasCards = true;
 			}
 
-			next = { ...next, linkedCards };
+			// With both halves emptied a card-less payload renders as a titled, blank box. The
+			// tasks section is the visible case: its links move onto the task payload, so the
+			// section itself has nothing left to draw.
+			if (!hasCards) {
+				const { linkedCards: _dropped, ...rest } = next;
+				void _dropped;
+				next = rest;
+			} else if (next.huntTasks) {
+				// One Tasks block, not two: the cards ride with the tasks they belong to.
+				const huntTasks = {};
+				for (const [locale, payload] of Object.entries(next.huntTasks)) {
+					const cards = next.linkedCards[locale]?.cards ?? [];
+					huntTasks[locale] = cards.length ? { ...payload, links: cards } : payload;
+				}
+
+				const { linkedCards: _moved, ...rest } = next;
+				void _moved;
+				next = { ...rest, huntTasks };
+			} else {
+				next = { ...next, linkedCards };
+			}
 		}
 
 		return next;

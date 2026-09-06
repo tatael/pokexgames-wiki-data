@@ -891,7 +891,7 @@ function validateSection(section, fieldName) {
 	validateStructuredObjectMap(section.adventurerMaps, `${fieldName}.adventurerMaps`, ["types", "terrains", "tags", "maps"], validateAdventurerMapsPayload);
 	validateStructuredObjectMap(section.huntSpots, `${fieldName}.huntSpots`, ["spots"], validateHuntSpotsPayload);
 	validateStructuredObjectMap(section.huntProfile, `${fieldName}.huntProfile`, ["difficulty", "cities", "clans", "everyClan", "weakTo", "boss", "angry"], validateHuntProfilePayload);
-	validateStructuredObjectMap(section.huntTasks, `${fieldName}.huntTasks`, ["notes", "groups"], validateHuntTasksPayload);
+	validateStructuredObjectMap(section.huntTasks, `${fieldName}.huntTasks`, ["notes", "groups", "links"], validateHuntTasksPayload);
 
 	if (section.mediaRefs !== undefined) {
 		for (const [locale, refs] of Object.entries(section.mediaRefs)) {

@@ -51,7 +51,7 @@ import {
 	extractTalentTrees,
 	extractTravelNetwork,
 } from "./lib/extract-tool-widgets.mjs";
-import { extractHuntProfile, extractHuntSpots } from "./lib/extract-nw-hunts.mjs";
+import { extractHuntProfile, extractHuntSpots, extractHuntTasks } from "./lib/extract-nw-hunts.mjs";
 import { extractClanEffectivenessGroups } from "./lib/extract-clan-effectiveness.mjs";
 import { extractBossRecommendations } from "./lib/extract-boss-recommendations.mjs";
 import { extractHeldBoostRanges } from "./lib/extract-tabber-tables.mjs";
@@ -314,6 +314,94 @@ function mergeHuntProfileSections(baseSections, articleHtml, { category, slug, p
 		: section));
 }
 
+// The Tasks section on a hunting-spot page is a <tabber>, one panel per NPC, each with a
+// sentence and a reward table. The generic task parser finds no task rows in that and its
+// fallback publishes a single task whose objective is the section heading and whose notes are
+// the raw lines — so the app printed the "#" panel markers and the table pipes as text.
+// Reading the real shape instead, and clearing the task fields so nothing renders it twice.
+// Two duplicates that reach the screen on a hunting-spot page.
+//
+// A "Veja mais" box flattens into the prose as "Telekinetic-compass.gif | Veja mais: X", and
+// the same box is already published as a linked card — so the row renders as a pipe-separated
+// line of text directly above the button it duplicates.
+//
+// linkedCards.intro and .notes carry a copy of the section's whole prose, markers and all, and
+// the renderer prints them above the cards. Where the section already publishes that prose as a
+// typed payload, the copy is pure duplication.
+const SEE_MORE_ROW = /\|\s*(?:veja mais|see more|ver m[aá]s)\b/i;
+
+function isMediaOnlyLine(value) {
+	const text = String(value ?? "").trim();
+	if (!text || !/\.(?:png|gif|webp|jpe?g|svg)\b/i.test(text)) return false;
+	return text.replace(/[^.]*\.(?:png|gif|webp|jpe?g|svg)\b/gi, " ").replace(/\s+/g, " ").trim().length === 0;
+}
+
+function cleanHuntSectionDuplicates(baseSections, { category }) {
+	if (category !== "hunting-spots") return baseSections;
+
+	return (baseSections ?? []).map((section) => {
+		let next = section;
+
+		// The banner's file name is published as a caption above the banner it names.
+		if (next.content) {
+			const content = {};
+			for (const [locale, payload] of Object.entries(next.content)) {
+				const paragraphs = (payload?.paragraphs ?? []).filter((line) => !isMediaOnlyLine(line));
+				content[locale] = { ...payload, ...(payload?.paragraphs ? { paragraphs } : {}) };
+			}
+
+			next = { ...next, content };
+		}
+
+		if (next.locations) {
+			const locations = {};
+			for (const [locale, entries] of Object.entries(next.locations)) {
+				locations[locale] = (entries ?? []).map((entry) => ({
+					...entry,
+					description: (entry.description ?? []).filter((line) => !SEE_MORE_ROW.test(String(line ?? ""))),
+				}));
+			}
+
+			next = { ...next, locations };
+		}
+
+		if (next.linkedCards && (next.locations || next.huntTasks)) {
+			const linkedCards = {};
+			for (const [locale, payload] of Object.entries(next.linkedCards)) {
+				// Both halves are the same prose the typed payload already carries — markers, caption
+				// lines and all — and the renderer prints them above the cards.
+				linkedCards[locale] = { ...payload, intro: [], notes: [] };
+			}
+
+			next = { ...next, linkedCards };
+		}
+
+		return next;
+	});
+}
+
+function mergeHuntTaskSections(baseSections, { category, slug, pageKind }) {
+	if (category !== "hunting-spots") return baseSections;
+	if (pageKind === "index" || slug === "nightmare-hunts") return baseSections;
+
+	return (baseSections ?? []).map((section) => {
+		if (!/^tasks?$/i.test(String(section?.id ?? ""))) return section;
+		const payload = extractHuntTasks(section?.paragraphs?.[PT_BR] ?? [], section?.items?.[PT_BR] ?? []);
+		if (!payload) return section;
+
+		// The paragraphs are consumed by the payload; leaving them would print the panel markers
+		// and pipe rows underneath the cards built from them.
+		const { paragraphs, items, ...rest } = section;
+		void paragraphs;
+		void items;
+		return {
+			...rest,
+			kind: "prose",
+			huntTasks: { [PT_BR]: payload, en: payload, es: payload },
+		};
+	});
+}
+
 // The X-Boost level tables live in tabber panels, one per tier. The generic extractor
 // flattens the panels and keeps only the shared header, publishing a table whose single
 // row is its own header. Read the panels directly instead.
@@ -465,7 +553,8 @@ async function syncEntry(entry) {
 	const boostRangeSections = mergeHeldBoostRanges(bossSections, html, { category: entry.category });
 	const widgetSections = mergeToolWidgetSections(boostRangeSections, html, { slug: entry.slug });
 	const huntSections = mergeHuntProfileSections(widgetSections, articleHtml, { category: entry.category, slug: entry.slug, pageKind: entry.pageKind });
-	const sectionsBase = await mergeAdventurerMapSections(huntSections, { slug: entry.slug, shouldRefresh });
+	const huntTaskSections = mergeHuntTaskSections(huntSections, { category: entry.category, slug: entry.slug, pageKind: entry.pageKind });
+	const sectionsBase = await mergeAdventurerMapSections(huntTaskSections, { slug: entry.slug, shouldRefresh });
 	const provisionalSections = normalizeSections(sectionsBase, {
 		category: entry.category,
 		slug: entry.slug,
@@ -477,11 +566,13 @@ async function syncEntry(entry) {
 	const resolvedCategory = resolveCategory(entry.category, entry.slug, profile, entry);
 	const resolvedCategoryLabel = resolveCategoryLabel(resolvedCategory, entry.categoryLabel);
 	const pageKind = profile ? "pokemon" : (entry.pageKind || "article");
-	const sections = normalizeSections(sectionsBase, {
+	const normalizedSections = normalizeSections(sectionsBase, {
 		category: resolvedCategory,
 		slug: entry.slug,
 		pageKind,
 	});
+
+	const sections = cleanHuntSectionDuplicates(normalizedSections, { category: resolvedCategory });
 
 	// The wiki keeps moving whole pages into client-side widgets: the article body becomes a
 	// single {{#widget:…}} call and extraction has nothing to read. A page with no sections

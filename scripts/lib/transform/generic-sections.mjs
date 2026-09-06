@@ -118,6 +118,33 @@ export function parseLocationEntries(paragraphs = [], items = []) {
 
 	if (!descriptions.length && !tableRows.length && !bullets.length) return [];
 
+	// Some Pokémon live in two places, and the wiki puts each in its own tabber panel. Those
+	// flatten to "# Frozen Lands" markers in the prose, which rendered as a literal "#" line
+	// above the directions it was supposed to title.
+	const panels = [];
+	let current = null;
+	for (const line of descriptions) {
+		const heading = /^#+\s*(.+)$/.exec(line);
+		if (heading) {
+			current = { name: cleanStructuredText(heading[1]), description: [], bullets: [], rows: [] };
+			panels.push(current);
+			continue;
+		}
+
+		if (current) current.description.push(line);
+	}
+
+	if (panels.length && panels.some((panel) => panel.description.length)) {
+		// Anything before the first panel heading frames all of them, so it leads.
+		const leadCount = descriptions.findIndex((line) => /^#+\s*/.test(line));
+		const lead = leadCount > 0 ? descriptions.slice(0, leadCount) : [];
+		const named = panels.filter((panel) => panel.description.length);
+		if (lead.length) named.unshift({ description: lead, bullets: [], rows: [] });
+		if (tableRows.length) named[named.length - 1].rows = tableRows.map((cells) => ({ cells }));
+		if (bullets.length) named[named.length - 1].bullets = bullets;
+		return named;
+	}
+
 	return [{
 		description: descriptions,
 		bullets,

@@ -51,6 +51,7 @@ const TYPED_SECTION_KEYS = [
 	"adventurerMaps",
 	"huntSpots",
 	"huntProfile",
+	"huntTasks",
 	"facts",
 	"tasks",
 	"taskGroups",
@@ -859,7 +860,7 @@ function validateSection(section, fieldName) {
 		if (entry.description !== undefined) validateStringArray(entry.description, `${entryFieldName}.description`);
 	});
 	validateStructuredEntryMap(section.steps, `${fieldName}.steps`, ["index", "title", "body", "bullets", "rows"], validateStepEntry);
-	validateStructuredEntryMap(section.locations, `${fieldName}.locations`, ["description", "bullets", "rows"], validateLocationEntry);
+	validateStructuredEntryMap(section.locations, `${fieldName}.locations`, ["name", "description", "bullets", "rows"], validateLocationEntry);
 	validateStructuredObjectMap(section.questPhases, `${fieldName}.questPhases`, ["body", "requirements", "objectives", "rewards", "npcs", "waits", "hints", "locations", "bullets", "rows", "maps"], validateQuestPhasePayload);
 	validateStructuredObjectMap(section.difficulties, `${fieldName}.difficulties`, ["intro", "entries", "notes"], validateDifficultyPayload);
 	validateStructuredObjectMap(section.bossSupport, `${fieldName}.bossSupport`, ["type", "intro", "bullets", "rows"], validateBossSupportPayload);
@@ -890,6 +891,7 @@ function validateSection(section, fieldName) {
 	validateStructuredObjectMap(section.adventurerMaps, `${fieldName}.adventurerMaps`, ["types", "terrains", "tags", "maps"], validateAdventurerMapsPayload);
 	validateStructuredObjectMap(section.huntSpots, `${fieldName}.huntSpots`, ["spots"], validateHuntSpotsPayload);
 	validateStructuredObjectMap(section.huntProfile, `${fieldName}.huntProfile`, ["difficulty", "cities", "clans", "everyClan", "weakTo", "boss", "angry"], validateHuntProfilePayload);
+	validateStructuredObjectMap(section.huntTasks, `${fieldName}.huntTasks`, ["notes", "groups"], validateHuntTasksPayload);
 
 	if (section.mediaRefs !== undefined) {
 		for (const [locale, refs] of Object.entries(section.mediaRefs)) {
@@ -940,6 +942,24 @@ function validateHuntKeyList(value, fieldName) {
 	for (const [index, key] of value.entries()) {
 		validateString(key, `${fieldName}.${index}`);
 		if (key !== key.toLowerCase()) throw new Error(`${fieldName}.${index} must be lowercase`);
+	}
+}
+
+function validateHuntTasksPayload(entry, fieldName) {
+	if (!Array.isArray(entry.groups) || !entry.groups.length) throw new Error(`${fieldName}.groups must be a non-empty array`);
+	for (const [index, group] of entry.groups.entries()) {
+		const at = `${fieldName}.groups.${index}`;
+		if (!isPlainObject(group)) throw new Error(`${at} must be an object`);
+		validateString(group.name, `${at}.name`);
+		if (group.image !== undefined) validateString(group.image, `${at}.image`);
+		if (!Array.isArray(group.description)) throw new Error(`${at}.description must be an array`);
+		if (!Array.isArray(group.rewards)) throw new Error(`${at}.rewards must be an array`);
+		for (const [rewardIndex, reward] of group.rewards.entries()) {
+			const rewardAt = `${at}.rewards.${rewardIndex}`;
+			if (!isPlainObject(reward)) throw new Error(`${rewardAt} must be an object`);
+			validateString(reward.label, `${rewardAt}.label`);
+			if (reward.icon !== undefined) validateString(reward.icon, `${rewardAt}.icon`);
+		}
 	}
 }
 

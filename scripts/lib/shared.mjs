@@ -453,5 +453,5 @@ export const PUBLISHED_TYPED_SECTION_KEYS = [
 	"questSupport", "questPhases", "combatPokemon", "clanTasks", "embeddedTowerProgression",
 	"embeddedTowerUnlocks", "embeddedTowerSupport", "linkedCards", "commerceEntries", "craftEntries",
 	"travelNetwork", "boostLookup", "talentTrees", "pokelogEntries", "adventurerMaps",
-	"huntSpots", "huntProfile",
+	"huntSpots", "huntProfile", "huntTasks",
 ];

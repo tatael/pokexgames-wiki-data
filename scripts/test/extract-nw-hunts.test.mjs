@@ -186,3 +186,35 @@ test("prose that merely mentions a file is kept", () => {
 	const [entry] = parseLocationEntries(["Veja o mapa acima, marcado em vermelho."], []);
 	assert.equal(entry.description.length, 1);
 });
+
+// A Pokémon that lives in two places gets one tabber panel per location, which flattens to
+// "# Frozen Lands" markers in the prose — rendered as a literal "#" line above the directions
+// it was supposed to title.
+test("location tabber panels become named entries", () => {
+	const entries = parseLocationEntries([
+		"Este Pokémon pode ser encontrado em dois locais diferentes.",
+		"# Lightstorm Island",
+		"Fica na parte direita da montanha.",
+		"# Frozen Lands",
+		"Fica próximo a resistência de Lavender.",
+	], []);
+
+	assert.equal(entries.length, 3, "the lead paragraph plus one entry per panel");
+	assert.equal(entries[0].name, undefined, "text before the first panel frames all of them");
+	assert.deepEqual(entries.slice(1).map((entry) => entry.name), ["Lightstorm Island", "Frozen Lands"]);
+	assert.ok(!JSON.stringify(entries).includes("#"), "no marker survives into the payload");
+});
+
+test("a single-location section is unchanged", () => {
+	const [entry] = parseLocationEntries(["Fica em Fuchsia."], []);
+	assert.equal(entry.name, undefined);
+	assert.deepEqual(entry.description, ["Fica em Fuchsia"]);
+});
+
+// The pipe split feeds the location table; a broken pattern here shreds every row into
+// single characters.
+test("location table rows still split on pipes", () => {
+	const [entry] = parseLocationEntries([], ["Cidade | Andar", "Lavender | 3"]);
+	assert.equal(entry.rows.length, 2);
+	assert.deepEqual(entry.rows[0].cells.map((cell) => cell.text), ["Cidade", "Andar"]);
+});

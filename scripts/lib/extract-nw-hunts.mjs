@@ -249,3 +249,120 @@ export function extractHuntProfile(articleHtml) {
 		|| profile.everyClan || weakTo.length;
 	return hasContent ? profile : null;
 }
+
+// --- the Tasks section ---------------------------------------------------------------
+
+// Every hunting-spot page carries a <tabber>, one panel per NPC, each holding a sentence and a
+// reward wikitable. Flattened, that arrives as a paragraph list:
+//
+//   "# NPC Russel"
+//   "A task do NPC Russel, que consiste em derrotar 55 Bagon…"
+//   "Localização NPC Russel.png"
+//   " | Recompensa"
+//   "Exp icon.png | 1.826.000 de Experiencia"
+//
+// The generic task parser finds no task rows in that, and its fallback publishes one task whose
+// objective is the section heading and whose notes are the raw lines — so the app rendered the
+// "#" markers and the pipes as literal text. The shape is not a task list at all: it is two
+// named panels, each with a description, a location screenshot and a reward table.
+
+const HUNT_TASK_GROUP = /^#+\s*(.+)$/;
+const HUNT_REWARD_HEADER = /^\|?\s*(?:recompensas?|rewards?)\s*$/i;
+const MEDIA_FILE = /^(.*?)\.(?:png|gif|webp|jpe?g|svg)$/i;
+
+function splitRewardRow(text) {
+	const parts = String(text ?? "").split("|").map(cleanText);
+	if (parts.length < 2) return null;
+
+	// "Exp icon.png | 1.826.000 de Experiencia" — the icon names the reward, the rest is it.
+	const label = parts.slice(1).filter(Boolean).join(" ");
+	if (!label) return null;
+
+	const icon = parts[0];
+	return icon ? { icon, label } : { label };
+}
+
+// The NPC that hands the task out, named in the sentence itself on pages that have no tabber.
+const HUNT_TASK_NPC = /\bNPC\s+([A-ZÀ-Ú][\wÀ-ú]*(?:\s+[A-ZÀ-Ú][\wÀ-ú]*)*)/;
+
+/**
+ * Reads a hunting-spot Tasks section into named panels with their rewards.
+ *
+ * Two shapes exist and both were mangled. Pages with a <tabber> flatten to "# NPC Russel"
+ * headings with the reward rows in the prose; pages without one carry a single sentence and
+ * put the reward rows in `items`. The generic task parser produced a fake task named after the
+ * section for the first, and read the kill targets as loot for the second.
+ */
+export function extractHuntTasks(paragraphs = [], items = []) {
+	const groups = [];
+	const notes = [];
+	let current = null;
+
+	for (const raw of paragraphs ?? []) {
+		const text = cleanText(raw);
+		if (!text) continue;
+
+		const heading = HUNT_TASK_GROUP.exec(text);
+		if (heading) {
+			current = { name: cleanText(heading[1]), description: [], rewards: [] };
+			groups.push(current);
+			continue;
+		}
+
+		// The reward table's own header row; the rows that follow say what it is.
+		if (HUNT_REWARD_HEADER.test(text)) continue;
+
+		const reward = current ? splitRewardRow(text) : null;
+		if (reward) {
+			current.rewards.push(reward);
+			continue;
+		}
+
+		// A bare file name is the panel screenshot. It is already published as a media ref, so
+		// keeping the name as prose would print the file name above the picture it names.
+		if (MEDIA_FILE.test(text)) {
+			if (current && !current.image) current.image = text;
+			continue;
+		}
+
+		if (!current) {
+			notes.push(text);
+			continue;
+		}
+
+		// Prose after the panel's reward table is not part of the panel — the tabber has closed
+		// and this is the section's own closing remarks.
+		if (current.rewards.length) {
+			notes.push(text);
+			continue;
+		}
+
+		current.description.push(text);
+	}
+
+	const itemRewards = (items ?? []).map(splitRewardRow).filter(Boolean);
+
+	// No tabber: one task, whose rewards came through `items` instead. The first sentence is
+	// the objective and it names the NPC, which is a better label than the section heading the
+	// old fallback used.
+	if (!groups.length) {
+		if (!notes.length && !itemRewards.length) return null;
+		const name = HUNT_TASK_NPC.exec(notes[0] ?? "")?.[0] ?? "";
+		if (!name && !itemRewards.length) return null;
+		return {
+			notes: notes.slice(1),
+			groups: [{
+				name: name || "Task",
+				description: notes.slice(0, 1),
+				rewards: itemRewards,
+			}],
+		};
+	}
+
+	// A tabber page can still list its rewards once, below the panels; they belong to the last.
+	if (itemRewards.length && groups.length === 1) groups[0].rewards.push(...itemRewards);
+
+	const kept = groups.filter((group) => group.name && (group.description.length || group.rewards.length));
+	if (!kept.length) return null;
+	return { notes, groups: kept };
+}

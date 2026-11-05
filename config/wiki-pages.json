@@ -377,34 +377,6 @@
 			"en": "Items",
 			"es": "Objetos"
 		},
-		"slug": "pokebolas",
-		"url": "https://wiki.pokexgames.com/index.php/Pokebolas",
-		"title": {
-			"pt-BR": "Pokébolas",
-			"en": "Poké Balls",
-			"es": "Pokébolas"
-		},
-		"navigationPath": [
-			"Itens",
-			"Itens Gerais"
-		],
-		"pageKind": "index",
-		"children": {
-			"mode": "discover-links",
-			"pageKind": "item",
-			"excludeSlugs": [
-				"pokebolas"
-			],
-			"maxDepth": 1
-		}
-	},
-	{
-		"category": "items",
-		"categoryLabel": {
-			"pt-BR": "Itens",
-			"en": "Items",
-			"es": "Objetos"
-		},
 		"slug": "rubber-ball",
 		"url": "https://wiki.pokexgames.com/index.php/Rubber_Ball",
 		"title": {
@@ -511,26 +483,6 @@
 			"pt-BR": "Microphone",
 			"en": "Microphone",
 			"es": "Microphone"
-		},
-		"navigationPath": [
-			"Itens",
-			"Itens de task de clã"
-		],
-		"pageKind": "item"
-	},
-	{
-		"category": "items",
-		"categoryLabel": {
-			"pt-BR": "Itens",
-			"en": "Items",
-			"es": "Objetos"
-		},
-		"slug": "belt-of-champion",
-		"url": "https://wiki.pokexgames.com/index.php/Belt_of_Champion",
-		"title": {
-			"pt-BR": "Belt of Champion",
-			"en": "Belt of Champion",
-			"es": "Belt of Champion"
 		},
 		"navigationPath": [
 			"Itens",
@@ -2440,48 +2392,6 @@
 			"en": "Professions",
 			"es": "Profesiones"
 		},
-		"slug": "mecanico-especializacao",
-		"url": "https://wiki.pokexgames.com/index.php/Mecânico",
-		"title": {
-			"pt-BR": "Mecânico",
-			"en": "Mecânico",
-			"es": "Mecânico"
-		},
-		"navigationPath": [
-			"Profissões",
-			"Engenheiro",
-			"Mecânico"
-		],
-		"pageKind": "specialization"
-	},
-	{
-		"category": "professions",
-		"categoryLabel": {
-			"pt-BR": "Profissões",
-			"en": "Professions",
-			"es": "Profesiones"
-		},
-		"slug": "hacker-especializacao",
-		"url": "https://wiki.pokexgames.com/index.php/Hacker",
-		"title": {
-			"pt-BR": "Hacker",
-			"en": "Hacker",
-			"es": "Hacker"
-		},
-		"navigationPath": [
-			"Profissões",
-			"Engenheiro",
-			"Hacker"
-		],
-		"pageKind": "specialization"
-	},
-	{
-		"category": "professions",
-		"categoryLabel": {
-			"pt-BR": "Profissões",
-			"en": "Professions",
-			"es": "Profesiones"
-		},
 		"slug": "mini-ammunition-factory",
 		"url": "https://wiki.pokexgames.com/index.php/Mini_Ammunition_Factory",
 		"title": {
@@ -2559,48 +2469,6 @@
 			"Craft Profissões"
 		],
 		"pageKind": "craft"
-	},
-	{
-		"category": "professions",
-		"categoryLabel": {
-			"pt-BR": "Profissões",
-			"en": "Professions",
-			"es": "Profesiones"
-		},
-		"slug": "alquimista-especializacao",
-		"url": "https://wiki.pokexgames.com/index.php/Alquimista",
-		"title": {
-			"pt-BR": "Alquimista",
-			"en": "Alquimista",
-			"es": "Alquimista"
-		},
-		"navigationPath": [
-			"Profissões",
-			"Professor",
-			"Alquimista"
-		],
-		"pageKind": "specialization"
-	},
-	{
-		"category": "professions",
-		"categoryLabel": {
-			"pt-BR": "Profissões",
-			"en": "Professions",
-			"es": "Profesiones"
-		},
-		"slug": "academico-especializacao",
-		"url": "https://wiki.pokexgames.com/index.php/Acadêmico",
-		"title": {
-			"pt-BR": "Acadêmico",
-			"en": "Acadêmico",
-			"es": "Acadêmico"
-		},
-		"navigationPath": [
-			"Profissões",
-			"Professor",
-			"Acadêmico"
-		],
-		"pageKind": "specialization"
 	},
 	{
 		"category": "professions",
@@ -2716,48 +2584,6 @@
 			"en": "Professions",
 			"es": "Profesiones"
 		},
-		"slug": "decorador-especializacao",
-		"url": "https://wiki.pokexgames.com/index.php/Decorador",
-		"title": {
-			"pt-BR": "Decorador",
-			"en": "Decorador",
-			"es": "Decorador"
-		},
-		"navigationPath": [
-			"Profissões",
-			"Estilista",
-			"Decorador"
-		],
-		"pageKind": "specialization"
-	},
-	{
-		"category": "professions",
-		"categoryLabel": {
-			"pt-BR": "Profissões",
-			"en": "Professions",
-			"es": "Profesiones"
-		},
-		"slug": "designer-especializacao",
-		"url": "https://wiki.pokexgames.com/index.php/Designer",
-		"title": {
-			"pt-BR": "Designer",
-			"en": "Designer",
-			"es": "Designer"
-		},
-		"navigationPath": [
-			"Profissões",
-			"Estilista",
-			"Designer"
-		],
-		"pageKind": "specialization"
-	},
-	{
-		"category": "professions",
-		"categoryLabel": {
-			"pt-BR": "Profissões",
-			"en": "Professions",
-			"es": "Profesiones"
-		},
 		"slug": "decorator-workshop",
 		"url": "https://wiki.pokexgames.com/index.php/Decorator_Workshop",
 		"title": {
@@ -2835,7 +2661,15 @@
 			"Profissões",
 			"Aventureiro"
 		],
-		"pageKind": "overview"
+		"pageKind": "overview",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "dungeon",
+			"excludeSlugs": [
+				"aventureiro"
+			],
+			"maxDepth": 1
+		}
 	},
 	{
 		"category": "professions",
@@ -2857,48 +2691,6 @@
 			"Craft Profissões"
 		],
 		"pageKind": "craft"
-	},
-	{
-		"category": "professions",
-		"categoryLabel": {
-			"pt-BR": "Profissões",
-			"en": "Professions",
-			"es": "Profesiones"
-		},
-		"slug": "cozinheiro-especializacao",
-		"url": "https://wiki.pokexgames.com/index.php/Cozinheiro",
-		"title": {
-			"pt-BR": "Cozinheiro",
-			"en": "Cozinheiro",
-			"es": "Cozinheiro"
-		},
-		"navigationPath": [
-			"Profissões",
-			"Aventureiro",
-			"Cozinheiro"
-		],
-		"pageKind": "specialization"
-	},
-	{
-		"category": "professions",
-		"categoryLabel": {
-			"pt-BR": "Profissões",
-			"en": "Professions",
-			"es": "Profesiones"
-		},
-		"slug": "arqueologo-especializacao",
-		"url": "https://wiki.pokexgames.com/index.php/Arqueólogo",
-		"title": {
-			"pt-BR": "Arqueólogo",
-			"en": "Arqueólogo",
-			"es": "Arqueólogo"
-		},
-		"navigationPath": [
-			"Profissões",
-			"Aventureiro",
-			"Arqueólogo"
-		],
-		"pageKind": "specialization"
 	},
 	{
 		"category": "professions",
@@ -2971,28 +2763,6 @@
 			"en": "Professions",
 			"es": "Profesiones"
 		},
-		"slug": "arqueologo-dungeons",
-		"url": "https://wiki.pokexgames.com/index.php/Arqueólogo#Dungeons",
-		"title": {
-			"pt-BR": "Arqueólogo: Dungeons",
-			"en": "Arqueólogo: Dungeons",
-			"es": "Arqueólogo: Dungeons"
-		},
-		"navigationPath": [
-			"Profissões",
-			"Aventureiro",
-			"Arqueólogo",
-			"Dungeons"
-		],
-		"pageKind": "dungeons"
-	},
-	{
-		"category": "professions",
-		"categoryLabel": {
-			"pt-BR": "Profissões",
-			"en": "Professions",
-			"es": "Profesiones"
-		},
 		"slug": "professions",
 		"url": "https://wiki.pokexgames.com/index.php/Profissões",
 		"title": {
@@ -3004,5 +2774,53 @@
 			"Professions"
 		],
 		"pageKind": "index"
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "pokebolas",
+		"url": "https://wiki.pokexgames.com/index.php/Pok%C3%A9bolas",
+		"title": {
+			"pt-BR": "Pokébolas",
+			"en": "Pokébolas",
+			"es": "Pokébolas"
+		},
+		"navigationPath": [
+			"Itens",
+			"Pokébolas"
+		],
+		"pageKind": "item",
+		"children": {
+			"mode": "discover-links",
+			"pageKind": "item",
+			"excludeSlugs": [
+				"pokebolas"
+			],
+			"maxDepth": 1
+		}
+	},
+	{
+		"category": "items",
+		"categoryLabel": {
+			"pt-BR": "Itens",
+			"en": "Items",
+			"es": "Objetos"
+		},
+		"slug": "belt-of-champion",
+		"url": "https://wiki.pokexgames.com/index.php/Belt_Of_Champion",
+		"title": {
+			"pt-BR": "Belt Of Champion",
+			"en": "Belt Of Champion",
+			"es": "Belt Of Champion"
+		},
+		"navigationPath": [
+			"Itens",
+			"Belt Of Champion"
+		],
+		"pageKind": "item"
 	}
 ]
